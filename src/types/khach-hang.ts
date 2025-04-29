@@ -1,0 +1,31 @@
+import { GioHangChiTiet } from "./gio-hang";
+import { HoaDon } from "./hoa-don";
+import { TaiKhoan } from "./nhan-vien";
+
+export interface KhachHang {
+  id_khach_hang: string;
+  id_tai_khoan: string;
+  ma_khach_hang: string;
+  ten_khach_hang?: string;
+  ngay_sinh?: Date;
+  so_dien_thoai?: string;
+  email?: string;
+  gioi_tinh?: string;
+  trang_thai: string;
+  TaiKhoan?: TaiKhoan;
+  GioHangChiTiets?: GioHangChiTiet[];
+  HoaDons?: HoaDon[];
+  DiaChis?: DiaChi[];
+}
+export interface DiaChi {
+    id_dia_chi: string;
+    id_khach_hang: string;
+    tinh: string;
+    huyen: string;
+    xa: string;
+    dia_chi_mac_dinh: boolean;
+    ngay_tao: string;
+    ngay_sua: string;
+    KhachHang?: KhachHang;
+}
+
