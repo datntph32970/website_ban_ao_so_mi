@@ -9,6 +9,8 @@ import { KieuDang } from '@/types/kieu-dang';
 import { ChatLieu } from '@/types/chat-lieu';
 import { XuatXu } from '@/types/xuat-xu';
 import { DanhMuc } from '@/types/danh-muc';
+import { Image as ImageIcon, Star, Trash2 } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
 
 interface ProductGeneralInfoFormProps {
   product: ThemSanPhamAdminDTO;
@@ -20,6 +22,9 @@ interface ProductGeneralInfoFormProps {
   categories: DanhMuc[];
   onChange: (field: keyof ThemSanPhamAdminDTO, value: string) => void;
   tenSanPhamRef: React.RefObject<HTMLInputElement>;
+  defaultProductImage: File | null;
+  setDefaultProductImage: (file: File | null) => void;
+  onPreview: (url: string) => void;
 }
 
 export default function ProductGeneralInfoForm({
@@ -32,7 +37,26 @@ export default function ProductGeneralInfoForm({
   categories,
   onChange,
   tenSanPhamRef,
+  defaultProductImage,
+  setDefaultProductImage,
+  onPreview,
 }: ProductGeneralInfoFormProps) {
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      console.log('onDrop - acceptedFiles:', acceptedFiles);
+      if (acceptedFiles.length > 0) {
+        console.log('Setting default image:', acceptedFiles[0]);
+        setDefaultProductImage(acceptedFiles[0]);
+        onPreview(URL.createObjectURL(acceptedFiles[0]));
+      }
+    },
+    accept: { 'image/*': [] },
+    multiple: false
+  });
+
+  console.log('Current defaultProductImage:', defaultProductImage);
+  console.log('Current errors:', errors);
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
       <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
@@ -55,7 +79,69 @@ export default function ProductGeneralInfoForm({
           />
           {errors.ten_san_pham && <div className="text-xs text-red-500 mt-1">{errors.ten_san_pham}</div>}
         </div>
-        <div></div>
+        <div className="flex flex-col">
+          <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
+            Ảnh mặc định sản phẩm <span className="text-red-500">*</span>
+          </label>
+          <div className="flex flex-col gap-4">
+            {defaultProductImage ? (
+              <div className="relative">
+                <div className="relative w-40 h-40 rounded-xl overflow-hidden border-2 border-slate-200 bg-white flex items-center justify-center shadow-sm">
+                  <div className="relative w-full h-full group">
+                    <img
+                      src={URL.createObjectURL(defaultProductImage)}
+                      alt="Ảnh mặc định"
+                      className="object-cover w-full h-full cursor-pointer"
+                      onClick={() => onPreview(URL.createObjectURL(defaultProductImage))}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
+                        onClick={() => onPreview(URL.createObjectURL(defaultProductImage))}
+                        title="Xem ảnh lớn"
+                      >
+                        <ImageIcon className="w-5 h-5 text-slate-700" />
+                      </button>
+                      <button
+                        type="button"
+                        className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
+                        onClick={() => setDefaultProductImage(null)}
+                        title="Xóa ảnh"
+                      >
+                        <Trash2 className="w-5 h-5 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                {...getRootProps()}
+                className={cn(
+                  "w-40 h-40 rounded-xl flex flex-col items-center justify-center border-2 border-dashed cursor-pointer transition-all",
+                  "bg-slate-50 border-slate-200 hover:border-blue-500 hover:bg-blue-50",
+                  isDragActive ? "border-blue-500 bg-blue-50" : ""
+                )}
+              >
+                <ImageIcon className="w-10 h-10 text-slate-400 mb-2" />
+                <span className="text-sm text-slate-500 text-center px-4">
+                  Kéo thả ảnh hoặc bấm để chọn
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  {...getInputProps()}
+                />
+              </div>
+            )}
+            <div className="text-xs text-slate-500">
+              Ảnh mặc định sẽ hiển thị ở trang danh sách sản phẩm và là ảnh đại diện cho sản phẩm
+            </div>
+          </div>
+          {errors.defaultImage && <div className="text-xs text-red-500 mt-1">{errors.defaultImage}</div>}
+        </div>
       </div>
       <div className="mb-4">
         <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
@@ -81,10 +167,22 @@ export default function ProductGeneralInfoForm({
           <Combobox
             items={materials}
             value={product.id_chat_lieu}
-            onValueChange={(value: string) => onChange('id_chat_lieu', value)}
-            placeholder="Chọn chất liệu"
-            getLabel={(item: ChatLieu) => item.ten_chat_lieu}
-            getValue={(item: ChatLieu) => String(item.id_chat_lieu)}
+            onValueChange={(val: string) => onChange('id_chat_lieu', val)}
+            getLabel={(item) => {
+              const i = item as ChatLieu;
+              return i.ten_chat_lieu;
+            }}
+            getValue={(item) => String((item as ChatLieu).id_chat_lieu)}
+            renderOption={(item) => {
+              const i = item as ChatLieu;
+              return (
+                <span className="flex items-center gap-2">
+                  <span>{i.ten_chat_lieu}</span>
+                  <span className="text-xs text-slate-400">{i.ma_chat_lieu}</span>
+                </span>
+              );
+            }}
+            placeholder="Chọn chất liệu hoặc tìm theo tên/mã"
             className={cn(errors.id_chat_lieu ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '', 'text-base h-10')}
           />
         </div>
@@ -95,10 +193,22 @@ export default function ProductGeneralInfoForm({
           <Combobox
             items={styles}
             value={product.id_kieu_dang}
-            onValueChange={(value: string) => onChange('id_kieu_dang', value)}
-            placeholder="Chọn kiểu dáng"
-            getLabel={(item: KieuDang) => item.ten_kieu_dang}
-            getValue={(item: KieuDang) => String(item.id_kieu_dang)}
+            onValueChange={(val: string) => onChange('id_kieu_dang', val)}
+            getLabel={(item) => {
+              const i = item as KieuDang;
+              return i.ten_kieu_dang;
+            }}
+            getValue={(item) => String((item as KieuDang).id_kieu_dang)}
+            renderOption={(item) => {
+              const i = item as KieuDang;
+              return (
+                <span className="flex items-center gap-2">
+                  <span>{i.ten_kieu_dang}</span>
+                  <span className="text-xs text-slate-400">{i.ma_kieu_dang}</span>
+                </span>
+              );
+            }}
+            placeholder="Chọn kiểu dáng hoặc tìm theo tên/mã"
             className={cn(errors.id_kieu_dang ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '', 'text-base h-10')}
           />
           {errors.id_kieu_dang && <div className="text-xs text-red-500 mt-1">{errors.id_kieu_dang}</div>}
@@ -110,10 +220,22 @@ export default function ProductGeneralInfoForm({
           <Combobox
             items={brands}
             value={product.id_thuong_hieu}
-            onValueChange={(value: string) => onChange('id_thuong_hieu', value)}
-            placeholder="Chọn thương hiệu"
-            getLabel={(item: ThuongHieu) => item.ten_thuong_hieu}
-            getValue={(item: ThuongHieu) => String(item.id_thuong_hieu)}
+            onValueChange={(val: string) => onChange('id_thuong_hieu', val)}
+            getLabel={(item) => {
+              const i = item as ThuongHieu;
+              return i.ten_thuong_hieu;
+            }}
+            getValue={(item) => String((item as ThuongHieu).id_thuong_hieu)}
+            renderOption={(item) => {
+              const i = item as ThuongHieu;
+              return (
+                <span className="flex items-center gap-2">
+                  <span>{i.ten_thuong_hieu}</span>
+                  <span className="text-xs text-slate-400">{i.ma_thuong_hieu}</span>
+                </span>
+              );
+            }}
+            placeholder="Chọn thương hiệu hoặc tìm theo tên/mã"
             className={cn(errors.id_thuong_hieu ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '', 'text-base h-10')}
           />
           {errors.id_thuong_hieu && <div className="text-xs text-red-500 mt-1">{errors.id_thuong_hieu}</div>}
@@ -125,10 +247,22 @@ export default function ProductGeneralInfoForm({
           <Combobox
             items={origins}
             value={product.id_xuat_xu}
-            onValueChange={(value: string) => onChange('id_xuat_xu', value)}
-            placeholder="Chọn xuất xứ"
-            getLabel={(item: XuatXu) => item.ten_xuat_xu}
-            getValue={(item: XuatXu) => String(item.id_xuat_xu)}
+            onValueChange={(val: string) => onChange('id_xuat_xu', val)}
+            getLabel={(item) => {
+              const i = item as XuatXu;
+              return i.ten_xuat_xu;
+            }}
+            getValue={(item) => String((item as XuatXu).id_xuat_xu)}
+            renderOption={(item) => {
+              const i = item as XuatXu;
+              return (
+                <span className="flex items-center gap-2">
+                  <span>{i.ten_xuat_xu}</span>
+                  <span className="text-xs text-slate-400">{i.ma_xuat_xu}</span>
+                </span>
+              );
+            }}
+            placeholder="Chọn xuất xứ hoặc tìm theo tên/mã"
             className={cn(errors.id_xuat_xu ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '', 'text-base h-10')}
           />
           {errors.id_xuat_xu && <div className="text-xs text-red-500 mt-1">{errors.id_xuat_xu}</div>}
@@ -140,10 +274,22 @@ export default function ProductGeneralInfoForm({
           <Combobox
             items={categories}
             value={product.id_danh_muc}
-            onValueChange={(value: string) => onChange('id_danh_muc', value)}
-            placeholder="Chọn danh mục"
-            getLabel={(item: DanhMuc) => item.ten_danh_muc}
-            getValue={(item: DanhMuc) => item.id_danh_muc}
+            onValueChange={(val: string) => onChange('id_danh_muc', val)}
+            getLabel={(item) => {
+              const i = item as DanhMuc;
+              return i.ten_danh_muc;
+            }}
+            getValue={(item) => String((item as DanhMuc).id_danh_muc)}
+            renderOption={(item) => {
+              const i = item as DanhMuc;
+              return (
+                <span className="flex items-center gap-2">
+                  <span>{i.ten_danh_muc}</span>
+                  <span className="text-xs text-slate-400">{i.ma_danh_muc}</span>
+                </span>
+              );
+            }}
+            placeholder="Chọn danh mục hoặc tìm theo tên/mã"
             className={cn(errors.id_danh_muc ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '', 'text-base h-10')}
           />
           {errors.id_danh_muc && <div className="text-xs text-red-500 mt-1">{errors.id_danh_muc}</div>}

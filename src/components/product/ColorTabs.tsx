@@ -8,12 +8,13 @@ import { cn } from '@/lib/utils';
 import { MauSac } from '@/types/mau-sac';
 import { KichCo } from '@/types/kich-co';
 import { GiamGia } from '@/types/giam-gia';
+import { Button } from '@/components/ui/button';
 
 interface ColorTabsProps {
   selectedColors: string[];
   colors: MauSac[];
   selectedColorTab: string;
-  onTabChange: (tab: string) => void;
+  onTabChange: (colorId: string) => void;
   onAddColor: (colorId: string) => void;
   onRemoveColor: (colorId: string) => void;
   addColorOpen: boolean;
@@ -22,19 +23,14 @@ interface ColorTabsProps {
   sizes: KichCo[];
   variantImages: Record<string, File[]>;
   errors: { [key: string]: string };
-  setVariantImages: (updater: (prev: Record<string, File[]>) => Record<string, File[]>) => void;
+  setVariantImages: (images: Record<string, File[]>) => void;
   setPreviewImageUrl: (url: string) => void;
   handleToggleSizeForColor: (colorId: string, sizeId: string) => void;
   discounts: GiamGia[];
   variantValues: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string; images: File[] }>>;
-  handleVariantValueChange: (
-    colorId: string,
-    sizeId: string,
-    field: 'stock' | 'importPrice' | 'price' | 'discount' | 'images',
-    value: number | string | File[]
-  ) => void;
-  defaultProductImage: { colorId: string, fileName: string } | null;
-  setDefaultProductImage: (val: { colorId: string, fileName: string } | null) => void;
+  handleVariantValueChange: (colorId: string, sizeId: string, field: string, value: any) => void;
+  onDeleteColor: (colorId: string) => void;
+  onDeleteSize: (colorId: string, sizeId: string) => void;
 }
 
 export default function ColorTabs({
@@ -56,9 +52,10 @@ export default function ColorTabs({
   discounts,
   variantValues,
   handleVariantValueChange,
-  defaultProductImage,
-  setDefaultProductImage,
+  onDeleteColor,
+  onDeleteSize,
 }: ColorTabsProps) {
+  
   return (
     <Tabs value={selectedColorTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="mb-6 flex gap-2">
@@ -99,9 +96,9 @@ export default function ColorTabs({
               {colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).length === 0 ? (
                 <span className="text-slate-400 text-sm">Đã chọn hết màu</span>
               ) : (
-                colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).map(color => (
+                colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).map((color, idx) => (
                   <button
-                    key={color.id_mau_sac}
+                    key={`${color.id_mau_sac}_${idx}`}
                     type="button"
                     className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-blue-50 text-base font-medium"
                     onClick={() => {
@@ -119,7 +116,9 @@ export default function ColorTabs({
         </Popover>
       </TabsList>
       {errors.SanPhamChiTiets && (
-        <div className="text-xs text-red-500 mt-2 mb-2">{errors.SanPhamChiTiets}</div>
+        <div className="text-xs text-red-500 mt-2 mb-2">
+          {typeof errors.SanPhamChiTiets === 'string' ? errors.SanPhamChiTiets : 'Có lỗi xảy ra'}
+        </div>
       )}
       {selectedColors.map(colorId => {
         const color = colors.find(c => String(c.id_mau_sac) === colorId);
@@ -134,26 +133,24 @@ export default function ColorTabs({
               <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1">
                 <ImageIcon className="h-4 w-4 text-blue-400" /> Hình ảnh cho sản phẩm màu {color?.ten_mau_sac} <span className="text-red-500">*</span>
               </label>
-              <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                <Star className="w-3 h-3 text-yellow-400" />
-                Hình ảnh đầu tiên sẽ là hình ảnh mặc định cho sản phẩm
-              </div>
               <VariantImageDropzone
                 colorId={colorId}
                 images={images}
-                setImages={files => {
+                setImages={(files: File[]) => {
                   if (files.length > 0 && Object.values(variantImages).every(imgs => !imgs || imgs.length === 0)) {
                     setPreviewImageUrl(URL.createObjectURL(files[0]));
                   }
-                  setVariantImages(prev => ({ ...prev, [colorId]: files }));
+                  const newImages = { ...variantImages };
+                  newImages[colorId] = files;
+                  setVariantImages(newImages);
                 }}
                 onPreview={url => setPreviewImageUrl(url)}
-                defaultProductImage={defaultProductImage}
-                setDefaultProductImage={fileName => setDefaultProductImage(fileName ? { colorId, fileName } : null)}
                 variantImages={variantImages}
               />
               {errors[`${colorId}_images`] && (
-                <div className="text-xs text-red-500 mt-1">{errors[`${colorId}_images`]}</div>
+                <div className="text-xs text-red-500 mt-1">
+                  {typeof errors[`${colorId}_images`] === 'string' ? errors[`${colorId}_images`] : 'Có lỗi xảy ra'}
+                </div>
               )}
             </div>
             <div className="mb-6">
@@ -161,8 +158,8 @@ export default function ColorTabs({
                 Chọn kích cỡ cho màu {color?.ten_mau_sac} <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-3">
-                {sizes.filter(size => String(size.id_kich_co)).map((size: KichCo) => (
-                  <div key={size.id_kich_co} className="flex flex-col items-center">
+                {sizes.filter(size => size.id_kich_co).map((size: KichCo, idx) => (
+                  <div key={`${colorId}_${size.id_kich_co || 'none'}_${idx}`} className="flex flex-col items-center">
                     <button
                       type="button"
                       className={`px-5 py-3 rounded-xl border-2 text-base font-medium shadow-sm transition-all
@@ -171,7 +168,13 @@ export default function ColorTabs({
                     >
                       {size.ten_kich_co}
                     </button>
-                    {errors[`${colorId}_${size.id_kich_co}_size`] && <div className="text-xs text-red-500 mt-1">{errors[`${colorId}_${size.id_kich_co}_size`]}</div>}
+                    {errors[`${colorId}_${size.id_kich_co}_size`] && (
+                      <div className="text-xs text-red-500 mt-1">
+                        {typeof errors[`${colorId}_${size.id_kich_co}_size`] === 'string' 
+                          ? errors[`${colorId}_${size.id_kich_co}_size`] 
+                          : 'Có lỗi xảy ra'}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -188,7 +191,6 @@ export default function ColorTabs({
                       color={color}
                       size={sizes.find(s => String(s.id_kich_co) === sizeId)}
                       values={values}
-                      discounts={discounts}
                       errors={{
                         stock: errors[`${colorId}_${sizeId}_stock`],
                         importPrice: errors[`${colorId}_${sizeId}_importPrice`],

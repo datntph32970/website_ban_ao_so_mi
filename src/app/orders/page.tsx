@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,65 +20,69 @@ import {
 } from "@/components/ui/dialog";
 import { Eye, Search, Package, Clock, CheckCircle2, XCircle } from "lucide-react";
 
-// Danh sách đơn hàng giả định
-const mockOrders = [
-  {
-    id: "ORD-001",
-    customerName: "Nguyễn Văn X",
-    email: "nguyenvanx@example.com",
-    date: "15/03/2024",
-    total: 5200000,
-    status: "completed",
-    items: [
-      { id: 1, name: "Nike Air Force 1", price: 2500000, quantity: 1 },
-      { id: 2, name: "Adidas Ultraboost 21", price: 3200000, quantity: 1 },
-    ]
-  },
-  {
-    id: "ORD-002",
-    customerName: "Trần Thị Y",
-    email: "tranthiy@example.com",
-    date: "16/03/2024",
-    total: 3600000,
-    status: "processing",
-    items: [
-      { id: 3, name: "Vans Old Skool", price: 1800000, quantity: 2 },
-    ]
-  },
-  {
-    id: "ORD-003",
-    customerName: "Lê Văn Z",
-    email: "levanz@example.com",
-    date: "17/03/2024",
-    total: 1500000,
-    status: "shipping",
-    items: [
-      { id: 4, name: "Converse Chuck Taylor", price: 1500000, quantity: 1 },
-    ]
-  },
-  {
-    id: "ORD-004",
-    customerName: "Phạm Thị W",
-    email: "phamthiw@example.com",
-    date: "18/03/2024",
-    total: 4200000,
-    status: "cancelled",
-    items: [
-      { id: 5, name: "New Balance 574", price: 2100000, quantity: 2 },
-    ]
-  },
-  {
-    id: "ORD-005",
-    customerName: "Hoàng Văn V",
-    email: "hoangvanv@example.com",
-    date: "19/03/2024",
-    total: 2500000,
-    status: "completed",
-    items: [
-      { id: 1, name: "Nike Air Force 1", price: 2500000, quantity: 1 },
-    ]
-  },
-];
+// TypeScript interfaces dựa trên DTO bạn cung cấp
+interface SanPhamChiTiet_HoaDonChiTietAdminDTO {
+  id_san_pham_chi_tiet: string;
+  ma_san_pham_chi_tiet: string;
+  ten_san_pham: string;
+  ten_mau_sac: string;
+  ten_kich_co: string;
+}
+interface NhanVien_HoaDonAdminDTO {
+  id_nhan_vien: string;
+  ma_nhan_vien: string;
+  ten_nhan_vien: string;
+}
+interface KhachHang_HoaDonAdminDTO {
+  id_khach_hang: string;
+  ma_khach_hang: string;
+  ten_khach_hang: string;
+  sdt_khach_hang: string;
+}
+interface HoaDonChiTietAdminDTO {
+  id_hoa_don_chi_tiet: string;
+  ma_hoa_don_chi_tiet: string;
+  id_hoa_don: string;
+  id_san_pham_chi_tiet: string;
+  so_luong: number;
+  don_gia: number;
+  gia_sau_giam_gia: number;
+  gia_tri_khuyen_mai_cua_hoa_don_cho_hdct: number;
+  thanh_tien: number;
+  trang_thai: string;
+  ghi_chu: string;
+  ngay_sua?: string;
+  ten_nguoi_sua: string;
+  SanPhamChiTiet: SanPhamChiTiet_HoaDonChiTietAdminDTO;
+  hoaDon: any;
+  nhanVien: NhanVien_HoaDonAdminDTO;
+}
+interface HoaDonAdminDTO {
+  id_hoa_don: string;
+  ma_hoa_don: string;
+  id_khach_hang?: string;
+  ten_khach_hang: string;
+  ten_nhan_vien: string;
+  sdt_khach_hang?: string;
+  dia_chi_nhan_hang?: string;
+  ghi_chu?: string;
+  loai_hoa_don: string;
+  tong_tien_don_hang: number;
+  gia_tri_khuyen_mai_cho_hoa_don?: number;
+  gia_tri_khuyen_mai_toi_da_cho_hoa_don?: number;
+  tong_tien_phai_thanh_toan: number;
+  loai_khuyen_mai?: string;
+  trang_thai: string;
+  phuong_thuc_thanh_toan: string;
+  ngay_tao: string;
+  ten_nguoi_tao: string;
+  ngay_sua?: string;
+  ten_nguoi_sua?: string;
+  nguoiTao: NhanVien_HoaDonAdminDTO;
+  nguoiSua: NhanVien_HoaDonAdminDTO;
+  khachHang: KhachHang_HoaDonAdminDTO;
+  HoaDonChiTiets: HoaDonChiTietAdminDTO[];
+}
 
 // Trạng thái đơn hàng
 const orderStatus = {
@@ -104,20 +108,31 @@ const orderStatus = {
   }
 };
 
-export default function OrdersPage() {
-  const [orders, setOrders] = useState(mockOrders);
+export default function OrderListPage() {
+  const [orders, setOrders] = useState<HoaDonAdminDTO[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState<(typeof mockOrders)[0] | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<(typeof orders)[0] | null>(null);
   const [isViewOrderOpen, setIsViewOrderOpen] = useState(false);
+
+  useEffect(() => {
+    // Giả lập fetch API, bạn thay bằng service thực tế
+    fetch("/api/orders")
+      .then(res => res.json())
+      .then(data => setOrders(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div>Đang tải hóa đơn...</div>;
 
   // Lọc đơn hàng theo từ khóa tìm kiếm
   const filteredOrders = orders.filter(order =>
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.email.toLowerCase().includes(searchTerm.toLowerCase())
+    order.ma_hoa_don.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.khachHang?.ten_khach_hang.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.sdt_khach_hang?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleViewOrder = (order: typeof mockOrders[0]) => {
+  const handleViewOrder = (order: typeof orders[0]) => {
     setSelectedOrder(order);
     setIsViewOrderOpen(true);
   };
@@ -165,22 +180,22 @@ export default function OrdersPage() {
               </TableRow>
             ) : (
               filteredOrders.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.id}</TableCell>
+                <TableRow key={order.id_hoa_don}>
+                  <TableCell className="font-medium">{order.ma_hoa_don}</TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{order.customerName}</p>
-                      <p className="text-xs text-slate-500">{order.email}</p>
+                      <p className="font-medium">{order.khachHang?.ten_khach_hang}</p>
+                      <p className="text-xs text-slate-500">{order.sdt_khach_hang}</p>
                     </div>
                   </TableCell>
-                  <TableCell>{order.date}</TableCell>
+                  <TableCell>{new Date(order.ngay_tao).toLocaleString("vi-VN")}</TableCell>
                   <TableCell className="text-right font-medium">
-                    {order.total.toLocaleString('vi-VN')}₫
+                    {order.tong_tien_phai_thanh_toan.toLocaleString()}₫
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit mx-auto ${orderStatus[order.status as keyof typeof orderStatus].color}`}>
-                      {orderStatus[order.status as keyof typeof orderStatus].icon}
-                      {orderStatus[order.status as keyof typeof orderStatus].label}
+                    <span className={`px-2 py-1 rounded-full text-xs flex items-center justify-center w-fit mx-auto ${orderStatus[order.trang_thai as keyof typeof orderStatus].color}`}>
+                      {orderStatus[order.trang_thai as keyof typeof orderStatus].icon}
+                      {orderStatus[order.trang_thai as keyof typeof orderStatus].label}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -205,26 +220,26 @@ export default function OrdersPage() {
         {selectedOrder && (
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
-              <DialogTitle>Chi tiết đơn hàng #{selectedOrder.id}</DialogTitle>
+              <DialogTitle>Chi tiết đơn hàng #{selectedOrder.ma_hoa_don}</DialogTitle>
             </DialogHeader>
 
             <div className="mt-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-slate-500 mb-1">Thông tin khách hàng</h3>
-                  <p className="font-medium">{selectedOrder.customerName}</p>
-                  <p className="text-sm">{selectedOrder.email}</p>
+                  <p className="font-medium">{selectedOrder.khachHang?.ten_khach_hang}</p>
+                  <p className="text-sm">{selectedOrder.sdt_khach_hang}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-slate-500 mb-1">Thông tin đơn hàng</h3>
                   <div className="flex items-center gap-2">
                     <p className="text-sm">Trạng thái:</p>
-                    <span className={`px-2 py-1 rounded-full text-xs flex items-center ${orderStatus[selectedOrder.status as keyof typeof orderStatus].color}`}>
-                      {orderStatus[selectedOrder.status as keyof typeof orderStatus].icon}
-                      {orderStatus[selectedOrder.status as keyof typeof orderStatus].label}
+                    <span className={`px-2 py-1 rounded-full text-xs flex items-center ${orderStatus[selectedOrder.trang_thai as keyof typeof orderStatus].color}`}>
+                      {orderStatus[selectedOrder.trang_thai as keyof typeof orderStatus].icon}
+                      {orderStatus[selectedOrder.trang_thai as keyof typeof orderStatus].label}
                     </span>
                   </div>
-                  <p className="text-sm">Ngày đặt: {selectedOrder.date}</p>
+                  <p className="text-sm">Ngày đặt: {new Date(selectedOrder.ngay_tao).toLocaleString("vi-VN")}</p>
                 </div>
               </div>
 
@@ -241,13 +256,13 @@ export default function OrdersPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedOrder.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.name}</TableCell>
-                          <TableCell className="text-right">{item.price.toLocaleString('vi-VN')}₫</TableCell>
-                          <TableCell className="text-center">{item.quantity}</TableCell>
+                      {selectedOrder.HoaDonChiTiets.map((ct) => (
+                        <TableRow key={ct.id_hoa_don_chi_tiet}>
+                          <TableCell>{ct.SanPhamChiTiet.ten_san_pham}</TableCell>
+                          <TableCell className="text-right">{ct.don_gia.toLocaleString()}₫</TableCell>
+                          <TableCell className="text-center">{ct.so_luong}</TableCell>
                           <TableCell className="text-right font-medium">
-                            {(item.price * item.quantity).toLocaleString('vi-VN')}₫
+                            {(ct.don_gia * ct.so_luong).toLocaleString()}₫
                           </TableCell>
                         </TableRow>
                       ))}
@@ -258,23 +273,23 @@ export default function OrdersPage() {
 
               <div className="flex justify-between border-t pt-4">
                 <span className="font-medium">Tổng cộng</span>
-                <span className="font-bold text-xl">{selectedOrder.total.toLocaleString('vi-VN')}₫</span>
+                <span className="font-bold text-xl">{selectedOrder.tong_tien_phai_thanh_toan.toLocaleString()}₫</span>
               </div>
 
               <div className="flex justify-end gap-2 mt-6">
-                {selectedOrder.status === "processing" && (
+                {selectedOrder.trang_thai === "processing" && (
                   <Button variant="outline" className="gap-1">
                     <Package className="h-4 w-4" />
                     <span>Xác nhận giao hàng</span>
                   </Button>
                 )}
-                {selectedOrder.status === "shipping" && (
+                {selectedOrder.trang_thai === "shipping" && (
                   <Button variant="outline" className="gap-1">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>Xác nhận hoàn thành</span>
                   </Button>
                 )}
-                {(selectedOrder.status === "processing" || selectedOrder.status === "shipping") && (
+                {(selectedOrder.trang_thai === "processing" || selectedOrder.trang_thai === "shipping") && (
                   <Button variant="destructive" className="gap-1">
                     <XCircle className="h-4 w-4" />
                     <span>Hủy đơn hàng</span>

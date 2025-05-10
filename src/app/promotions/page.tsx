@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { format, addDays } from "date-fns";
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
@@ -20,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -37,426 +35,1194 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Edit, Plus, Search, Trash } from "lucide-react";
+import { CalendarIcon, Edit, Plus, Search, Trash, Copy, X, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "react-hot-toast";
+import { khuyenMaiService } from "@/services/khuyen-mai.service";
+import { KhuyenMai, KieuKhuyenMai, TrangThaiKhuyenMai, ThemKhuyenMaiDTO, SuaKhuyenMaiDTO } from "@/types/khuyen-mai";
+import { Package } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// Interface cho dữ liệu khuyến mãi
-interface Promotion {
-  id: string;
-  name: string;
-  code: string;
-  startDate: Date;
-  endDate: Date;
-  description: string;
-  discountType: 'percentage' | 'fixed'; // Phần trăm hoặc giá trị cố định
-  value: number;
-  maxValue: number;
-  minValue: number;
-  status: boolean;
-  createdAt: Date;
+interface FormData {
+  id_khuyen_mai?: string;
+  ten_khuyen_mai: string;
+  mo_ta: string;
+  kieu_khuyen_mai: string;
+  gia_tri_giam: number;
+  gia_tri_don_hang_toi_thieu: number;
+  gia_tri_giam_toi_da: number;
+  so_luong_toi_da: number;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+  trang_thai?: string;
 }
 
-// Interface cho dữ liệu phiếu giảm giá
-interface Voucher {
-  id: string;
-  name: string;
-  code: string;
-  startDate: Date;
-  endDate: Date;
-  description: string;
-  discountType: 'percentage' | 'fixed';
-  value: number;
-  maxValue: number;
-  minValue: number;
-  maxQuantity: number;
-  usedQuantity: number;
-  status: boolean;
-  createdAt: Date;
-}
+const defaultFormData: FormData = {
+  ten_khuyen_mai: "",
+  mo_ta: "",
+  kieu_khuyen_mai: KieuKhuyenMai.PhanTram,
+  gia_tri_giam: 0,
+  gia_tri_don_hang_toi_thieu: 0,
+  gia_tri_giam_toi_da: 0,
+  so_luong_toi_da: 0,
+  thoi_gian_bat_dau: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+  thoi_gian_ket_thuc: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+};
 
-// Dữ liệu mẫu cho khuyến mãi
-const mockPromotions: Promotion[] = [
-  {
-    id: "1",
-    name: "Khuyến mãi mùa hè",
-    code: "SUMMER2025",
-    startDate: new Date(2025, 5, 1), // 1/6/2025
-    endDate: new Date(2025, 7, 31), // 31/8/2025
-    description: "Giảm giá cho tất cả sản phẩm mùa hè",
-    discountType: 'percentage',
-    value: 15,
-    maxValue: 500000,
-    minValue: 100000,
-    status: true,
-    createdAt: new Date(2025, 4, 15)
-  },
-  {
-    id: "2",
-    name: "Khuyến mãi sinh nhật cửa hàng",
-    code: "BIRTHDAY2025",
-    startDate: new Date(2025, 3, 1), // 1/4/2025
-    endDate: new Date(2025, 3, 15), // 15/4/2025
-    description: "Giảm giá nhân dịp sinh nhật cửa hàng",
-    discountType: 'percentage',
-    value: 20,
-    maxValue: 1000000,
-    minValue: 200000,
-    status: false,
-    createdAt: new Date(2025, 2, 20)
-  },
-  {
-    id: "3",
-    name: "Giảm giá cố định",
-    code: "FIXED100K",
-    startDate: new Date(2025, 0, 1), // 1/1/2025
-    endDate: new Date(2025, 11, 31), // 31/12/2025
-    description: "Giảm 100.000đ cho đơn hàng từ 500.000đ",
-    discountType: 'fixed',
-    value: 100000,
-    maxValue: 100000,
-    minValue: 500000,
-    status: true,
-    createdAt: new Date(2024, 11, 15)
-  }
-];
+const AddEditDialog = ({ 
+  isOpen, 
+  onClose, 
+  data, 
+  onSubmit, 
+  isEdit = false,
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  data: any; 
+  onSubmit: (data: any) => void; 
+  isEdit?: boolean;
+}) => {
+  const [formData, setFormData] = useState<FormData>(defaultFormData);
+  const [error, setError] = useState("");
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-// Dữ liệu mẫu cho phiếu giảm giá
-const mockVouchers: Voucher[] = [
-  {
-    id: "1",
-    name: "Phiếu giảm giá khách hàng mới",
-    code: "NEWUSER100K",
-    startDate: new Date(2025, 0, 1), // 1/1/2025
-    endDate: new Date(2025, 11, 31), // 31/12/2025
-    description: "Giảm 100.000đ cho khách hàng mới",
-    discountType: 'fixed',
-    value: 100000,
-    maxValue: 100000,
-    minValue: 500000,
-    maxQuantity: 1000,
-    usedQuantity: 243,
-    status: true,
-    createdAt: new Date(2024, 11, 15)
-  },
-  {
-    id: "2",
-    name: "Phiếu giảm 10% cho khách VIP",
-    code: "VIP10",
-    startDate: new Date(2025, 0, 1), // 1/1/2025
-    endDate: new Date(2025, 11, 31), // 31/12/2025
-    description: "Giảm 10% cho khách hàng VIP",
-    discountType: 'percentage',
-    value: 10,
-    maxValue: 300000,
-    minValue: 200000,
-    maxQuantity: 500,
-    usedQuantity: 89,
-    status: true,
-    createdAt: new Date(2024, 11, 20)
+  useEffect(() => {
+    if (isOpen) {
+      if (isEdit && data) {
+        setFormData({
+          id_khuyen_mai: data.id_khuyen_mai,
+          ten_khuyen_mai: data.ten_khuyen_mai,
+          mo_ta: data.mo_ta,
+          kieu_khuyen_mai: data.kieu_khuyen_mai || '',
+          gia_tri_giam: data.gia_tri_giam,
+          gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
+          gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
+          so_luong_toi_da: data.so_luong_toi_da,
+          thoi_gian_bat_dau: format(new Date(data.thoi_gian_bat_dau), "yyyy-MM-dd'T'HH:mm"),
+          thoi_gian_ket_thuc: format(new Date(data.thoi_gian_ket_thuc), "yyyy-MM-dd'T'HH:mm"),
+          trang_thai: data.trang_thai || '',
+        });
+      } else {
+        setFormData(defaultFormData);
+      }
+      setError("");
+      setIsSubmitting(false);
+    }
+  }, [isOpen, data, isEdit]);
+
+  const validateForm = () => {
+    if (!formData.ten_khuyen_mai.trim()) {
+      setError("Vui lòng nhập tên khuyến mãi");
+      return false;
+    }
+
+    if (!formData.mo_ta.trim()) {
+      setError("Vui lòng nhập mô tả");
+      return false;
+    }
+
+    if (formData.gia_tri_giam <= 0) {
+      setError("Giá trị giảm phải lớn hơn 0");
+      return false;
+    }
+
+    if (formData.kieu_khuyen_mai === 'PhanTram' && formData.gia_tri_giam > 100) {
+      setError("Giá trị giảm phần trăm không được vượt quá 100%");
+      return false;
+    }
+
+    if (formData.gia_tri_giam_toi_da < formData.gia_tri_giam) {
+      setError("Giá trị giảm tối đa phải lớn hơn giá trị giảm");
+      return false;
+    }
+
+    if (formData.gia_tri_don_hang_toi_thieu <= 0) {
+      setError("Giá trị đơn hàng tối thiểu phải lớn hơn 0");
+      return false;
+    }
+
+    if (formData.so_luong_toi_da <= 0) {
+      setError("Số lượng tối đa phải lớn hơn 0");
+      return false;
+    }
+
+    const startDate = new Date(formData.thoi_gian_bat_dau);
+    const endDate = new Date(formData.thoi_gian_ket_thuc);
+    const now = new Date();
+
+    if (startDate <= now) {
+      setError("Thời gian bắt đầu phải sau thời điểm hiện tại");
+      return false;
+    }
+
+    if (endDate <= startDate) {
+      setError("Thời gian kết thúc phải sau thời gian bắt đầu");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (validateForm()) {
+      setIsConfirmDialogOpen(true);
+    }
+  };
+
+  const handleConfirm = async () => {
+    try {
+      setIsSubmitting(true);
+      await onSubmit(formData);
+      setIsConfirmDialogOpen(false);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[800px]">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold text-center">
+            {isEdit ? "Cập nhật khuyến mãi" : "Thêm khuyến mãi mới"}
+          </DialogTitle>
+          <DialogDescription className="text-center text-slate-500">
+            {isEdit ? "Cập nhật thông tin khuyến mãi" : "Nhập thông tin khuyến mãi mới"}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900">Thông tin cơ bản</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ten_khuyen_mai" className="text-sm font-medium text-slate-700">
+                      Tên khuyến mãi <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="ten_khuyen_mai"
+                      value={formData.ten_khuyen_mai}
+                      onChange={(e) => setFormData({ ...formData, ten_khuyen_mai: e.target.value })}
+                      placeholder="Nhập tên khuyến mãi"
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mo_ta" className="text-sm font-medium text-slate-700">
+                      Mô tả <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="mo_ta"
+                      value={formData.mo_ta}
+                      onChange={(e) => setFormData({ ...formData, mo_ta: e.target.value })}
+                      placeholder="Nhập mô tả khuyến mãi"
+                      className="min-h-[100px] resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900">Thời gian áp dụng</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="thoi_gian_bat_dau" className="text-sm font-medium text-slate-700">
+                      Thời gian bắt đầu <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="thoi_gian_bat_dau"
+                      type="datetime-local"
+                      value={formData.thoi_gian_bat_dau}
+                      onChange={(e) => setFormData({ ...formData, thoi_gian_bat_dau: e.target.value })}
+                      min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="thoi_gian_ket_thuc" className="text-sm font-medium text-slate-700">
+                      Thời gian kết thúc <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="thoi_gian_ket_thuc"
+                      type="datetime-local"
+                      value={formData.thoi_gian_ket_thuc}
+                      onChange={(e) => setFormData({ ...formData, thoi_gian_ket_thuc: e.target.value })}
+                      min={formData.thoi_gian_bat_dau}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-900">Thông tin giảm giá</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="kieu_khuyen_mai" className="text-sm font-medium text-slate-700">
+                      Kiểu giảm giá <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                        value={formData.kieu_khuyen_mai || ""}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, kieu_khuyen_mai: value }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn kiểu giảm giá" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="PhanTram">Phần trăm</SelectItem>
+                          <SelectItem value="TienMat">Tiền mặt</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="gia_tri_giam" className="text-sm font-medium text-slate-700">
+                      Giá trị giảm <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="gia_tri_giam"
+                        type="number"
+                        value={formData.gia_tri_giam}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                            if (formData.kieu_khuyen_mai === 'PhanTram' && value > 100) {
+                            setError("Giá trị giảm phần trăm không được vượt quá 100%");
+                            return;
+                          }
+                          setFormData(prev => ({
+                            ...prev,
+                            gia_tri_giam: value,
+                              gia_tri_giam_toi_da: prev.kieu_khuyen_mai === 'TienMat' ? value : prev.gia_tri_giam_toi_da
+                          }));
+                        }}
+                        className="pr-12"
+                        min={0}
+                          max={formData.kieu_khuyen_mai === 'PhanTram' ? 100 : undefined}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                          {formData.kieu_khuyen_mai === 'PhanTram' ? "%" : "VNĐ"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="gia_tri_don_hang_toi_thieu" className="text-sm font-medium text-slate-700">
+                      Giá trị đơn hàng tối thiểu <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="gia_tri_don_hang_toi_thieu"
+                        type="number"
+                        value={formData.gia_tri_don_hang_toi_thieu}
+                        onChange={(e) => setFormData({ ...formData, gia_tri_don_hang_toi_thieu: Number(e.target.value) })}
+                        className="pr-12"
+                        min={0}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                        VNĐ
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="gia_tri_giam_toi_da" className="text-sm font-medium text-slate-700">
+                      Giá trị giảm tối đa <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="gia_tri_giam_toi_da"
+                        type="number"
+                        value={formData.gia_tri_giam_toi_da}
+                        onChange={(e) => {
+                            if (formData.kieu_khuyen_mai === 'TienMat') {
+                            return;
+                          }
+                          setFormData({ ...formData, gia_tri_giam_toi_da: Number(e.target.value) });
+                        }}
+                        className={cn(
+                          "pr-12",
+                            formData.kieu_khuyen_mai === 'TienMat' && "bg-slate-100 cursor-not-allowed"
+                        )}
+                        min={0}
+                          disabled={formData.kieu_khuyen_mai === 'TienMat'}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                        VNĐ
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="so_luong_toi_da" className="text-sm font-medium text-slate-700">
+                      Số lượng tối đa <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="so_luong_toi_da"
+                      type="number"
+                      value={formData.so_luong_toi_da}
+                      onChange={(e) => setFormData({ ...formData, so_luong_toi_da: Number(e.target.value) })}
+                      min={1}
+                      placeholder="Nhập số lượng tối đa"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting} className="w-full sm:w-auto">
+              Hủy
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                isEdit ? "Cập nhật" : "Thêm mới"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận {isEdit ? "cập nhật" : "thêm mới"}</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn {isEdit ? "cập nhật" : "thêm mới"} khuyến mãi này không?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)} disabled={isSubmitting}>
+              Hủy
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleConfirm}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Xác nhận"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+const DeleteDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  itemName
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  itemName: string;
+}) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Xác nhận xóa</DialogTitle>
+          <DialogDescription>
+            Bạn có chắc chắn muốn xóa {itemName} này không? Hành động này không thể hoàn tác.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            Xóa
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const getPromotionStatus = (promotion: KhuyenMai) => {
+  const now = new Date();
+  const startDate = new Date(promotion.thoi_gian_bat_dau);
+  const endDate = new Date(promotion.thoi_gian_ket_thuc);
+
+  const activityStatus = promotion.trang_thai === TrangThaiKhuyenMai.HoatDong
+    ? { label: "Hoạt động", color: "bg-green-100 text-green-800" }
+    : { label: "Ngừng hoạt động", color: "bg-slate-100 text-slate-800" };
+
+  let timeStatus;
+  if (now < startDate) {
+    const timeLeft = startDate.getTime() - now.getTime();
+    const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+    const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    timeStatus = { 
+      label: `Bắt đầu sau ${daysLeft} ngày ${hoursLeft} giờ ${minutesLeft} phút`, 
+      color: "bg-blue-100 text-blue-800" 
+    };
+  } else if (now > endDate) {
+    timeStatus = { label: "Đã kết thúc", color: "bg-red-100 text-red-800" };
+  } else {
+    const timeLeft = endDate.getTime() - now.getTime();
+    const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+    const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutesLeft = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    timeStatus = { 
+      label: `Còn ${daysLeft} ngày ${hoursLeft} giờ ${minutesLeft} phút`, 
+      color: "bg-yellow-100 text-yellow-800" 
+    };
   }
-];
+
+  return {
+    activityStatus,
+    timeStatus
+  };
+};
+
+const getStatusBadge = (status: ReturnType<typeof getPromotionStatus>) => {
+  return (
+    <div className="flex items-center gap-2">
+      <Badge className={status.timeStatus.color}>
+        {status.timeStatus.label}
+      </Badge>
+      <Badge className={status.activityStatus.color}>
+        {status.activityStatus.label}
+      </Badge>
+    </div>
+  );
+};
+
+const DetailDialog = ({
+  isOpen,
+  onClose,
+  promotion,
+  fetchPromotions
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  promotion: KhuyenMai | null;
+  fetchPromotions?: () => void;
+}) => {
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+
+  if (!promotion) return null;
+
+  const status = getPromotionStatus(promotion);
+
+  const handleStatusUpdate = async () => {
+    try {
+      setIsUpdating(true);
+      const newStatus = promotion.trang_thai === TrangThaiKhuyenMai.HoatDong 
+        ? TrangThaiKhuyenMai.KhongHoatDong 
+        : TrangThaiKhuyenMai.HoatDong;
+      
+      await khuyenMaiService.capNhatTrangThai(promotion.id_khuyen_mai, {
+        trang_thai: newStatus
+      });
+      
+      toast.success("Cập nhật trạng thái thành công");
+      onClose();
+      fetchPromotions?.();
+    } catch (error: any) {
+      toast.error(error.response?.data || "Không thể cập nhật trạng thái");
+    } finally {
+      setIsUpdating(false);
+      setIsConfirmDialogOpen(false);
+    }
+  };
+
+  return (
+    <>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[800px]">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold text-center">
+            Chi tiết khuyến mãi
+          </DialogTitle>
+          <DialogDescription className="text-center text-slate-500">
+            Thông tin chi tiết về khuyến mãi
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-8 py-6">
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Thông tin cơ bản</h3>
+                  <div className="flex items-center gap-2">
+                <Badge className={promotion.trang_thai === TrangThaiKhuyenMai.HoatDong ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-800"}>
+                  {promotion.trang_thai === TrangThaiKhuyenMai.HoatDong ? "Hoạt động" : "Ngừng hoạt động"}
+                </Badge>
+                    <Button
+                      variant={promotion.trang_thai === TrangThaiKhuyenMai.HoatDong ? "destructive" : "default"}
+                      size="sm"
+                      className={cn(
+                        "transition-colors",
+                        promotion.trang_thai === TrangThaiKhuyenMai.HoatDong
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-green-600 hover:bg-green-700"
+                      )}
+                      onClick={() => setIsConfirmDialogOpen(true)}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        promotion.trang_thai === TrangThaiKhuyenMai.HoatDong
+                          ? "Ngừng hoạt động"
+                          : "Kích hoạt"
+                      )}
+                    </Button>
+                  </div>
+              </div>
+              <div className="space-y-4 bg-slate-50 p-4 rounded-lg">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Mã khuyến mãi</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="px-3 py-1.5 bg-white border border-slate-200 rounded-md text-sm font-medium">
+                      {promotion.ma_khuyen_mai}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-slate-200"
+                      onClick={() => {
+                        navigator.clipboard.writeText(promotion.ma_khuyen_mai);
+                        toast.success("Đã sao chép mã khuyến mãi");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Tên khuyến mãi</Label>
+                  <p className="text-base font-medium text-slate-900">{promotion.ten_khuyen_mai}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Mô tả</Label>
+                  <p className="text-sm text-slate-600 leading-relaxed">{promotion.mo_ta}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900">Thời gian áp dụng</h3>
+              <div className="space-y-4 bg-slate-50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Thời gian bắt đầu</Label>
+                    <p className="text-sm font-medium text-slate-900">
+                      {format(new Date(promotion.thoi_gian_bat_dau), "dd/MM/yyyy HH:mm", { locale: vi })}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Thời gian kết thúc</Label>
+                    <p className="text-sm font-medium text-slate-900">
+                      {format(new Date(promotion.thoi_gian_ket_thuc), "dd/MM/yyyy HH:mm", { locale: vi })}
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <Badge className={status.timeStatus.color}>
+                    {status.timeStatus.label}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900">Thông tin giảm giá</h3>
+              <div className="space-y-4 bg-slate-50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Kiểu giảm giá</Label>
+                      <Badge className={(promotion.kieu_khuyen_mai as string) === 'PhanTram' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}>
+                        {(promotion.kieu_khuyen_mai as string) === 'PhanTram' ? "Phần trăm" : "Tiền mặt"}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Giá trị giảm</Label>
+                    <p className="text-base font-medium text-slate-900">
+                        {(promotion.kieu_khuyen_mai as string) === 'PhanTram' 
+                        ? `${promotion.gia_tri_giam}%` 
+                        : `${(promotion.gia_tri_giam || 0).toLocaleString('vi-VN')}đ`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Giá trị đơn hàng tối thiểu</Label>
+                    <p className="text-base font-medium text-slate-900">
+                      {(promotion.gia_tri_don_hang_toi_thieu || 0).toLocaleString('vi-VN')}đ
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Giá trị giảm tối đa</Label>
+                    <p className="text-base font-medium text-slate-900">
+                      {(promotion.gia_tri_giam_toi_da || 0).toLocaleString('vi-VN')}đ
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Số lượng tối đa</Label>
+                    <p className="text-base font-medium text-slate-900">{promotion.so_luong_toi_da}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Số lượng đã sử dụng</Label>
+                    <div className="space-y-1">
+                      <p className="text-base font-medium text-slate-900">{promotion.so_luong_da_su_dung}</p>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{ 
+                            width: `${(promotion.so_luong_da_su_dung / promotion.so_luong_toi_da) * 100}%`,
+                            backgroundColor: promotion.so_luong_da_su_dung >= promotion.so_luong_toi_da 
+                              ? '#ef4444' 
+                              : promotion.so_luong_da_su_dung >= promotion.so_luong_toi_da * 0.8 
+                                ? '#f59e0b' 
+                                : '#22c55e'
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {Math.round((promotion.so_luong_da_su_dung / promotion.so_luong_toi_da) * 100)}% đã sử dụng
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-slate-900">Thông tin khác</h3>
+              <div className="space-y-4 bg-slate-50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Ngày tạo</Label>
+                    <p className="text-sm font-medium text-slate-900">
+                      {format(new Date(promotion.ngay_tao), "dd/MM/yyyy HH:mm", { locale: vi })}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Người tạo</Label>
+                    <p className="text-sm font-medium text-slate-900">
+                      {promotion.nguoiTao?.ten_nhan_vien || "N/A"}
+                    </p>
+                  </div>
+                </div>
+                {promotion.ngay_sua && (
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-500">Ngày sửa</Label>
+                      <p className="text-sm font-medium text-slate-900">
+                        {format(new Date(promotion.ngay_sua), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-500">Người sửa</Label>
+                      <p className="text-sm font-medium text-slate-900">
+                        {promotion.nguoiSua?.ten_nhan_vien || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose} className="w-full sm:w-auto">
+            Đóng
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận thay đổi trạng thái</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn {promotion.trang_thai === TrangThaiKhuyenMai.HoatDong ? "ngừng hoạt động" : "kích hoạt"} khuyến mãi này không?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button 
+              variant={promotion.trang_thai === TrangThaiKhuyenMai.HoatDong ? "destructive" : "default"}
+              className={promotion.trang_thai === TrangThaiKhuyenMai.HoatDong ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
+              onClick={handleStatusUpdate}
+            >
+              Xác nhận
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
 
 export default function PromotionsPage() {
-  const [activeTab, setActiveTab] = useState<'promotions' | 'vouchers'>('promotions');
-  const [promotions, setPromotions] = useState<Promotion[]>(mockPromotions);
-  const [vouchers, setVouchers] = useState<Voucher[]>(mockVouchers);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterConfig, setFilterConfig] = useState({
+    status: 'all',
+    discountType: 'all',
+    startDate: '',
+    endDate: ''
+  });
 
-  // State cho dialog thêm/sửa
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [currentPromotion, setCurrentPromotion] = useState<Promotion | null>(null);
-  const [currentVoucher, setCurrentVoucher] = useState<Voucher | null>(null);
+  const [currentPromotion, setCurrentPromotion] = useState<KhuyenMai | null>(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedPromotion, setSelectedPromotion] = useState<KhuyenMai | null>(null);
+  const [selectedPromotions, setSelectedPromotions] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
-  // State cho form nhập liệu
-  const [formData, setFormData] = useState({
-    name: "",
-    code: "",
-    startDate: new Date(),
-    endDate: addDays(new Date(), 30),
-    description: "",
-    discountType: "percentage",
-    value: 0,
-    maxValue: 0,
-    minValue: 0,
-    maxQuantity: 0,
-    status: true
+  // Query để lấy danh sách khuyến mãi
+  const { 
+    data: promotions = [], 
+    isLoading,
+    isFetching 
+  } = useQuery({
+    queryKey: ['promotions', filterConfig, searchTerm],
+    queryFn: () => {
+      const params: any = {};
+      
+      if (filterConfig.status !== 'all') {
+        params.trang_thai = filterConfig.status;
+      }
+      
+      if (filterConfig.discountType !== 'all') {
+        params.kieu_khuyen_mai = filterConfig.discountType;
+      }
+      
+      if (searchTerm) {
+        params.tim_kiem = searchTerm;
+      }
+      
+      if (filterConfig.startDate) {
+        params.thoi_gian_bat_dau = filterConfig.startDate;
+      }
+      
+      if (filterConfig.endDate) {
+        params.thoi_gian_ket_thuc = filterConfig.endDate;
+      }
+
+      return khuyenMaiService.getAll(params);
+    },
+    staleTime: 5 * 60 * 1000, // 5 phút
   });
 
-  // Lọc dữ liệu theo từ khóa tìm kiếm
-  const filteredPromotions = promotions.filter(promo =>
-    promo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    promo.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Mutation để thêm khuyến mãi mới
+  const addMutation = useMutation({
+    mutationFn: (data: FormData) => khuyenMaiService.themKhuyenMai({
+      ten_khuyen_mai: data.ten_khuyen_mai,
+      mo_ta: data.mo_ta,
+      kieu_khuyen_mai: data.kieu_khuyen_mai as KieuKhuyenMai,
+      gia_tri_giam: data.gia_tri_giam,
+      gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
+      gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
+      so_luong_toi_da: data.so_luong_toi_da,
+      thoi_gian_bat_dau: data.thoi_gian_bat_dau,
+      thoi_gian_ket_thuc: data.thoi_gian_ket_thuc
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      toast.success("Thêm khuyến mãi thành công");
+      setIsAddDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Không thể thêm khuyến mãi";
+      toast.error(errorMessage);
+    }
+  });
 
-  const filteredVouchers = vouchers.filter(voucher =>
-    voucher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    voucher.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Mutation để cập nhật khuyến mãi
+  const updateMutation = useMutation({
+    mutationFn: (data: FormData) => khuyenMaiService.suaKhuyenMai(data.id_khuyen_mai!, {
+      ten_khuyen_mai: data.ten_khuyen_mai,
+      mo_ta: data.mo_ta,
+      kieu_khuyen_mai: data.kieu_khuyen_mai as KieuKhuyenMai,
+      gia_tri_giam: data.gia_tri_giam,
+      gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
+      gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
+      so_luong_toi_da: data.so_luong_toi_da,
+      thoi_gian_bat_dau: data.thoi_gian_bat_dau,
+      thoi_gian_ket_thuc: data.thoi_gian_ket_thuc
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      toast.success("Cập nhật khuyến mãi thành công");
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Không thể cập nhật khuyến mãi";
+      toast.error(errorMessage);
+    }
+  });
 
-  // Reset form
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      code: "",
-      startDate: new Date(),
-      endDate: addDays(new Date(), 30),
-      description: "",
-      discountType: "percentage",
-      value: 0,
-      maxValue: 0,
-      minValue: 0,
-      maxQuantity: 0,
-      status: true
-    });
+  // Mutation để xóa khuyến mãi
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => khuyenMaiService.xoaKhuyenMai(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      toast.success("Xóa khuyến mãi thành công");
+      setIsDeleteDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : "Không thể xóa khuyến mãi";
+      toast.error(errorMessage);
+    }
+  });
+
+  // Mutation để xóa nhiều khuyến mãi
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => Promise.all(ids.map(id => khuyenMaiService.xoaKhuyenMai(id))),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+      toast.success('Xóa khuyến mãi thành công!');
+      setSelectedPromotions([]);
+      setIsBulkDeleteDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      console.error('Lỗi khi xóa khuyến mãi:', error);
+      toast.error('Có lỗi xảy ra khi xóa khuyến mãi!');
+    }
+  });
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['promotions'] });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, queryClient]);
+
+  const handleAdd = async (data: FormData) => {
+    addMutation.mutate(data);
   };
 
-  // Kiểm tra trạng thái khuyến mãi
-  const getPromotionStatus = (promotion: Promotion) => {
-    const now = new Date();
-    if (!promotion.status) return "inactive";
-    if (now < promotion.startDate) return "upcoming";
-    if (now > promotion.endDate) return "expired";
-    return "active";
+  const handleEdit = async (data: FormData) => {
+    updateMutation.mutate(data);
   };
 
-  // Kiểm tra trạng thái phiếu giảm giá
-  const getVoucherStatus = (voucher: Voucher) => {
-    const now = new Date();
-    if (!voucher.status) return "inactive";
-    if (voucher.usedQuantity >= voucher.maxQuantity) return "used";
-    if (now < voucher.startDate) return "upcoming";
-    if (now > voucher.endDate) return "expired";
-    return "active";
+  const handleDelete = async (id: string) => {
+    deleteMutation.mutate(id);
   };
 
-  // Get badge color based on status
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-green-100 text-green-800">Đang hoạt động</Badge>;
-      case "upcoming":
-        return <Badge className="bg-blue-100 text-blue-800">Sắp diễn ra</Badge>;
-      case "expired":
-        return <Badge className="bg-red-100 text-red-800">Đã kết thúc</Badge>;
-      case "inactive":
-        return <Badge className="bg-slate-100 text-slate-800">Không hoạt động</Badge>;
-      case "used":
-        return <Badge className="bg-purple-100 text-purple-800">Đã sử dụng hết</Badge>;
-      default:
-        return <Badge className="bg-slate-100 text-slate-800">Không xác định</Badge>;
+  const handleBulkDelete = async () => {
+    bulkDeleteMutation.mutate(selectedPromotions);
+  };
+
+  const handleRowClick = async (promotion: KhuyenMai) => {
+    try {
+      const detail = await khuyenMaiService.getById(promotion.id_khuyen_mai);
+      setSelectedPromotion(detail);
+      setIsDetailDialogOpen(true);
+    } catch (error) {
+      toast.error("Không thể tải thông tin chi tiết khuyến mãi");
     }
   };
 
   return (
     <AdminLayout>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">
-            {activeTab === 'promotions' ? 'Quản lý khuyến mãi' : 'Quản lý phiếu giảm giá'}
-          </h1>
-          <p className="text-slate-500">
-            {activeTab === 'promotions'
-              ? 'Quản lý các chương trình khuyến mãi cho sản phẩm'
-              : 'Quản lý các phiếu giảm giá cho khách hàng'}
-          </p>
+      <div className="flex flex-col gap-6 mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Quản lý khuyến mãi</h1>
+            <p className="text-slate-500">Quản lý các chương trình khuyến mãi cho sản phẩm</p>
+          </div>
+          <div className="flex gap-2">
+            {selectedPromotions.length > 0 && (
+              <Button 
+                variant="destructive" 
+                className="gap-2"
+                onClick={() => setIsBulkDeleteDialogOpen(true)}
+              >
+                <Trash className="h-4 w-4" />
+                <span>Xóa ({selectedPromotions.length})</span>
+              </Button>
+            )}
+            <Link href="/promotions/new">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Thêm khuyến mãi</span>
+              </Button>
+            </Link>
+          </div>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="h-4 w-4" />
-          <span>Thêm {activeTab === 'promotions' ? 'khuyến mãi' : 'phiếu giảm giá'}</span>
-        </Button>
-      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as 'promotions' | 'vouchers')}
-          >
-            <TabsList>
-              <TabsTrigger value="promotions">Khuyến mãi</TabsTrigger>
-              <TabsTrigger value="vouchers">Phiếu giảm giá</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6 flex space-x-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Input
+              className="pl-10"
+              placeholder="Tìm kiếm theo tên hoặc mã khuyến mãi..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Select value={filterConfig.status} onValueChange={(value) => setFilterConfig(prev => ({ ...prev, status: value }))}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value={TrangThaiKhuyenMai.HoatDong.toString()}>Đang hoạt động</SelectItem>
+                <SelectItem value={TrangThaiKhuyenMai.KhongHoatDong.toString()}>Ngừng hoạt động</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterConfig.discountType} onValueChange={(value) => setFilterConfig(prev => ({ ...prev, discountType: value }))}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Loại giảm giá" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả loại</SelectItem>
+                <SelectItem value={KieuKhuyenMai.PhanTram.toString()}>Phần trăm</SelectItem>
+                <SelectItem value={KieuKhuyenMai.TienMat.toString()}>Tiền mặt</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex gap-2">
               <Input
-                className="pl-10"
-                placeholder={`Tìm kiếm ${activeTab === 'promotions' ? 'khuyến mãi' : 'phiếu giảm giá'}...`}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                type="date"
+                value={filterConfig.startDate}
+                onChange={(e) => setFilterConfig(prev => ({ ...prev, startDate: e.target.value }))}
+                className="w-[180px]"
+              />
+              <Input
+                type="date"
+                value={filterConfig.endDate}
+                onChange={(e) => setFilterConfig(prev => ({ ...prev, endDate: e.target.value }))}
+                className="w-[180px]"
               />
             </div>
           </div>
+        </div>
+      </div>
 
-          {activeTab === 'promotions' ? (
-            <div className="rounded-md border">
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+        <CardContent className="p-6">
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-slate-200 overflow-hidden">
+              {isFetching && (
+                <div className="fixed top-0 right-0 p-4">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                </div>
+              )}
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Tên khuyến mãi</TableHead>
-                    <TableHead>Mã</TableHead>
-                    <TableHead>Thời gian</TableHead>
-                    <TableHead>Giá trị</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
+                  <TableRow className="bg-slate-50 hover:bg-slate-50">
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={selectedPromotions.length === promotions.length && promotions.length > 0}
+                        onCheckedChange={() => {
+                          if (selectedPromotions.length === promotions.length) {
+                            setSelectedPromotions([]);
+                          } else {
+                            setSelectedPromotions(promotions.map(p => String(p.id_khuyen_mai)));
+                          }
+                        }}
+                        aria-label="Chọn tất cả"
+                      />
+                    </TableHead>
+                    <TableHead className="w-[50px]">STT</TableHead>
+                    <TableHead className="w-[300px] font-semibold text-slate-700">Thông tin khuyến mãi</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Mã</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Thời gian</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Giá trị</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Số lượng</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Trạng thái</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-700">Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPromotions.length === 0 ? (
+                  {promotions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 text-slate-500">
-                        Không tìm thấy khuyến mãi nào
+                      <TableCell colSpan={9} className="text-center py-10">
+                        <div className="flex flex-col items-center gap-2 text-slate-500">
+                          <Package className="h-10 w-10" />
+                          <p>Không tìm thấy khuyến mãi nào</p>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredPromotions.map((promotion) => (
-                      <TableRow key={promotion.id}>
+                    promotions.map((promotion, idx) => (
+                      <TableRow 
+                        key={promotion.id_khuyen_mai} 
+                        className="group cursor-pointer hover:bg-slate-50 transition-colors"
+                        onClick={() => handleRowClick(promotion)}
+                      >
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{promotion.name}</p>
-                            <p className="text-xs text-slate-500">{promotion.description}</p>
+                          <Checkbox
+                            checked={selectedPromotions.includes(String(promotion.id_khuyen_mai))}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedPromotions(prev => [...prev, String(promotion.id_khuyen_mai)]);
+                              } else {
+                                setSelectedPromotions(prev => prev.filter(id => id !== String(promotion.id_khuyen_mai)));
+                              }
+                            }}
+                            aria-label={`Chọn khuyến mãi ${promotion.ten_khuyen_mai}`}
+                          />
+                        </TableCell>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium group-hover:text-blue-600 transition-colors">{promotion.ten_khuyen_mai}</p>
+                            <p className="text-sm text-slate-500 line-clamp-2">{promotion.mo_ta}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{promotion.code}</TableCell>
                         <TableCell>
-                          <div>
-                            <p className="text-xs">Từ: {format(promotion.startDate, 'dd/MM/yyyy')}</p>
-                            <p className="text-xs">Đến: {format(promotion.endDate, 'dd/MM/yyyy')}</p>
+                          <div className="flex items-center gap-2">
+                            <code className="px-2 py-1 bg-slate-100 rounded text-sm font-medium">{promotion.ma_khuyen_mai}</code>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(promotion.ma_khuyen_mai);
+                                toast.success("Đã sao chép mã khuyến mãi");
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                         <TableCell>
-                          {promotion.discountType === 'percentage'
-                            ? `${promotion.value}% (tối đa ${promotion.maxValue.toLocaleString('vi-VN')}đ)`
-                            : `${promotion.value.toLocaleString('vi-VN')}đ`}
+                          <div className="text-xs">
+                            <div>
+                              <span className="font-medium">Từ:</span>{" "}
+                              {format(new Date(promotion.thoi_gian_bat_dau), "dd/MM/yyyy HH:mm", { locale: vi })}
+                            </div>
+                            <div>
+                              <span className="font-medium">Đến:</span>{" "}
+                              {format(new Date(promotion.thoi_gian_ket_thuc), "dd/MM/yyyy HH:mm", { locale: vi })}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {(promotion.kieu_khuyen_mai as string) === 'PhanTram' ? (
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-blue-100 text-blue-800">
+                                  {promotion.gia_tri_giam}%
+                                </Badge>
+                                <span className="text-sm text-slate-500">
+                                  (Tối đa: {(promotion.gia_tri_giam_toi_da || 0).toLocaleString('vi-VN')}đ)
+                                </span>
+                              </div>
+                            ) : (
+                              <Badge className="bg-green-100 text-green-800">
+                                {(promotion.gia_tri_giam || 0).toLocaleString('vi-VN')}đ
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium">{promotion.so_luong_da_su_dung || 0}</span>
+                              <span className="text-slate-500">/ {promotion.so_luong_toi_da}</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-2">
+                              <div 
+                                className="h-2 rounded-full transition-all duration-300"
+                                style={{ 
+                                  width: `${((promotion.so_luong_da_su_dung || 0) / promotion.so_luong_toi_da) * 100}%`,
+                                  backgroundColor: (promotion.so_luong_da_su_dung || 0) >= promotion.so_luong_toi_da 
+                                    ? '#ef4444' 
+                                    : (promotion.so_luong_da_su_dung || 0) >= promotion.so_luong_toi_da * 0.8 
+                                      ? '#f59e0b' 
+                                      : '#22c55e'
+                                }}
+                              />
+                            </div>
+                            <p className="text-xs text-slate-500">
+                              {Math.round(((promotion.so_luong_da_su_dung || 0) / promotion.so_luong_toi_da) * 100)}% đã sử dụng
+                            </p>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {getStatusBadge(getPromotionStatus(promotion))}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end gap-2">
                             <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => {
+                              variant="outline"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setCurrentPromotion(promotion);
                                 setIsEditDialogOpen(true);
                               }}
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-4 w-4 mr-2" />
+                              Sửa
                             </Button>
                             <Button
-                              size="icon"
                               variant="ghost"
-                              className="text-red-500"
-                              onClick={() => {
+                              size="icon"
+                              className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setCurrentPromotion(promotion);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tên phiếu giảm giá</TableHead>
-                    <TableHead>Mã</TableHead>
-                    <TableHead>Thời gian</TableHead>
-                    <TableHead>Giá trị</TableHead>
-                    <TableHead>Số lượng</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredVouchers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-10 text-slate-500">
-                        Không tìm thấy phiếu giảm giá nào
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredVouchers.map((voucher) => (
-                      <TableRow key={voucher.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{voucher.name}</p>
-                            <p className="text-xs text-slate-500">{voucher.description}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{voucher.code}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-xs">Từ: {format(voucher.startDate, 'dd/MM/yyyy')}</p>
-                            <p className="text-xs">Đến: {format(voucher.endDate, 'dd/MM/yyyy')}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {voucher.discountType === 'percentage'
-                            ? `${voucher.value}% (tối đa ${voucher.maxValue.toLocaleString('vi-VN')}đ)`
-                            : `${voucher.value.toLocaleString('vi-VN')}đ`}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-xs">{voucher.usedQuantity}/{voucher.maxQuantity}</p>
-                            <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1">
-                              <div
-                                className="bg-blue-600 h-1.5 rounded-full"
-                                style={{ width: `${(voucher.usedQuantity / voucher.maxQuantity) * 100}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getStatusBadge(getVoucherStatus(voucher))}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => {
-                                setCurrentVoucher(voucher);
-                                setIsEditDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="text-red-500"
-                              onClick={() => {
-                                setCurrentVoucher(voucher);
                                 setIsDeleteDialogOpen(true);
                               }}
                             >
@@ -473,6 +1239,52 @@ export default function PromotionsPage() {
           )}
         </CardContent>
       </Card>
+
+      <AddEditDialog
+        isOpen={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+        data={null}
+        onSubmit={handleAdd}
+      />
+
+      <AddEditDialog
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+        data={currentPromotion}
+        onSubmit={handleEdit}
+        isEdit
+      />
+
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={() => handleDelete(currentPromotion?.id_khuyen_mai || "")}
+        itemName="khuyến mãi"
+      />
+
+      <DetailDialog
+        isOpen={isDetailDialogOpen}
+        onClose={() => setIsDetailDialogOpen(false)}
+        promotion={selectedPromotion}
+        fetchPromotions={() => {
+          queryClient.invalidateQueries({ queryKey: ['promotions'] });
+        }}
+      />
+
+      <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa khuyến mãi</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa {selectedPromotions.length} khuyến mãi đã chọn? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkDeleteDialogOpen(false)}>Hủy</Button>
+            <Button variant="destructive" onClick={handleBulkDelete}>Xóa khuyến mãi</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
-}
+} 

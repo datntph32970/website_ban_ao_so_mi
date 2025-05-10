@@ -68,16 +68,12 @@ const attributeTypes = [
     name: "Kích cỡ",
   },
   {
-    id: "HinhAnh",
-    name: "Hình ảnh",
-  },
-  {
     id: "DanhMuc",
     name: "Danh mục",
   },
 ];
 
-type AttributeType = 'ThuongHieu' | 'KieuDang' | 'ChatLieu' | 'XuatXu' | 'MauSac' | 'KichCo' | 'HinhAnh' | 'DanhMuc';
+type AttributeType = 'ThuongHieu' | 'KieuDang' | 'ChatLieu' | 'XuatXu' | 'MauSac' | 'KichCo' | 'DanhMuc';
 
 const attributeFieldMappings = {
   ThuongHieu: {
@@ -109,11 +105,6 @@ const attributeFieldMappings = {
     name: 'ten_kich_co',
     description: 'mo_ta',
     id: 'id_kich_co'
-  },
-  HinhAnh: {
-    name: 'url',
-    description: 'id_san_pham_chi_tiet',
-    id: 'id_hinh_anh'
   },
   DanhMuc: {
     name: 'ten_danh_muc',
@@ -239,7 +230,7 @@ export default function AttributesPage() {
       setIsAddDialogOpen(false);
     } catch (error: any) {
       if (error.response?.status === 400) {
-        toast.error(error.response.data.message || "Dữ liệu không hợp lệ");
+        toast.error(error.response.data || "Dữ liệu không hợp lệ");
       } else {
         toast.error("Không thể thêm thuộc tính");
       }
@@ -269,7 +260,7 @@ export default function AttributesPage() {
       setIsEditDialogOpen(false);
     } catch (error: any) {
       if (error.response?.status === 400) {
-        toast.error(error.response.data.message || "Dữ liệu không hợp lệ");
+        toast.error(error.response.data || "Dữ liệu không hợp lệ");
       } else {
         toast.error("Không thể cập nhật thuộc tính");
       }
@@ -287,7 +278,7 @@ export default function AttributesPage() {
       setDeletingAttribute(null);
     } catch (error: any) {
       if (error.response?.status === 400) {
-        toast.error(error.response.data.message || "Không thể xóa thuộc tính này");
+        toast.error(error.response.data || "Không thể xóa thuộc tính này");
       } else {
         toast.error("Không thể xóa thuộc tính");
       }
@@ -316,7 +307,7 @@ export default function AttributesPage() {
               setCurrentPage(1);
               setSearchTerm("");
             }}>
-              <TabsList className="grid grid-cols-4 md:grid-cols-8 mb-6">
+              <TabsList className="grid grid-cols-4 md:grid-cols-7 mb-6">
                 <TabsTrigger value="ThuongHieu">Thương hiệu</TabsTrigger>
                 <TabsTrigger value="KieuDang">Kiểu dáng</TabsTrigger>
                 <TabsTrigger value="ChatLieu">Chất liệu</TabsTrigger>
@@ -324,7 +315,6 @@ export default function AttributesPage() {
                 <TabsTrigger value="DanhMuc">Danh mục</TabsTrigger>
                 <TabsTrigger value="MauSac">Màu sắc</TabsTrigger>
                 <TabsTrigger value="KichCo">Kích cỡ</TabsTrigger>
-                <TabsTrigger value="HinhAnh">Hình ảnh</TabsTrigger>
               </TabsList>
 
               {attributeTypes.map(type => (
@@ -469,7 +459,7 @@ export default function AttributesPage() {
                         ) : (
                           paginatedAttributes.map((attribute, index) => (
                             <TableRow 
-                              key={`${activeTab}-${attribute[attributeFieldMappings[activeTab as AttributeFieldKey].id]}`}
+                              key={`${activeTab}-${attribute[attributeFieldMappings[activeTab as AttributeFieldKey].id] || 'none'}-${index}`}
                               className="hover:bg-slate-50 transition-colors cursor-pointer"
                               onClick={() => {
                                 setViewingAttribute(attribute);

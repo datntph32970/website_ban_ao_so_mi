@@ -8,6 +8,7 @@ const nextConfig = {
       "images.unsplash.com",
       "ext.same-assets.com",
       "ugc.same-assets.com",
+      "localhost",
     ],
     remotePatterns: [
       {
@@ -28,6 +29,12 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "ugc.same-assets.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "localhost",
+        port: "7211",
         pathname: "/**",
       },
     ],

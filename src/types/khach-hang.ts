@@ -17,6 +17,7 @@ export interface KhachHang {
   HoaDons?: HoaDon[];
   DiaChis?: DiaChi[];
 }
+
 export interface DiaChi {
     id_dia_chi: string;
     id_khach_hang: string;
@@ -27,5 +28,37 @@ export interface DiaChi {
     ngay_tao: string;
     ngay_sua: string;
     KhachHang?: KhachHang;
+}
+
+export interface KhachHangAdminDTO {
+  id_khach_hang: string;
+  ma_khach_hang: string;
+  ten_khach_hang?: string;
+  ngay_sinh?: string;
+  so_dien_thoai?: string;
+  email?: string;
+  gioi_tinh?: string;
+  trang_thai: string;
+  gioHangItemsDTOs?: any[];
+  hoaDonDTOs?: any[];
+  diaChiDTOs?: any[];
+}
+
+export interface ThemKhachHangMuaTaiQuayAdminDTO {
+  ten_khach_hang: string;
+  so_dien_thoai: string;
+}
+
+export interface SuaKhachHangAdminDTO {
+  ten_khach_hang?: string;
+  ngay_sinh?: string;
+  gioi_tinh?: "Nam" | "Nu";
+  email?: string;
+  so_dien_thoai?: string;
+  trang_thai?: "HoatDong" | "KhongHoatDong";
+}
+
+export interface CapNhatTrangThaiKhachHangDTO {
+  trang_thai: "HoatDong" | "KhongHoatDong";
 }
 

@@ -11,6 +11,7 @@ export interface ComboboxProps<T> {
   getLabel: (item: T) => string;
   getValue: (item: T) => string;
   className?: string;
+  renderOption?: (item: T, selected: boolean) => React.ReactNode;
 }
 
 function Combobox<T>({
@@ -21,12 +22,17 @@ function Combobox<T>({
   getLabel,
   getValue,
   className = "",
+  renderOption,
 }: ComboboxProps<T>) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
-  const filtered = items.filter(item =>
-    (getLabel(item) || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = items.filter(item => {
+    const label = (getLabel(item) || '').toLowerCase();
+    // Try to get code from common code fields
+    const code = (item as any).ma_chat_lieu || (item as any).ma_kieu_dang || (item as any).ma_giam_gia || (item as any).ma_thuong_hieu || (item as any).ma_xuat_xu || (item as any).ma_danh_muc || '';
+   
+    return label.includes(search.toLowerCase()) || code.includes(search.toLowerCase());
+  });
   const selected = items.find(item => getValue(item) === value);
 
   return (
@@ -56,7 +62,7 @@ function Combobox<T>({
           )}
           {filtered.map((item, idx) => (
             <button
-              key={getValue(item) || idx}
+              key={`${getValue(item)}_${idx}`}
               type="button"
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 text-base",
@@ -69,7 +75,7 @@ function Combobox<T>({
               }}
             >
               <Check className={cn("h-4 w-4", value === getValue(item) ? "opacity-100" : "opacity-0")}/>
-              {getLabel(item)}
+              {renderOption ? renderOption(item, value === getValue(item)) : getLabel(item)}
             </button>
           ))}
         </div>

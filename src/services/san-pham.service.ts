@@ -1,19 +1,24 @@
 import { api } from '@/lib/api';
-import { SanPham, ThemSanPhamAdminDTO } from '@/types/san-pham';
+import { SanPham, ThemSanPhamAdminDTO, PhanTrangSanPhamDTO } from '@/types/san-pham';
 import { AxiosResponse } from 'axios';
-import { SanPhamChiTiet } from '@/types/san-pham-chi-tiet';
+import { SanPhamChiTiet, SuaSanPhamChiTietAdminDTO, ThemHinhAnhSanPhamChiTietAdminDTO } from '@/types/san-pham-chi-tiet';
+import { attributeService } from './attribute.service';
 
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 // Định nghĩa interface cho việc cập nhật sản phẩm
 export interface UpdateSanPhamDTO {
-  ma_san_pham?: string;
-  ten_san_pham?: string;
-  mo_ta?: string;
-  trang_thai?: string;
-  id_chat_lieu?: string;
-  id_kieu_dang?: string;
-  id_thuong_hieu?: string;
-  id_xuat_xu?: string;
+  ten_san_pham: string;
+  mo_ta: string;
+  id_thuong_hieu: string;
+  id_kieu_dang: string;
+  id_chat_lieu: string;
+  id_xuat_xu: string;
+  id_danh_muc: string;
+  trang_thai: string;
+  url_anh_mac_dinh: string;
+  sanPhamChiTiets: SuaSanPhamChiTietAdminDTO[];
 }
 
 // Định nghĩa interface cho việc tạo sản phẩm chi tiết mới
@@ -40,10 +45,26 @@ export interface UpdateSanPhamChiTietDTO {
   id_mau_sac?: string;
 }
 
+// Định nghĩa interface cho việc phân trang và lọc sản phẩm
+export interface ThamSoPhanTrangSanPhamDTO {
+  trang_hien_tai?: number;
+  so_phan_tu_tren_trang?: number;
+  tim_kiem?: string;
+  sap_xep_theo?: string;
+  sap_xep_tang?: boolean;
+  id_thuong_hieu?: string[];
+  id_danh_muc?: string[];
+  id_kieu_dang?: string[];
+  id_chat_lieu?: string[];
+  id_xuat_xu?: string[];
+  gia_tu?: number;
+  gia_den?: number;
+}
+
 export const sanPhamService = {
   // Lấy danh sách sản phẩm
-  getDanhSachSanPham: async () => {
-    const response = await api.get<SanPham[]>('/SanPham/lay-danh-sach-san-pham-admin-dto');
+  getDanhSachSanPham: async (params: ThamSoPhanTrangSanPhamDTO): Promise<PhanTrangSanPhamDTO> => {
+    const response = await api.post<PhanTrangSanPhamDTO>('/SanPham/lay-danh-sach-san-pham-admin-dto', params);
     return response.data;
   },
 
@@ -67,7 +88,7 @@ export const sanPhamService = {
 
   // Xóa sản phẩm
   xoaSanPham: async (id: string) => {
-    const response = await api.delete<SanPham>(`/SanPham/xoa-san-pham/${id}`);
+    const response = await api.delete<SanPham>(`/SanPham/xoa-san-pham?id=${id}`);
     return response.data;
   },
 
@@ -112,12 +133,6 @@ export const sanPhamService = {
     const response = await api.get<SanPhamChiTiet>(`/SanPhamChiTiet/lay-san-pham-chi-tiet-theo-id?id=${id}`);
     return response.data;
   },
-
-  // Lấy danh sách sản phẩm chi tiết theo ID sản phẩm
-//   getSanPhamChiTietBySanPhamId: async (idSanPham: string) => {
-//     const response = await api.get<SanPhamChiTiet[]>(`/SanPhamChiTiet/get-san-pham-chi-tiet-by-san-pham-id/${idSanPham}`);
-//     return response.data;
-//   },
 
   // Thêm sản phẩm chi tiết mới
   themSanPhamChiTiet: async (sanPhamChiTiet: CreateSanPhamChiTietDTO) => {
@@ -169,5 +184,40 @@ export const sanPhamService = {
     
     const response = await api.get<SanPhamChiTiet[]>(`/SanPhamChiTiet/filter-san-pham-chi-tiet?${queryParams.toString()}`);
     return response.data;
-  }
+  },
+
+  // Lấy danh sách thương hiệu
+  getDanhSachThuongHieu: async () => {
+    return attributeService.getAttributes('ThuongHieu');
+  },
+
+  // Lấy danh sách kiểu dáng
+  getDanhSachKieuDang: async () => {
+    return attributeService.getAttributes('KieuDang');
+  },
+
+  // Lấy danh sách chất liệu
+  getDanhSachChatLieu: async () => {
+    return attributeService.getAttributes('ChatLieu');
+  },
+
+  // Lấy danh sách xuất xứ
+  getDanhSachXuatXu: async () => {
+    return attributeService.getAttributes('XuatXu');
+  },
+
+  xoaSanPhamChiTietTheoMauSac: async (idSanPham: string, idMauSac: string) => {
+    const response = await api.delete(`/SanPham/xoa-san-pham-chi-tiet-theo-mau-sac`, {
+
+      params: { idSanPham, idMauSac }
+    });
+    return response.data;
+  },
+
+  xoaSanPhamChiTietTheoKichCo: async (idSanPham: string, idMauSac: string, idKichCo: string) => {
+    const response = await api.delete(`/SanPham/xoa-san-pham-chi-tiet-theo-kich-co`, {
+      params: { idSanPham, idMauSac, idKichCo }
+    });
+    return response.data;
+  },
 }; 

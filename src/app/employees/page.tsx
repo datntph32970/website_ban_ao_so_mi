@@ -191,7 +191,6 @@ export default function EmployeesPage() {
       if (error.response?.status === 403) {
         setHasAccess(false);
         toast.error("Bạn không có quyền truy cập vào trang này");
-        router.push("/access-denied");
       } else {
         toast.error("Không thể lấy danh sách nhân viên. Vui lòng thử lại sau.");
       }

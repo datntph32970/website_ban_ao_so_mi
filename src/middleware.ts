@@ -28,6 +28,7 @@ export const config = {
     '/products/:path*',
     '/orders/:path*',
     '/employees/:path*',
+    '/customers/:path*',
     '/promotions/:path*',
     '/settings/:path*',
     '/login',

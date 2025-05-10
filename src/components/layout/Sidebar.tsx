@@ -11,7 +11,8 @@ import {
   Settings,
   ShoppingCart,
   Tags,
-  Percent
+  Percent,
+  UserCircle
 } from "lucide-react";
 import { authService } from "@/services/auth.service";
 import toast from "react-hot-toast";
@@ -21,9 +22,11 @@ const menuItems = [
   { name: "Sản phẩm", href: "/products", icon: ShoppingBag },
   { name: "Thuộc tính sản phẩm", href: "/products/attributes", icon: Tags },
   { name: "Nhân viên", href: "/employees", icon: Users },
+  { name: "Khách hàng", href: "/customers", icon: UserCircle },
   { name: "Đơn hàng", href: "/orders", icon: Package },
   { name: "Bán hàng tại quầy", href: "/pos", icon: ShoppingCart },
   { name: "Khuyến mãi", href: "/promotions", icon: Percent },
+  { name: "Giảm giá", href: "/discounts", icon: Tags },
   { name: "Cài đặt", href: "/settings", icon: Settings },
 ];
 

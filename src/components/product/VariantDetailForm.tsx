@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import Combobox from '@/components/ui/combobox';
 import { Tag } from 'lucide-react';
@@ -6,17 +6,39 @@ import { cn } from '@/lib/utils';
 import { MauSac } from '@/types/mau-sac';
 import { KichCo } from '@/types/kich-co';
 import { GiamGia } from '@/types/giam-gia';
+import { giamGiaService } from '@/services/giam-gia.service';
+import { toast } from 'react-hot-toast';
+import { formatCurrency } from '@/lib/utils';
 
 interface VariantDetailFormProps {
   color: MauSac | undefined;
   size: KichCo | undefined;
   values: { stock: number; importPrice: number; price: number; discount: string };
-  discounts: GiamGia[];
   errors?: { [key: string]: string };
   onChange: (field: 'stock' | 'importPrice' | 'price' | 'discount', value: number | string) => void;
 }
 
-export default function VariantDetailForm({ color, size, values, discounts, errors = {}, onChange }: VariantDetailFormProps) {
+export default function VariantDetailForm({ color, size, values, errors = {}, onChange }: VariantDetailFormProps) {
+  const [discounts, setDiscounts] = useState<GiamGia[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      try {
+        const activeDiscounts = await giamGiaService.getActive();
+        setDiscounts(activeDiscounts);
+      } catch (error) {
+        toast.error('Không thể tải danh sách giảm giá');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDiscounts();
+  }, []);
+
+  const getDiscountLabel = (item: GiamGia) => item.ten_giam_gia;
+
   return (
     <div className="rounded-xl border border-slate-200 shadow-sm p-4 bg-slate-50">
       <div className="flex items-center gap-3 mb-3">
@@ -81,10 +103,26 @@ export default function VariantDetailForm({ color, size, values, discounts, erro
             items={discounts}
             value={values.discount}
             onValueChange={value => onChange('discount', value)}
-            placeholder="Chọn chương trình giảm giá"
-            getLabel={(item: GiamGia) => item.ten_giam_gia}
+            placeholder={loading ? "Đang tải..." : "Chọn chương trình giảm giá hoặc tìm theo tên/mã"}
+            getLabel={getDiscountLabel}
             getValue={(item: GiamGia) => item.id_giam_gia}
-            className={cn(errors.discount ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '', 'text-base h-10')}
+            renderOption={(item) => {
+              const discountValue = item.kieu_giam_gia === 'PhanTram'
+                ? `${item.gia_tri_giam}%`
+                : formatCurrency(item.gia_tri_giam);
+              return (
+                <span className="flex items-center gap-2">
+                  <span>{item.ten_giam_gia}</span>
+                  <span className="text-xs text-slate-500">{item.ma_giam_gia}</span>
+                  <span className="text-xs text-orange-500">{discountValue}</span>
+                </span>
+              );
+            }}
+            className={cn(
+              errors.discount ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : '',
+              loading ? 'opacity-50 cursor-not-allowed' : '',
+              'text-base h-10'
+            )}
           />
           {errors.discount && <div className="text-xs text-red-500 mt-1">{errors.discount}</div>}
         </div>

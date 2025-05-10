@@ -1,22 +1,13 @@
 "use client";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus, Package, Tag, Info, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Package, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useState, useMemo, useRef, useEffect } from "react";
-import { ThemSanPhamAdminDTO } from "@/types/san-pham";
+import React, { useState, useEffect } from "react";
 import { ThemSanPhamChiTietAdminDTO } from "@/types/san-pham-chi-tiet";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import Combobox from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { cn } from "@/lib/utils";
-import { useDropzone } from 'react-dropzone';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { attributeService } from '@/services/attribute.service';
-import { sanPhamService } from '@/services/san-pham.service';
 import ProductGeneralInfoForm from '@/components/product/ProductGeneralInfoForm';
 import ColorTabs from '@/components/product/ColorTabs';
 import { useProductForm } from '@/hooks/useProductForm';
@@ -34,10 +25,11 @@ const readFileAsBase64 = (file: File): Promise<string> => {
 
 export default function NewProductPage() {
   const router = useRouter();
-  const form = useProductForm(router);
+  const [defaultProductImage, setDefaultProductImage] = useState<File | null>(null);
+  const form = useProductForm(router, defaultProductImage, setDefaultProductImage);
   const [loading, setLoading] = useState(false);
   const [attrLoading, setAttrLoading] = useState(false);
-  const [defaultProductImage, setDefaultProductImage] = useState<{ colorId: string, fileName: string } | null>(null);
+
 
   useEffect(() => {
     // TODO: Gọi API chương trình giảm giá nếu có, hoặc để mock
@@ -64,9 +56,9 @@ export default function NewProductPage() {
       // Process all images first
       const imagePromises = Object.entries(form.variantImages).map(async ([colorId, files]) => {
         const processedImages = await Promise.all(
-          (files as File[]).map(async (file, idx) => ({
+          (files as File[]).map(async (file) => ({
             hinh_anh_urls: await readFileAsBase64(file),
-            mac_dinh: idx === 0
+            mac_dinh: false
           }))
         );
         return { colorId, processedImages };
@@ -147,6 +139,9 @@ export default function NewProductPage() {
                 categories={form.categories}
                 onChange={form.handleProductChange}
                 tenSanPhamRef={form.tenSanPhamRef}
+                defaultProductImage={defaultProductImage}
+                setDefaultProductImage={setDefaultProductImage}
+                onPreview={form.setPreviewImageUrl}
               />
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
                 <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
@@ -166,37 +161,14 @@ export default function NewProductPage() {
                   variantImages={form.variantImages}
                   errors={form.errors}
                   setVariantImages={form.setVariantImages}
+                  updateVariantImages={form.updateVariantImages}
                   setPreviewImageUrl={form.setPreviewImageUrl}
                   handleToggleSizeForColor={form.handleToggleSizeForColor}
                   discounts={form.discounts}
                   variantValues={form.variantValues}
                   handleVariantValueChange={form.handleVariantValueChange}
-                  defaultProductImage={defaultProductImage}
-                  setDefaultProductImage={setDefaultProductImage}
                 />
               </div>
-            </div>
-            {/* Preview ảnh mặc định góc phải */}
-            <div className="w-full md:w-80 flex-shrink-0">
-              {defaultProductImage && form.variantImages[defaultProductImage.colorId] && (
-                (() => {
-                  const file = form.variantImages[defaultProductImage.colorId]?.find(f => f.name === defaultProductImage.fileName);
-                  if (!file) return null;
-                  const url = URL.createObjectURL(file);
-                  return (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col items-center">
-                      <span className="text-base font-semibold mb-2 flex items-center gap-1">
-                        <ImageIcon className="w-5 h-5 text-yellow-400" /> Ảnh mặc định sản phẩm
-                      </span>
-                      <img
-                        src={url}
-                        alt="Ảnh mặc định sản phẩm"
-                        className="w-48 h-48 object-contain rounded-lg border border-slate-100 shadow"
-                      />
-                    </div>
-                  );
-                })()
-              )}
             </div>
           </div>
         </div>

@@ -30,6 +30,7 @@ export interface SanPhamChiTiet {
     gioHangChiTiets?: GioHangChiTiet[];
     giamGia?: GiamGia;
 }
+
 export interface ThemSanPhamChiTietAdminDTO {
     id_san_pham?: string;
     id_mau_sac: string; 
@@ -44,10 +45,37 @@ export interface ThemSanPhamChiTietAdminDTO {
     export interface ThemHinhAnhSanPhamChiTietAdminDTO {
         id_san_pham_chi_tiet?: string;
         hinh_anh_urls: string;
-        mac_dinh: boolean;
     }
     export interface SuaHinhAnhSanPhamChiTietAdminDTO {
       hinh_anh_urls: string;
-      mac_dinh: boolean;
     }
   
+    // Định nghĩa interface cho việc sửa sản phẩm chi tiết
+export interface SuaSanPhamChiTietAdminDTO {
+  id_san_pham_chi_tiet?: string;
+  id_mau_sac: string;
+  id_kich_co: string;
+  id_giam_gia: string;
+  so_luong: number;
+  gia_ban: number;
+  gia_nhap: number;
+  trang_thai: string;
+  them_hinh_anh_spcts: ThemHinhAnhSanPhamChiTietAdminDTO[];
+  xoa_hinh_anh_ids: string[];
+}
+
+export interface HinhAnhSanPhamChiTietAdminDTO {
+  hinh_anh_urls: string;
+  id_hinh_anh: string;
+}
+
+export interface GiamGiaAdminDTO {
+  id_giam_gia: string;
+  ma_giam_gia: string;
+  ten_giam_gia: string;
+  kieu_giam_gia: string;
+  gia_tri_giam: number;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+  trang_thai: string;
+}

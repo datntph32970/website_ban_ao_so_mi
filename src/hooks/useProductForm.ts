@@ -13,10 +13,11 @@ import { attributeService } from '@/services/attribute.service';
 import { sanPhamService } from '@/services/san-pham.service';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { debug } from 'node:util';
 
-export function useProductForm(router: any) {
+export function useProductForm(router: any, defaultProductImage: File | null, setDefaultProductImage: (val: File | null) => void) {
   const [product, setProduct] = useState<ThemSanPhamAdminDTO>({
-    ten_san_pham: '', mo_ta: '', id_thuong_hieu: '', id_kieu_dang: '', id_chat_lieu: '', id_xuat_xu: '', id_danh_muc: '', sanPhamChiTiets: []
+    ten_san_pham: '', mo_ta: '', id_thuong_hieu: '', id_kieu_dang: '', id_chat_lieu: '', id_xuat_xu: '', id_danh_muc: '', url_anh_mac_dinh: '', sanPhamChiTiets: []
   });
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedSizesByColor, setSelectedSizesByColor] = useState<Record<string, string[]>>({});
@@ -39,6 +40,16 @@ export function useProductForm(router: any) {
   const [discounts, setDiscounts] = useState<GiamGia[]>([]);
   const [colors, setColors] = useState<MauSac[]>([]);
   const [sizes, setSizes] = useState<KichCo[]>([]);
+
+  useEffect(() => {
+    if (defaultProductImage) {
+      readFileAsBase64(defaultProductImage).then(url => {
+        setProduct(prev => ({ ...prev, url_anh_mac_dinh: url }));
+      });
+    } else {
+      setProduct(prev => ({ ...prev, url_anh_mac_dinh: '' }));
+    }
+  }, [defaultProductImage]);
 
   useEffect(() => { tenSanPhamRef.current?.focus(); }, []);
 
@@ -90,21 +101,61 @@ export function useProductForm(router: any) {
   }, [setSelectedSizesByColor, setIsDirty]);
 
   const handleAddColorTab = useCallback((colorId: string) => {
+
+    // Kiểm tra xem màu đã được chọn chưa
+    if (selectedColors.includes(colorId)) {
+      return;
+    }
+
+    // Chỉ cập nhật selectedColors và selectedColorTab
     setSelectedColors(prev => {
-      if (!prev.includes(colorId)) {
-        setSelectedColorTab(colorId);
-        return [...prev, colorId];
-      }
-      return prev;
+      const newColors = [...prev, colorId];
+      return newColors;
     });
-  }, [setSelectedColors, setSelectedColorTab]);
+    setSelectedColorTab(colorId);
+  }, [selectedColors]);
+
+  // Sử dụng useEffect để đồng bộ hóa sanPhamChiTiets với selectedColors
+  useEffect(() => {
+
+    // Tạo một Set chứa các id_mau_sac hiện có trong sanPhamChiTiets
+    const existingColorIds = new Set(product.sanPhamChiTiets.map(ct => ct.id_mau_sac));
+    
+    // Tìm các màu mới cần thêm vào
+    const colorsToAdd = selectedColors.filter(colorId => !existingColorIds.has(colorId));
+    
+    if (colorsToAdd.length > 0) {
+      setProduct(prevProduct => {
+        const newChiTiets = [
+          ...prevProduct.sanPhamChiTiets,
+          ...colorsToAdd.map(colorId => ({
+            id_mau_sac: colorId,
+            id_kich_co: '',
+            so_luong: 0,
+            gia_nhap: 0,
+            gia_ban: 0,
+            id_giam_gia: '',
+            them_hinh_anh_spcts: []
+          }))
+        ];
+        return {
+          ...prevProduct,
+          sanPhamChiTiets: newChiTiets
+        };
+      });
+    }
+  }, [selectedColors, product.sanPhamChiTiets]);
 
   const handleRemoveColorTab = useCallback((colorId: string) => {
     setSelectedColors(prev => prev.filter(id => id !== colorId));
     setSelectedColorTab(selectedColors.length > 1 ? selectedColors.find(id => id !== colorId) || '' : '');
     setSelectedSizesByColor(prev => { const copy = { ...prev }; delete copy[colorId]; return copy; });
     setVariantValues(prev => { const copy = { ...prev }; delete copy[colorId]; return copy; });
-  }, [setSelectedColors, setSelectedColorTab, selectedColors, setSelectedSizesByColor, setVariantValues]);
+    setProduct(prevProduct => ({
+      ...prevProduct,
+      sanPhamChiTiets: prevProduct.sanPhamChiTiets.filter(ct => ct.id_mau_sac !== colorId)
+    }));
+  }, [setSelectedColors, setSelectedColorTab, selectedColors, setSelectedSizesByColor, setVariantValues, setProduct]);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -161,7 +212,7 @@ export function useProductForm(router: any) {
   const scrollToFirstError = () => {
     const errorFields = [
       'ten_san_pham', 'id_thuong_hieu', 'id_kieu_dang', 'id_chat_lieu', 'id_xuat_xu', 'id_danh_muc',
-      'sanPhamChiTiets',
+      'sanPhamChiTiets', 'defaultImage'
     ];
     for (const field of errorFields) {
       if (errors[field]) {
@@ -184,8 +235,94 @@ export function useProductForm(router: any) {
     });
   };
 
-  const handleSubmit = async () => {
+  // Hàm kiểm tra ảnh trùng lặp
+  const checkDuplicateImages = async (files: File[]): Promise<{ isDuplicate: boolean; message: string }> => {
+    // Kiểm tra tên file trùng lặp
+    const fileNames = new Set<string>();
+    for (const file of files) {
+      if (fileNames.has(file.name)) {
+        return {
+          isDuplicate: true,
+          message: `Ảnh ${file.name} đã được tải lên trước đó`
+        };
+      }
+      fileNames.add(file.name);
+    }
+
+    // Nếu không có tên file trùng lặp, kiểm tra nội dung ảnh
+    const imageHashes = new Set<string>();
+    for (const file of files) {
+      const arrayBuffer = await file.arrayBuffer();
+      const hash = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashString = Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      if (imageHashes.has(hashString)) {
+        return {
+          isDuplicate: true,
+          message: `Ảnh ${file.name} có nội dung giống với ảnh đã tải lên trước đó`
+        };
+      }
+      imageHashes.add(hashString);
+    }
+    
+    return { isDuplicate: false, message: '' };
+  };
+
+  // Hàm kiểm tra ảnh trùng lặp khi tải lên
+  const checkDuplicateImagesOnUpload = async (newImages: File[], colorId: string) => {
+    // Thu thập tất cả ảnh từ tất cả các màu
+    const allImages: File[] = [];
+    Object.entries(variantImages).forEach(([id, images]) => {
+      if (id !== colorId) { // Không bao gồm ảnh của màu đang tải lên
+        allImages.push(...images);
+      }
+    });
+    allImages.push(...newImages); // Thêm ảnh mới vào để kiểm tra
+
+    const { isDuplicate, message } = await checkDuplicateImages(allImages);
+    if (isDuplicate) {
+      toast.error(message);
+      return false;
+    }
+    return true;
+  };
+
+  // Cập nhật hàm setVariantImages
+  const updateVariantImages = async (colorId: string, images: File[]) => {
+    const isValid = await checkDuplicateImagesOnUpload(images, colorId);
+    if (!isValid) {
+      return;
+    }
+    
+    setVariantImages(prev => ({
+      ...prev,
+      [colorId]: images
+    }));
+    setIsDirty(true);
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
+    console.log('handleSubmit - Starting submit process');
+    console.log('handleSubmit - Current default image:', defaultProductImage);
+    console.log('handleSubmit - Variant images:', variantImages);
+    
+    // Validate form
     const newErrors: { [key: string]: string } = {};
+    
+    // Validate default image
+    if (!defaultProductImage) {
+      console.log('handleSubmit - No default image found');
+      newErrors.defaultImage = 'Vui lòng chọn ảnh mặc định cho sản phẩm';
+    } else {
+      console.log('handleSubmit - Default image exists:', defaultProductImage);
+    }
+
     if (!product.ten_san_pham.trim()) newErrors.ten_san_pham = 'Tên sản phẩm là bắt buộc';
     if (!product.mo_ta.trim()) newErrors.mo_ta = 'Mô tả sản phẩm là bắt buộc';  
     if (!product.id_thuong_hieu) newErrors.id_thuong_hieu = 'Vui lòng chọn thương hiệu';
@@ -194,43 +331,92 @@ export function useProductForm(router: any) {
     if (!product.id_xuat_xu) newErrors.id_xuat_xu = 'Vui lòng chọn xuất xứ';
     if (!product.id_danh_muc) newErrors.id_danh_muc = 'Vui lòng chọn danh mục';
     if (product.sanPhamChiTiets.length === 0) newErrors.sanPhamChiTiets = 'Cần chọn ít nhất 1 màu sắc';
+
     product.sanPhamChiTiets.forEach((ct: ThemSanPhamChiTietAdminDTO) => {
+      const color = colors.find(c => String(c.id_mau_sac) === ct.id_mau_sac);
+      const colorName = color ? color.ten_mau_sac : 'Màu chưa xác định';
       const prefix = `${ct.id_mau_sac}_${ct.id_kich_co}`;
-      if (!ct.id_kich_co) newErrors[`${prefix}_size`] = 'Cần chọn kích cỡ';
-      if (!ct.them_hinh_anh_spcts || ct.them_hinh_anh_spcts.length === 0) newErrors[`${prefix}_images`] = 'Cần thêm hình ảnh';
-      if (!ct.so_luong || ct.so_luong <= 0) newErrors[`${prefix}_stock`] = 'Số lượng phải lớn hơn 0';
-      if (!ct.gia_nhap || ct.gia_nhap <= 0) newErrors[`${prefix}_importPrice`] = 'Giá nhập phải lớn hơn 0';
-      if (!ct.gia_ban || ct.gia_ban <= 0) newErrors[`${prefix}_price`] = 'Giá bán phải lớn hơn 0';
+      
+      if (!ct.id_kich_co) newErrors[`${prefix}_size`] = `Cần chọn kích cỡ cho màu ${colorName}`;
+      if (!ct.them_hinh_anh_spcts || ct.them_hinh_anh_spcts.length === 0) newErrors[`${prefix}_images`] = `Cần thêm hình ảnh cho màu ${colorName}`;
+      if (!ct.so_luong || ct.so_luong <= 0) newErrors[`${prefix}_stock`] = `Số lượng phải lớn hơn 0 cho màu ${colorName}`;
+      if (!ct.gia_nhap || ct.gia_nhap <= 0) newErrors[`${prefix}_importPrice`] = `Giá nhập phải lớn hơn 0 cho màu ${colorName}`;
+      if (!ct.gia_ban || ct.gia_ban <= 0) newErrors[`${prefix}_price`] = `Giá bán phải lớn hơn 0 cho màu ${colorName}`;
     });
+
     Object.entries(variantValues).forEach(([colorId, sizesObj]) => {
+      const color = colors.find(c => String(c.id_mau_sac) === colorId);
+      const colorName = color ? color.ten_mau_sac : 'Màu chưa xác định';
+      
       Object.entries(sizesObj).forEach(([sizeId, values]) => {
-        if (!values.stock || values.stock <= 0) newErrors[`${colorId}_${sizeId}_stock`] = 'Số lượng phải lớn hơn 0';
-        if (!values.importPrice || values.importPrice <= 0) newErrors[`${colorId}_${sizeId}_importPrice`] = 'Giá nhập phải lớn hơn 0';
-        if (!values.price || values.price <= 0) newErrors[`${colorId}_${sizeId}_price`] = 'Giá bán phải lớn hơn 0';
-        if (!variantImages[colorId] || variantImages[colorId].length === 0) newErrors[`${colorId}_images`] = 'Cần thêm hình ảnh cho màu này';
+        if (!values.stock || values.stock <= 0) newErrors[`${colorId}_${sizeId}_stock`] = `Số lượng phải lớn hơn 0 cho màu ${colorName}`;
+        if (!values.importPrice || values.importPrice <= 0) newErrors[`${colorId}_${sizeId}_importPrice`] = `Giá nhập phải lớn hơn 0 cho màu ${colorName}`;
+        if (!values.price || values.price <= 0) newErrors[`${colorId}_${sizeId}_price`] = `Giá bán phải lớn hơn 0 cho màu ${colorName}`;
+        if (!variantImages[colorId] || variantImages[colorId].length === 0) newErrors[`${colorId}_images`] = `Cần thêm hình ảnh cho màu ${colorName}`;
       });
     });
+
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       setTimeout(scrollToFirstError, 100);
-      toast.error('Vui lòng kiểm tra lại các thông tin đã nhập!');
+      const firstError = Object.values(newErrors)[0];
+      toast.error(firstError);
       return;
     }
-    // Chuyển ảnh sang base64 và map lại sanPhamChiTiets
-    const newSanPhamChiTiets = await Promise.all(product.sanPhamChiTiets.map(async (ct: ThemSanPhamChiTietAdminDTO) => {
-      const images = variantImages[ct.id_mau_sac] || [];
-      const base64Images = await Promise.all(images.map(async (file: File, idx: number) => ({
-        hinh_anh_urls: await readFileAsBase64(file),
-        mac_dinh: idx === 0
-      })));
-      return {
-        ...ct,
-        them_hinh_anh_spcts: base64Images
-      };
-    }));
-    const payload = { ...product, sanPhamChiTiets: newSanPhamChiTiets };
+
+    // Process all images first
+    const imagePromises = Object.entries(variantImages).map(async ([colorId, files]) => {
+      const processedImages = await Promise.all(
+        (files as File[]).map(async (file) => {
+          const imageUrl = await readFileAsBase64(file);
+          return {
+            hinh_anh_urls: imageUrl
+          };
+        })
+      );
+      return { colorId, processedImages };
+    });
+    
+    const processedImagesMap = new Map(
+      (await Promise.all(imagePromises)).map(({ colorId, processedImages }) => [colorId, processedImages])
+    );
+
+    // Process default image
+    if (defaultProductImage) {
+      const defaultImageUrl = await readFileAsBase64(defaultProductImage);
+      setProduct(prev => ({ ...prev, url_anh_mac_dinh: defaultImageUrl }));
+    }
+
+    // Create chiTiets with processed images
+    const newChiTiets: ThemSanPhamChiTietAdminDTO[] = [];
+    
+    // Now create the chiTiets with the processed images
+    for (const colorId of selectedColors) {
+      const sizes = selectedSizesByColor[colorId] || [];
+      for (const sizeId of sizes) {
+        if (!sizeId) continue;
+        const values = variantValues[colorId]?.[sizeId] || {};
+        const images = processedImagesMap.get(colorId) || [];
+        
+        newChiTiets.push({
+          id_mau_sac: colorId,
+          id_kich_co: sizeId,
+          so_luong: values.stock || 0,
+          gia_nhap: values.importPrice || 0,
+          gia_ban: values.price || 0,
+          id_giam_gia: values.discount || '',
+          them_hinh_anh_spcts: images
+        });
+      }
+    }
+
+    const payload = { ...product, sanPhamChiTiets: newChiTiets };
+    // Clean up the payload by removing any duplicate arrays
+    const cleanPayload = { ...payload };
+    delete (cleanPayload as any).SanPhamChiTiets;
+    console.log('Final payload:', JSON.stringify(cleanPayload, null, 2));
     try {
-      await sanPhamService.themSanPham(payload);
+      await sanPhamService.themSanPham(cleanPayload);
       toast.success('Thêm sản phẩm thành công!');
       router.push('/products');
     } catch (error) {
@@ -254,10 +440,12 @@ export function useProductForm(router: any) {
     errors, setErrors,
     selectedColorTab, setSelectedColorTab,
     variantImages, setVariantImages,
+    updateVariantImages,
     previewImageUrl, setPreviewImageUrl,
     showLeaveAlert, setShowLeaveAlert,
     pendingUnloadEvent, setPendingUnloadEvent,
     pendingRoute, setPendingRoute,
+    defaultProductImage, setDefaultProductImage,
     brands, setBrands,
     styles, setStyles,
     materials, setMaterials,
@@ -276,4 +464,4 @@ export function useProductForm(router: any) {
     scrollToFirstError,
     originalPush: router.push,
   };
-} 
+}
