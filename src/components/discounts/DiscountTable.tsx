@@ -11,9 +11,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Copy, Edit, Package, Trash, ArrowUp, ArrowDown } from "lucide-react";
+import { Copy, Edit, Package, Trash, ArrowUp, ArrowDown, BarChart2, ShoppingBag } from "lucide-react";
 import { GiamGia, TrangThaiGiamGia } from "@/types/giam-gia";
 import { toast } from "sonner";
+import { useState } from "react";
+import { UpdateDiscountDialog } from "./UpdateDiscountDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { giamGiaService } from "@/services/giam-gia.service";
+import { useQuery } from "@tanstack/react-query";
+import { DiscountProducts } from "./DiscountProducts";
 
 interface DiscountTableProps {
   discounts: GiamGia[];
@@ -49,6 +62,40 @@ export function DiscountTable({
   ascending,
   onSort,
 }: DiscountTableProps) {
+  const [selectedDiscount, setSelectedDiscount] = useState<GiamGia | null>(null);
+  const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
+
+  // Query để lấy chi tiết giảm giá
+  const { data: discountDetails, isLoading: isLoadingDetails } = useQuery({
+    queryKey: ['discount-details', selectedDiscount?.id_giam_gia],
+    queryFn: () => giamGiaService.getById(selectedDiscount!.id_giam_gia),
+    enabled: !!selectedDiscount?.id_giam_gia && isDetailsDialogOpen,
+  });
+
+  const handleEdit = (e: React.MouseEvent, discount: GiamGia) => {
+    e.stopPropagation();
+    setSelectedDiscount(discount);
+    setIsUpdateDialogOpen(true);
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    onDelete(id);
+  };
+
+  const handleRowClick = (discount: GiamGia) => {
+    setSelectedDiscount(discount);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleCopyCode = (e: React.MouseEvent, code: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(code);
+    toast.success("Đã sao chép mã giảm giá");
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -153,8 +200,9 @@ export function DiscountTable({
                 <TableRow 
                   key={discount.id_giam_gia} 
                   className="group cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => handleRowClick(discount)}
                 >
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       checked={selectedDiscounts.includes(String(discount.id_giam_gia))}
                       onCheckedChange={(checked) => onSelectDiscount(String(discount.id_giam_gia), checked as boolean)}
@@ -175,11 +223,7 @@ export function DiscountTable({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-200"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(discount.ma_giam_gia);
-                          toast.success("Đã sao chép mã giảm giá");
-                        }}
+                        onClick={(e) => handleCopyCode(e, discount.ma_giam_gia)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -275,7 +319,7 @@ export function DiscountTable({
                         variant="outline"
                         size="sm"
                         className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100"
-                        onClick={() => onEdit(discount)}
+                        onClick={(e) => handleEdit(e, discount)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
                         Sửa
@@ -284,7 +328,7 @@ export function DiscountTable({
                         variant="ghost"
                         size="icon"
                         className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
-                        onClick={() => onDelete(discount.id_giam_gia)}
+                        onClick={(e) => handleDelete(e, discount.id_giam_gia)}
                       >
                         <Trash className="h-4 w-4" />
                       </Button>
@@ -296,6 +340,276 @@ export function DiscountTable({
           </TableBody>
         </Table>
       </div>
+
+      <UpdateDiscountDialog
+        open={isUpdateDialogOpen}
+        onOpenChange={setIsUpdateDialogOpen}
+        discount={selectedDiscount}
+      />
+
+      <Dialog 
+        open={isDetailsDialogOpen} 
+        onOpenChange={setIsDetailsDialogOpen}
+      >
+        <DialogContent className={activeTab === "products" ? "sm:max-w-[900px] h-[80vh]" : "sm:max-w-[600px]"}>
+          <DialogHeader>
+            <DialogTitle>Chi tiết giảm giá</DialogTitle>
+          </DialogHeader>
+          {isLoadingDetails ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          ) : discountDetails ? (
+            <Tabs 
+              defaultValue="details" 
+              className="w-full"
+              onValueChange={setActiveTab}
+            >
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="details" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Chi tiết giảm giá
+                </TabsTrigger>
+                <TabsTrigger value="statistics" className="flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4" />
+                  Thống kê
+                </TabsTrigger>
+                <TabsTrigger value="products" className="flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4" />
+                  Sản phẩm
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="details" className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Tên giảm giá</Label>
+                    <p className="font-medium">{discountDetails.ten_giam_gia}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Mã giảm giá</Label>
+                    <div className="flex items-center gap-2">
+                      <code className="px-2 py-1 bg-slate-100 rounded text-sm font-medium">{discountDetails.ma_giam_gia}</code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-slate-200"
+                        onClick={(e) => handleCopyCode(e, discountDetails.ma_giam_gia)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Mô tả</Label>
+                  <p className="text-sm text-slate-600">{discountDetails.mo_ta || "Không có mô tả"}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Loại giảm giá</Label>
+                    <Badge className={discountDetails.kieu_giam_gia === 'PhanTram' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}>
+                      {discountDetails.kieu_giam_gia === 'PhanTram' ? 'Phần trăm' : 'Số tiền cố định'}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Giá trị giảm</Label>
+                    {discountDetails.kieu_giam_gia === 'PhanTram' ? (
+                      <div className="flex items-center gap-1">
+                        <Badge className="bg-blue-100 text-blue-800">
+                          {discountDetails.gia_tri_giam}%
+                        </Badge>
+                        {discountDetails.gia_toi_da && (
+                          <span className="text-sm text-slate-500">
+                            (Tối đa: {formatCurrency(discountDetails.gia_toi_da)})
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge className="bg-green-100 text-green-800">
+                        {formatCurrency(discountDetails.gia_tri_giam)}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Số lượng</Label>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{discountDetails.so_luong_da_su_dung || 0}</span>
+                        <span className="text-slate-500">/ {discountDetails.so_luong_toi_da}</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{ 
+                            width: `${((discountDetails.so_luong_da_su_dung || 0) / discountDetails.so_luong_toi_da) * 100}%`,
+                            backgroundColor: (discountDetails.so_luong_da_su_dung || 0) >= discountDetails.so_luong_toi_da 
+                              ? '#ef4444' 
+                              : (discountDetails.so_luong_da_su_dung || 0) >= discountDetails.so_luong_toi_da * 0.8 
+                                ? '#f59e0b' 
+                                : '#22c55e'
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {Math.round(((discountDetails.so_luong_da_su_dung || 0) / discountDetails.so_luong_toi_da) * 100)}% đã sử dụng
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Trạng thái</Label>
+                    <Badge className={discountDetails.trang_thai === TrangThaiGiamGia.HoatDong ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                      {discountDetails.trang_thai === TrangThaiGiamGia.HoatDong ? "Đang hoạt động" : "Đã kết thúc"}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Thời gian bắt đầu</Label>
+                    <p className="text-sm">
+                      {format(new Date(discountDetails.thoi_gian_bat_dau), "dd/MM/yyyy HH:mm", { locale: vi })}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Thời gian kết thúc</Label>
+                    <p className="text-sm">
+                      {format(new Date(discountDetails.thoi_gian_ket_thuc), "dd/MM/yyyy HH:mm", { locale: vi })}
+                    </p>
+                  </div>
+                </div>
+
+                {discountDetails.trang_thai === TrangThaiGiamGia.HoatDong && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Thời gian còn lại</Label>
+                    {new Date() < new Date(discountDetails.thoi_gian_bat_dau) ? (
+                      <p className="text-sm font-medium text-blue-600">
+                        Bắt đầu sau: {formatDistanceToNow(new Date(discountDetails.thoi_gian_bat_dau), { 
+                          locale: vi,
+                          addSuffix: false 
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-medium text-red-600">
+                        Kết thúc sau: {formatDistanceToNow(new Date(discountDetails.thoi_gian_ket_thuc), { 
+                          locale: vi,
+                          addSuffix: false 
+                        })}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-sm font-medium text-slate-700 mb-4">Thông tin người tạo và cập nhật</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-500">Người tạo</Label>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">{discountDetails.nguoiTao?.ten_nhan_vien}</p>
+                        <p className="text-xs text-slate-500">{discountDetails.nguoiTao?.email}</p>
+                        <p className="text-xs text-slate-500">
+                          {format(new Date(discountDetails.ngay_tao), "dd/MM/yyyy HH:mm", { locale: vi })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-slate-500">Người cập nhật</Label>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">{discountDetails.nguoiSua?.ten_nhan_vien}</p>
+                        <p className="text-xs text-slate-500">{discountDetails.nguoiSua?.email}</p>
+                        <p className="text-xs text-slate-500">
+                          {format(new Date(discountDetails.ngay_cap_nhat), "dd/MM/yyyy HH:mm", { locale: vi })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="statistics" className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Tổng số lần sử dụng</Label>
+                    <p className="text-2xl font-bold">{discountDetails.so_luong_da_su_dung || 0}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-500">Số lượng còn lại</Label>
+                    <p className="text-2xl font-bold">{discountDetails.so_luong_toi_da - (discountDetails.so_luong_da_su_dung || 0)}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Tỷ lệ sử dụng</Label>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{discountDetails.so_luong_da_su_dung || 0}</span>
+                      <span className="text-slate-500">/ {discountDetails.so_luong_toi_da}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div 
+                        className="h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${((discountDetails.so_luong_da_su_dung || 0) / discountDetails.so_luong_toi_da) * 100}%`,
+                          backgroundColor: (discountDetails.so_luong_da_su_dung || 0) >= discountDetails.so_luong_toi_da 
+                            ? '#ef4444' 
+                            : (discountDetails.so_luong_da_su_dung || 0) >= discountDetails.so_luong_toi_da * 0.8 
+                              ? '#f59e0b' 
+                              : '#22c55e'
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {Math.round(((discountDetails.so_luong_da_su_dung || 0) / discountDetails.so_luong_toi_da) * 100)}% đã sử dụng
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Thời gian hoạt động</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-slate-500">Bắt đầu</p>
+                      <p className="font-medium">
+                        {format(new Date(discountDetails.thoi_gian_bat_dau), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-500">Kết thúc</p>
+                      <p className="font-medium">
+                        {format(new Date(discountDetails.thoi_gian_ket_thuc), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-500">Trạng thái hiện tại</Label>
+                  <Badge className={discountDetails.trang_thai === TrangThaiGiamGia.HoatDong ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                    {discountDetails.trang_thai === TrangThaiGiamGia.HoatDong ? "Đang hoạt động" : "Đã kết thúc"}
+                  </Badge>
+                  {discountDetails.trang_thai === TrangThaiGiamGia.HoatDong && (
+                    <p className="text-sm text-slate-500">
+                      {new Date() < new Date(discountDetails.thoi_gian_bat_dau) 
+                        ? `Bắt đầu sau: ${formatDistanceToNow(new Date(discountDetails.thoi_gian_bat_dau), { locale: vi, addSuffix: false })}`
+                        : `Kết thúc sau: ${formatDistanceToNow(new Date(discountDetails.thoi_gian_ket_thuc), { locale: vi, addSuffix: false })}`
+                      }
+                    </p>
+                  )}
+                </div>
+              </TabsContent>
+              <TabsContent value="products" className="mt-4 h-[calc(80vh-180px)] overflow-auto">
+                {discountDetails && (
+                  <DiscountProducts discountId={discountDetails.id_giam_gia} />
+                )}
+              </TabsContent>
+            </Tabs>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

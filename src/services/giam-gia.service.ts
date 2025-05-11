@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { GiamGia, TrangThaiGiamGia } from '@/types/giam-gia';
+import { SanPham, PhanTrangSanPhamDTO, ThamSoPhanTrangSanPhamDTO } from '@/types/san-pham';
 
 
 export interface CreateGiamGiaDTO {
@@ -63,16 +64,6 @@ export interface GiamGiaAdminDTO {
     thoi_gian_bat_dau: string;
     thoi_gian_ket_thuc: string;
     trang_thai: string;
-}
-
-export interface DanhMucDTO {
-    id: string;
-    ten: string;
-}
-
-export interface ThuongHieuDTO {
-    id: string;
-    ten: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -158,9 +149,9 @@ export const giamGiaService = {
         return response.data;
     },
 
-    // Lấy danh sách sản phẩm đang được giảm giá
-    getSanPhamDangGiamGia: async (idGiamGia: string): Promise<SanPhamGiamGiaDTO[]> => {
-        const response = await api.get<SanPhamGiamGiaDTO[]>(`/GiamGia/${idGiamGia}/san-pham`);
+    // Lấy danh sách sản phẩm của giảm giá
+    getDSSanPhamCuaGiamGia: async (idGiamGia: string,thamSoPhanTrangSanPhamDTO: ThamSoPhanTrangSanPhamDTO): Promise<PhanTrangSanPhamDTO> => {
+        const response = await api.post<PhanTrangSanPhamDTO>(`/GiamGia/${idGiamGia}/san-pham`, thamSoPhanTrangSanPhamDTO);
         return response.data;
     },
 
@@ -175,5 +166,11 @@ export const giamGiaService = {
     // Thêm giảm giá vào sản phẩm chi tiết
     themGiamGiaVaoSanPhamChiTiet: async (dto: ThemGiamGiaVaoSanPhamChiTietDTO): Promise<void> => {
         await api.post('/GiamGia/them-giam_gia-vao-san-pham-chi-tiet', dto);
+    },
+
+    // Lấy chi tiết sản phẩm đang áp dụng giảm giá
+    getSanPhamChiTietDangGiamGia: async (idGiamGia: string, idSanPham: string): Promise<SanPham> => {
+        const response = await api.get<SanPham>(`/GiamGia/${idGiamGia}/san-pham/${idSanPham}`);
+        return response.data;
     }
 }; 

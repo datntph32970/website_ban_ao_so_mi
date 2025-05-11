@@ -1,5 +1,5 @@
 export interface ThuongHieu {
-    id_thuong_hieu: number;
+    id_thuong_hieu: string;
     ma_thuong_hieu: string;
     ten_thuong_hieu: string;
     mo_ta: string;

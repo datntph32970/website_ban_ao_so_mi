@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { SanPham, ThemSanPhamAdminDTO, PhanTrangSanPhamDTO } from '@/types/san-pham';
+import { SanPham, ThemSanPhamAdminDTO, PhanTrangSanPhamDTO, ThamSoPhanTrangSanPhamDTO } from '@/types/san-pham';
 import { AxiosResponse } from 'axios';
 import { SanPhamChiTiet, SuaSanPhamChiTietAdminDTO, ThemHinhAnhSanPhamChiTietAdminDTO } from '@/types/san-pham-chi-tiet';
 import { attributeService } from './attribute.service';
@@ -43,22 +43,6 @@ export interface UpdateSanPhamChiTietDTO {
   id_san_pham?: string;
   id_kich_co?: string;
   id_mau_sac?: string;
-}
-
-// Định nghĩa interface cho việc phân trang và lọc sản phẩm
-export interface ThamSoPhanTrangSanPhamDTO {
-  trang_hien_tai?: number;
-  so_phan_tu_tren_trang?: number;
-  tim_kiem?: string;
-  sap_xep_theo?: string;
-  sap_xep_tang?: boolean;
-  id_thuong_hieu?: string[];
-  id_danh_muc?: string[];
-  id_kieu_dang?: string[];
-  id_chat_lieu?: string[];
-  id_xuat_xu?: string[];
-  gia_tu?: number;
-  gia_den?: number;
 }
 
 export const sanPhamService = {

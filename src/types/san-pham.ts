@@ -37,15 +37,20 @@ export interface ThemSanPhamAdminDTO {
     url_anh_mac_dinh: string;
     sanPhamChiTiets: ThemSanPhamChiTietAdminDTO[];
 }
-
 export interface ThamSoPhanTrangSanPhamDTO {
-  trang_hien_tai: number;
-  so_phan_tu_tren_trang: number;
+  trang_hien_tai?: number;
+  so_phan_tu_tren_trang?: number;
   tim_kiem?: string;
   sap_xep_theo?: string;
-  sap_xep_tang: boolean;
+  sap_xep_tang?: boolean;
+  id_thuong_hieu?: string[];
+  id_danh_muc?: string[];
+  id_kieu_dang?: string[];
+  id_chat_lieu?: string[];
+  id_xuat_xu?: string[];
+  gia_tu?: number;
+  gia_den?: number;
 }
-
 export interface PhanTrangSanPhamDTO {
   trang_hien_tai: number;
   so_phan_tu_tren_trang: number;
