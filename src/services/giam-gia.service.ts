@@ -138,14 +138,24 @@ export const giamGiaService = {
         id_danh_muc?: string;
         id_thuong_hieu?: string;
         giam_gia_cua_san_phan_chi_tiet?: string;
-    }): Promise<SanPhamGiamGiaDTO[]> => {
+        trang_hien_tai?: number;
+        so_phan_tu_tren_trang?: number;
+        sap_xep_theo?: string;
+        sap_xep_tang?: boolean;
+        trang_thai_giam_gia?: "ChuaCoGiamGia" | "CoGiamGia" | "";
+    }): Promise<PhanTrangSanPhamDTO> => {
         const queryParams = new URLSearchParams();
         if (params?.timkiem) queryParams.append('timkiem', params.timkiem);
         if (params?.id_danh_muc) queryParams.append('id_danh_muc', params.id_danh_muc);
         if (params?.id_thuong_hieu) queryParams.append('id_thuong_hieu', params.id_thuong_hieu);
         if (params?.giam_gia_cua_san_phan_chi_tiet) queryParams.append('giam_gia_cua_san_phan_chi_tiet', params.giam_gia_cua_san_phan_chi_tiet);
+        if (params?.trang_hien_tai) queryParams.append('trang_hien_tai', params.trang_hien_tai.toString());
+        if (params?.so_phan_tu_tren_trang) queryParams.append('so_phan_tu_tren_trang', params.so_phan_tu_tren_trang.toString());
+        if (params?.sap_xep_theo) queryParams.append('sap_xep_theo', params.sap_xep_theo);
+        if (params?.sap_xep_tang !== undefined) queryParams.append('sap_xep_tang', params.sap_xep_tang.toString());
+        if (params?.trang_thai_giam_gia) queryParams.append('trang_thai_giam_gia', params.trang_thai_giam_gia);
 
-        const response = await api.get(`/GiamGia/lay-danh-sach-san-pham-co-the-giam-gia?${queryParams.toString()}`);
+        const response = await api.get<PhanTrangSanPhamDTO>(`/GiamGia/lay-danh-sach-san-pham-co-the-giam-gia?${queryParams.toString()}`);
         return response.data;
     },
 
@@ -164,8 +174,9 @@ export const giamGiaService = {
 
 
     // Thêm giảm giá vào sản phẩm chi tiết
-    themGiamGiaVaoSanPhamChiTiet: async (dto: ThemGiamGiaVaoSanPhamChiTietDTO): Promise<void> => {
-        await api.post('/GiamGia/them-giam_gia-vao-san-pham-chi-tiet', dto);
+    themGiamGiaVaoSanPhamChiTiet: async (dto: ThemGiamGiaVaoSanPhamChiTietDTO): Promise<SanPham> => {
+        const response = await api.post<SanPham>('/GiamGia/them-giam_gia-vao-san-pham-chi-tiet', dto);
+        return response.data;
     },
 
     // Lấy chi tiết sản phẩm đang áp dụng giảm giá

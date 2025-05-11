@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ export interface ComboboxProps<T> {
   getValue: (item: T) => string;
   className?: string;
   renderOption?: (item: T, selected: boolean) => React.ReactNode;
+  allowClear?: boolean;
 }
 
 function Combobox<T>({
@@ -23,6 +24,7 @@ function Combobox<T>({
   getValue,
   className = "",
   renderOption,
+  allowClear = true,
 }: ComboboxProps<T>) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -35,6 +37,11 @@ function Combobox<T>({
   });
   const selected = items.find(item => getValue(item) === value);
 
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onValueChange("");
+  };
+
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
       <PopoverPrimitive.Trigger asChild>
@@ -46,7 +53,25 @@ function Combobox<T>({
           )}
         >
           <span>{selected ? getLabel(selected) : <span className="text-slate-400">{placeholder}</span>}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 text-slate-400" />
+          <div className="flex items-center gap-2">
+            {allowClear && selected && (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={handleClear}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleClear(e as any);
+                  }
+                }}
+                className="p-1 hover:bg-slate-200 rounded-full cursor-pointer"
+                title="Xóa lựa chọn"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </div>
+            )}
+            <ChevronsUpDown className="h-4 w-4 text-slate-400" />
+          </div>
         </button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Content align="start" className="w-[--radix-popover-trigger-width] p-2 bg-white rounded-xl border border-slate-200 shadow-md mt-2">

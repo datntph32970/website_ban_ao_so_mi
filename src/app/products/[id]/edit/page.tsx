@@ -169,30 +169,33 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             // Tạo một promise để xử lý việc tải ảnh
             const loadImage = () => {
               return new Promise<HTMLImageElement>((resolve, reject) => {
-                const img = new (window.Image as any)();
-                img.crossOrigin = "anonymous";
+                const imageElement = new (window.Image as any)();
+                imageElement.crossOrigin = "anonymous";
                 
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error('Failed to load image'));
+                imageElement.onload = () => resolve(imageElement);
+                imageElement.onerror = (e: any) => {
+                  console.error('Image load error:', e);
+                  reject(new Error(`Failed to load image: ${imageUrl}`));
+                };
                 
                 // Thêm timestamp để tránh cache
                 const timestamp = new Date().getTime();
-                img.src = `${imageUrl}?t=${timestamp}`;
+                imageElement.src = `${imageUrl}?t=${timestamp}`;
               });
             };
 
             // Tải ảnh và chuyển đổi thành File
-            const img = await loadImage();
+            const loadedImage = await loadImage();
             const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
+            canvas.width = loadedImage.width;
+            canvas.height = loadedImage.height;
             
             const ctx = canvas.getContext('2d');
             if (!ctx) {
               throw new Error('Could not get canvas context');
             }
             
-            ctx.drawImage(img, 0, 0);
+            ctx.drawImage(loadedImage, 0, 0);
             
             // Chuyển đổi canvas thành blob
             const blob = await new Promise<Blob>((resolve, reject) => {
@@ -255,19 +258,47 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                       ? img.hinh_anh_urls
                       : `${API_BASE}${img.hinh_anh_urls}`;
 
-                    const response = await fetch(imageUrl, {
-                      method: 'GET',
-                      headers: {
-                        'Accept': 'image/*',
-                      },
-                      mode: 'cors',
+                    console.log('Full image URL:', imageUrl);
+
+                    // Tạo một promise để xử lý việc tải ảnh
+                    const loadImage = () => {
+                      return new Promise<HTMLImageElement>((resolve, reject) => {
+                        const imageElement = new (window.Image as any)();
+                        imageElement.crossOrigin = "anonymous";
+                        
+                        imageElement.onload = () => resolve(imageElement);
+                        imageElement.onerror = (e: any) => {
+                          console.error('Image load error:', e);
+                          reject(new Error(`Failed to load image: ${imageUrl}`));
+                        };
+                        
+                        // Thêm timestamp để tránh cache
+                        const timestamp = new Date().getTime();
+                        imageElement.src = `${imageUrl}?t=${timestamp}`;
+                      });
+                    };
+
+                    // Tải ảnh và chuyển đổi thành File
+                    const loadedImage = await loadImage();
+                    const canvas = document.createElement('canvas');
+                    canvas.width = loadedImage.width;
+                    canvas.height = loadedImage.height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                      throw new Error('Could not get canvas context');
+                    }
+                    
+                    ctx.drawImage(loadedImage, 0, 0);
+                    
+                    // Chuyển đổi canvas thành blob
+                    const blob = await new Promise<Blob>((resolve, reject) => {
+                      canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error('Could not convert canvas to blob'));
+                      }, 'image/jpeg', 0.95);
                     });
 
-                    if (!response.ok) {
-                      throw new Error(`Failed to load image: ${response.statusText}`);
-                    }
-
-                    const blob = await response.blob();
                     const file = new File([blob], img.hinh_anh_urls.split('/').pop() || 'image.jpg', { type: blob.type });
                     console.log('Image file created:', file.name, file.size);
                     return file;
@@ -275,9 +306,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 );
                 console.log('All images processed for variant:', imageFiles.length);
                 imagesByColor[colorId] = imageFiles;
-              } catch (error) {
+              } catch (error: any) {
                 console.error("Error loading variant images:", error);
-                toast.error(`Không thể tải ảnh cho biến thể ${colorId}`);
+                toast.error(`Không thể tải ảnh cho biến thể ${colorId}: ${error.message}`);
               }
             }
           }
@@ -523,6 +554,40 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const handleToggleSizeForColor = (colorId: string, sizeId: string) => {
+    // Kiểm tra xem kích cỡ này đã tồn tại trong sản phẩm chưa
+    const existingVariant = product?.sanPhamChiTiets?.find(
+      variant => String(variant.mauSac?.id_mau_sac) === colorId && String(variant.kichCo?.id_kich_co) === sizeId
+    );
+
+    if (existingVariant) {
+      // Nếu kích cỡ đã tồn tại, hiển thị dialog xác nhận xóa
+      setSizeToDelete({ colorId, sizeId });
+      setIsDeleteSizeDialogOpen(true);
+    } else {
+      // Nếu là kích cỡ mới, thêm vào danh sách
+      setSelectedSizesByColor(prev => ({
+        ...prev,
+        [colorId]: [...(prev[colorId] || []), sizeId]
+      }));
+
+      // Khởi tạo giá trị mặc định cho kích cỡ mới
+      setVariantValues(prev => ({
+        ...prev,
+        [colorId]: {
+          ...prev[colorId],
+          [sizeId]: {
+            stock: 0,
+            importPrice: 0,
+            price: 0,
+            discount: "",
+            images: []
+          }
+        }
+      }));
+    }
+  };
+
   if (isLoading) {
     return (
       <AdminLayout>
@@ -701,10 +766,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   errors={errors}
                   setVariantImages={setVariantImages}
                   setPreviewImageUrl={(url) => setPreviewImages([url])}
-                  handleToggleSizeForColor={(colorId, sizeId) => {
-                    setSizeToDelete({ colorId, sizeId });
-                    setIsDeleteSizeDialogOpen(true);
-                  }}
+                  handleToggleSizeForColor={handleToggleSizeForColor}
                   discounts={discounts}
                   variantValues={variantValues}
                   handleVariantValueChange={(colorId, sizeId, field, value) => {

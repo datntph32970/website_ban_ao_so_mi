@@ -8,12 +8,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { giamGiaService } from '@/services/giam-gia.service';
-import { SanPhamGiamGiaDTO } from '@/services/giam-gia.service';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SanPham } from '@/types/san-pham';
 
 interface ManageProductsDialogProps {
     open: boolean;
@@ -26,7 +26,7 @@ export function ManageProductsDialog({
     onOpenChange,
     discountId,
 }: ManageProductsDialogProps) {
-    const [products, setProducts] = useState<SanPhamGiamGiaDTO[]>([]);
+    const [products, setProducts] = useState<SanPham[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 

@@ -39,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
+import { AddProductsDialog } from "./AddProductsDialog";
 
 interface DiscountProductsProps {
   discountId: string;
@@ -67,6 +68,7 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
     gia_tu: undefined,
     gia_den: undefined
   });
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   // Query để lấy danh sách danh mục
   const { data: categories = [] } = useQuery<DanhMuc[]>({
@@ -278,6 +280,10 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleAddProducts = () => {
+    setIsAddDialogOpen(true);
   };
 
   const renderProductDetails = (product: SanPham) => {
@@ -497,7 +503,7 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
         </div>
         <div className="flex items-center gap-2">
           <Button 
-            onClick={onAddProducts}
+            onClick={handleAddProducts}
             size="sm"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -691,6 +697,16 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Products Dialog */}
+      <AddProductsDialog
+        discountId={discountId}
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['discount-products', discountId] });
+        }}
+      />
     </div>
   );
 } 
