@@ -612,17 +612,17 @@ export default function OrderTabContent({
                             const isOutOfStock = !variant?.stock;
                             return (
                               <div key={idx} className="flex flex-col items-center">
-                                <button
+                            <button
                                   className={`w-full p-2 rounded-lg border transition-all ${
-                                    selectedSize === size
+                                selectedSize === size
                                       ? 'border-blue-500 bg-blue-50'
-                                      : 'border-slate-200 hover:border-blue-300'
+                                  : 'border-slate-200 hover:border-blue-300'
                                   } ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   onClick={() => !isOutOfStock && setSelectedSize(size)}
                                   disabled={isOutOfStock}
-                                >
+                            >
                                   <span className="font-medium">{size}</span>
-                                </button>
+                            </button>
                                 {variant && (
                                   <span className={`text-xs mt-1 ${
                                     variant.stock > 10 

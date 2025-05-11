@@ -21,41 +21,41 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning={true}>
       <body className={inter.className} suppressHydrationWarning={true}>
         <Providers>
-          <ClientBody>
-            {children}
-            <Toaster
-              position="top-right"
-              toastOptions={{
+        <ClientBody>
+          {children}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: '#333',
+                color: '#fff',
+                borderRadius: '8px',
+                padding: '16px',
+              },
+              success: {
                 duration: 3000,
                 style: {
-                  background: '#333',
-                  color: '#fff',
-                  borderRadius: '8px',
-                  padding: '16px',
+                  background: '#059669',
                 },
-                success: {
-                  duration: 3000,
-                  style: {
-                    background: '#059669',
-                  },
-                  iconTheme: {
-                    primary: '#fff',
-                    secondary: '#059669',
-                  },
+                iconTheme: {
+                  primary: '#fff',
+                  secondary: '#059669',
                 },
-                error: {
-                  duration: 4000,
-                  style: {
-                    background: '#DC2626',
-                  },
-                  iconTheme: {
-                    primary: '#fff',
-                    secondary: '#DC2626',
-                  },
+              },
+              error: {
+                duration: 4000,
+                style: {
+                  background: '#DC2626',
                 },
-              }}
-            />
-          </ClientBody>
+                iconTheme: {
+                  primary: '#fff',
+                  secondary: '#DC2626',
+                },
+              },
+            }}
+          />
+        </ClientBody>
         </Providers>
       </body>
     </html>

@@ -17,5 +17,5 @@ export function formatCurrency(amount: number): string {
 export function getImageUrl(path: string | null | undefined): string {
   if (!path) return '/placeholder.png';
   if (path.startsWith('http')) return path;
-  return `${process.env.NEXT_PUBLIC_API_URL}/images/products/${path}`;
+  return `${process.env.NEXT_PUBLIC_API_URL}${path}`;
 }

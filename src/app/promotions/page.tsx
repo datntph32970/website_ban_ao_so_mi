@@ -182,7 +182,7 @@ const AddEditDialog = ({
     try {
       setIsSubmitting(true);
       await onSubmit(formData);
-      setIsConfirmDialogOpen(false);
+    setIsConfirmDialogOpen(false);
     } catch (error) {
       console.error('Error submitting form:', error);
     } finally {
@@ -865,15 +865,15 @@ export default function PromotionsPage() {
   // Mutation để thêm khuyến mãi mới
   const addMutation = useMutation({
     mutationFn: (data: FormData) => khuyenMaiService.themKhuyenMai({
-      ten_khuyen_mai: data.ten_khuyen_mai,
-      mo_ta: data.mo_ta,
-      kieu_khuyen_mai: data.kieu_khuyen_mai as KieuKhuyenMai,
-      gia_tri_giam: data.gia_tri_giam,
-      gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
-      gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
-      so_luong_toi_da: data.so_luong_toi_da,
-      thoi_gian_bat_dau: data.thoi_gian_bat_dau,
-      thoi_gian_ket_thuc: data.thoi_gian_ket_thuc
+        ten_khuyen_mai: data.ten_khuyen_mai,
+        mo_ta: data.mo_ta,
+        kieu_khuyen_mai: data.kieu_khuyen_mai as KieuKhuyenMai,
+        gia_tri_giam: data.gia_tri_giam,
+        gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
+        gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
+        so_luong_toi_da: data.so_luong_toi_da,
+        thoi_gian_bat_dau: data.thoi_gian_bat_dau,
+        thoi_gian_ket_thuc: data.thoi_gian_ket_thuc
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promotions'] });
@@ -889,15 +889,15 @@ export default function PromotionsPage() {
   // Mutation để cập nhật khuyến mãi
   const updateMutation = useMutation({
     mutationFn: (data: FormData) => khuyenMaiService.suaKhuyenMai(data.id_khuyen_mai!, {
-      ten_khuyen_mai: data.ten_khuyen_mai,
-      mo_ta: data.mo_ta,
-      kieu_khuyen_mai: data.kieu_khuyen_mai as KieuKhuyenMai,
-      gia_tri_giam: data.gia_tri_giam,
-      gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
-      gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
-      so_luong_toi_da: data.so_luong_toi_da,
-      thoi_gian_bat_dau: data.thoi_gian_bat_dau,
-      thoi_gian_ket_thuc: data.thoi_gian_ket_thuc
+        ten_khuyen_mai: data.ten_khuyen_mai,
+        mo_ta: data.mo_ta,
+        kieu_khuyen_mai: data.kieu_khuyen_mai as KieuKhuyenMai,
+        gia_tri_giam: data.gia_tri_giam,
+        gia_tri_don_hang_toi_thieu: data.gia_tri_don_hang_toi_thieu,
+        gia_tri_giam_toi_da: data.gia_tri_giam_toi_da,
+        so_luong_toi_da: data.so_luong_toi_da,
+        thoi_gian_bat_dau: data.thoi_gian_bat_dau,
+        thoi_gian_ket_thuc: data.thoi_gian_ket_thuc
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promotions'] });
@@ -995,9 +995,9 @@ export default function PromotionsPage() {
             )}
             <Link href="/promotions/new">
               <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                <span>Thêm khuyến mãi</span>
-              </Button>
+            <Plus className="h-4 w-4" />
+            <span>Thêm khuyến mãi</span>
+          </Button>
             </Link>
           </div>
         </div>

@@ -386,12 +386,12 @@ export default function ProductsPage() {
                 <span>Xóa ({selectedProducts.length})</span>
               </Button>
             )}
-            <Link href="/products/new">
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                <span>Thêm sản phẩm</span>
-              </Button>
-            </Link>
+          <Link href="/products/new">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              <span>Thêm sản phẩm</span>
+            </Button>
+          </Link>
           </div>
         </div>
 
@@ -703,10 +703,10 @@ export default function ProductsPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
                         <Link href={`/products/${String(product.id)}/edit`}>
-                          <Button size="icon" variant="ghost" className="text-blue-500 hover:bg-blue-50">
+                        <Button size="icon" variant="ghost" className="text-blue-500 hover:bg-blue-50">
                             <Edit className="h-4 w-4" />
                           </Button>
-                        </Link>
+                          </Link>
                         <Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleDelete(String(product.id))}>
                           <Trash className="h-4 w-4" />
                         </Button>

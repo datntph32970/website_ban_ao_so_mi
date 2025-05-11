@@ -1,5 +1,6 @@
 import { NhanVien } from "./nhan-vien";
 import { SanPhamChiTiet } from "./san-pham-chi-tiet";
+import { SanPhamGiamGiaDTO } from "@/services/giam-gia.service";
 
 export enum TrangThaiGiamGia {
     HoatDong = "HoatDong",
@@ -30,7 +31,7 @@ export interface GiamGia {
     danh_sach_san_pham?: string[];
     danh_muc_ap_dung?: string[];
     thuong_hieu_ap_dung?: string[];
-    sanPhamChiTiets?: SanPhamChiTiet[];
+    sanPhamChiTiets?: SanPhamGiamGiaDTO[];
     ngay_tao: string;
     ngay_cap_nhat: string;
     id_nguoi_tao: string;

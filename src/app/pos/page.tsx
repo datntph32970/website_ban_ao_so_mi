@@ -424,16 +424,16 @@ export default function POSPage() {
     const oldQuantity = orders[activeOrderIndex].cart.find(item => item.id === id)?.quantity || 0;
 
     try {
-      if (newQuantity <= 0) {
+    if (newQuantity <= 0) {
         // Xóa sản phẩm khỏi giỏ hàng
         await hoaDonService.xoaHoaDonChiTiet(id);
-        setOrders(prev => {
-          const newOrders = [...prev];
-          const activeOrder = newOrders[activeOrderIndex];
-          newOrders[activeOrderIndex].cart = activeOrder.cart.filter(item => item.id !== id);
-          return newOrders;
-        });
-      } else {
+      setOrders(prev => {
+        const newOrders = [...prev];
+        const activeOrder = newOrders[activeOrderIndex];
+        newOrders[activeOrderIndex].cart = activeOrder.cart.filter(item => item.id !== id);
+        return newOrders;
+      });
+    } else {
         // Cập nhật số lượng
         console.log('Updating cart item with data:', {
           id_hoa_don: orders[activeOrderIndex].currentOrderId,
@@ -442,10 +442,10 @@ export default function POSPage() {
         });
         
         // Cập nhật trực tiếp số lượng trong cart trước khi gọi API
-        setOrders(prev => {
-          const newOrders = [...prev];
-          const activeOrder = newOrders[activeOrderIndex];
-          newOrders[activeOrderIndex].cart = activeOrder.cart.map(item => 
+      setOrders(prev => {
+        const newOrders = [...prev];
+        const activeOrder = newOrders[activeOrderIndex];
+        newOrders[activeOrderIndex].cart = activeOrder.cart.map(item =>
             item.id === id ? { ...item, quantity: newQuantity, total: item.price * newQuantity } : item
           );
           return newOrders;
@@ -478,8 +478,8 @@ export default function POSPage() {
               quantity: item.so_luong,
               total: item.thanh_tien
             }));
-            return newOrders;
-          });
+        return newOrders;
+      });
         }
       }
     } catch (error: any) {
@@ -656,19 +656,19 @@ export default function POSPage() {
       // Kiểm tra response có phải là ID của hóa đơn mới không
       if (response && typeof response === 'string' && response !== 'Thêm hóa đơn thành công') {
         // Tạo tab mới với ID hóa đơn mới
-        const newOrder = {
-          ...getDefaultOrder(),
+          const newOrder = {
+            ...getDefaultOrder(),
           currentOrderId: response, // Sử dụng ID từ response
           cart: [],
           selectedCustomer: null
         };
         
         // Thêm tab mới và chuyển sang tab đó
-        setOrders(prev => [...prev, newOrder]);
-        setActiveOrderIndex(orders.length);
-        setShowEmptyState(false);
-        toast.success('Tạo hóa đơn mới thành công');
-      } else {
+          setOrders(prev => [...prev, newOrder]);
+          setActiveOrderIndex(orders.length);
+          setShowEmptyState(false);
+          toast.success('Tạo hóa đơn mới thành công');
+        } else {
         throw new Error('Không nhận được ID hóa đơn mới từ server');
       }
     } catch (error: any) {
@@ -760,15 +760,15 @@ export default function POSPage() {
             cart: (chiTiet.hoaDonChiTiets || []).map((item: any) => ({
               id: item.id_hoa_don_chi_tiet.toString(),
               id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
-              name: [
-                item.sanPhamChiTiet?.ten_san_pham,
-                item.sanPhamChiTiet?.ten_mau_sac,
-                item.sanPhamChiTiet?.ten_kich_co
-              ].filter(Boolean).join(' - '),
-              price: item.gia_sau_giam_gia ?? item.don_gia,
-              originalPrice: item.don_gia,
-              quantity: item.so_luong,
-              total: item.thanh_tien
+            name: [
+              item.sanPhamChiTiet?.ten_san_pham,
+              item.sanPhamChiTiet?.ten_mau_sac,
+              item.sanPhamChiTiet?.ten_kich_co
+            ].filter(Boolean).join(' - '),
+            price: item.gia_sau_giam_gia ?? item.don_gia,
+            originalPrice: item.don_gia,
+            quantity: item.so_luong,
+            total: item.thanh_tien
             })),
             selectedCustomer: chiTiet.khachHang ? {
               id_khach_hang: chiTiet.khachHang.id_khach_hang,
