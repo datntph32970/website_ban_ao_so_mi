@@ -18,6 +18,8 @@ export interface SanPham {
     ten_nguoi_sua?: string;
     ngay_sua?: string;
     url_anh_mac_dinh: string;
+    ten_thuong_hieu?: string;
+    ten_danh_muc?: string;
     thuongHieu?: ThuongHieu;
     danhMuc?: DanhMuc;
     kieuDang?: KieuDang;

@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { AddProductsDialog } from "./AddProductsDialog";
+import Link from "next/link";
 
 interface DiscountProductsProps {
   discountId: string;
@@ -351,7 +352,10 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
                     : null;
 
                   return (
-                    <TableRow key={variant.id_san_pham_chi_tiet}>
+                    <TableRow key={variant.id_san_pham_chi_tiet} 
+                      className="cursor-pointer hover:bg-slate-50 transition-colors duration-200"
+                      onClick={() => handleSelectVariant(variant.id_san_pham_chi_tiet, !selectedVariants.includes(variant.id_san_pham_chi_tiet))}
+                    >
                       <TableCell>
                         <Checkbox
                           checked={selectedVariants.includes(variant.id_san_pham_chi_tiet)}
@@ -369,7 +373,13 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-medium line-clamp-1">{productDetail.ten_san_pham}</p>
+                          <Link 
+                            href={`/products/${productDetail.id_san_pham}`}
+                            className="font-medium line-clamp-1 hover:text-blue-600 transition-colors duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {productDetail.ten_san_pham}
+                          </Link>
                           <div className="flex items-center gap-1.5">
                             <Badge className="text-xs border">
                               {variant.mauSac?.ten_mau_sac}
@@ -582,7 +592,13 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
                             className="w-12 h-12 object-cover rounded"
                           />
                           <div className="space-y-1">
-                            <p className="font-medium">{product.ten_san_pham}</p>
+                            <Link 
+                              href={`/products/${product.id_san_pham}`}
+                              className="font-medium hover:text-blue-600 transition-colors duration-200"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {product.ten_san_pham}
+                            </Link>
                             <p className="text-sm text-slate-500 line-clamp-2">{product.mo_ta}</p>
                           </div>
                         </div>

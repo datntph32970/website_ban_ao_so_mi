@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "react-hot-toast";
 import { sanPhamService } from "@/services/san-pham.service";
+import Link from "next/link";
 
 interface AddProductsDialogProps {
   discountId: string;
@@ -134,6 +135,26 @@ export function AddProductsDialog({
 
     setSelectedProducts(newSelectedProducts);
   }, [selectedVariants, productsData, expandedProductId, expandedProductDetail]);
+
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSearchTerm("");
+      setExpandedProductId(null);
+      setSelectedProducts([]);
+      setSelectedVariants([]);
+      setPageConfig(prev => ({
+        ...prev,
+        trang_hien_tai: 1,
+        tim_kiem: "",
+        id_thuong_hieu: [],
+        id_danh_muc: []
+      }));
+      setDiscountStatus("all");
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['available-products'] });
+    }
+  }, [open, queryClient]);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -306,10 +327,10 @@ export function AddProductsDialog({
           <div className="space-y-1">
             <p><span className="font-medium">Mã:</span> {productDetail.ma_san_pham}</p>
             <p><span className="font-medium">Tên:</span> {productDetail.ten_san_pham}</p>
-            <p><span className="font-medium">Thương hiệu:</span> {productDetail.thuongHieu?.ten_thuong_hieu}</p>
+            <p><span className="font-medium">Thương hiệu:</span> {productDetail.ten_thuong_hieu}</p>
           </div>
           <div className="space-y-1">
-            <p><span className="font-medium">Danh mục:</span> {productDetail.danhMuc?.ten_danh_muc}</p>
+            <p><span className="font-medium">Danh mục:</span> {productDetail.ten_danh_muc}</p>
             <div className="flex items-center gap-2">
               <span className="font-medium">Trạng thái:</span>
               <Badge className={productDetail.trang_thai === 'HoatDong' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
@@ -323,58 +344,51 @@ export function AddProductsDialog({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium">Danh sách biến thể</h3>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={productVariants.every(variant => selectedVariants.includes(variant.id_san_pham_chi_tiet))}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    const variantIds = productVariants.map(v => v.id_san_pham_chi_tiet);
-                    setSelectedVariants(prev => [...prev, ...variantIds]);
-                  } else {
-                    const variantIds = productVariants.map(v => v.id_san_pham_chi_tiet);
-                    setSelectedVariants(prev => prev.filter(id => !variantIds.includes(id)));
-                  }
-                }}
-              />
-              <span className="text-xs text-gray-500">Chọn tất cả</span>
-            </div>
           </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[30px]"></TableHead>
                   <TableHead className="w-[40px]">Ảnh</TableHead>
                   <TableHead>Mã</TableHead>
                   <TableHead>Màu sắc</TableHead>
                   <TableHead>Kích cỡ</TableHead>
                   <TableHead className="text-right w-[80px]">Số lượng</TableHead>
-                  <TableHead className="text-right w-[100px]">Giá bán</TableHead>
+                  <TableHead className="text-right w-[150px]">Giá</TableHead>
+                  <TableHead className="w-[30px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {productVariants.map((variant: any) => {
                   const firstImage = variant.hinhAnhSanPhamChiTiets?.[0]?.hinh_anh_urls;
+                  const giamGia = variant.giamGia;
+                  const giaSauGiam = giamGia 
+                    ? giamGia.kieu_giam_gia === 'PhanTram' 
+                      ? variant.gia_ban * (1 - giamGia.gia_tri_giam / 100)
+                      : variant.gia_ban - giamGia.gia_tri_giam
+                    : variant.gia_ban;
 
                   return (
-                    <TableRow key={variant.id_san_pham_chi_tiet}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedVariants.includes(variant.id_san_pham_chi_tiet)}
-                          onCheckedChange={(checked) => handleSelectVariant(variant.id_san_pham_chi_tiet, checked as boolean)}
-                        />
-                      </TableCell>
+                    <TableRow 
+                      key={variant.id_san_pham_chi_tiet}
+                      className={`transition-colors duration-200 cursor-pointer ${
+                        selectedVariants.includes(variant.id_san_pham_chi_tiet)
+                          ? 'bg-blue-50 hover:bg-blue-100 shadow-sm'
+                          : 'hover:bg-slate-50'
+                      }`}
+                      onClick={() => handleSelectVariant(variant.id_san_pham_chi_tiet, !selectedVariants.includes(variant.id_san_pham_chi_tiet))}
+                    >
                       <TableCell>
                         <div className="w-8 h-8 relative">
                           <img
                             src={getImageUrl(firstImage)}
                             alt={variant.ma_san_pham_chi_tiet}
-                            className="w-full h-full object-cover rounded"
+                            className="w-full h-full object-cover rounded transition-transform duration-200 hover:scale-110"
                           />
                         </div>
                       </TableCell>
                       <TableCell>
-                        <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs">
+                        <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs transition-colors duration-200">
                           {variant.ma_san_pham_chi_tiet}
                         </code>
                       </TableCell>
@@ -382,7 +396,36 @@ export function AddProductsDialog({
                       <TableCell>{variant.kichCo?.ten_kich_co}</TableCell>
                       <TableCell className="text-right">{variant.so_luong}</TableCell>
                       <TableCell className="text-right">
-                        {formatCurrency(variant.gia_ban)}
+                        <div className="space-y-0.5">
+                          {giamGia ? (
+                            <>
+                              <p className="text-sm line-through text-slate-500">
+                                {formatCurrency(variant.gia_ban)}
+                              </p>
+                              <div className="flex items-center justify-end gap-2">
+                                <p className="text-sm font-medium text-red-600">
+                                  {formatCurrency(giaSauGiam)}
+                                </p>
+                                <Badge className="text-xs bg-red-100 text-red-700">
+                                  {giamGia.kieu_giam_gia === 'PhanTram' 
+                                    ? `-${giamGia.gia_tri_giam}%` 
+                                    : `-${formatCurrency(giamGia.gia_tri_giam || 0)}`}
+                                </Badge>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm font-medium">
+                              {formatCurrency(variant.gia_ban)}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedVariants.includes(variant.id_san_pham_chi_tiet)}
+                          onCheckedChange={(checked) => handleSelectVariant(variant.id_san_pham_chi_tiet, checked as boolean)}
+                          className="transition-all duration-200"
+                        />
                       </TableCell>
                     </TableRow>
                   );
@@ -406,8 +449,8 @@ export function AddProductsDialog({
         </DialogHeader>
 
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in-50 duration-300 delay-100">
-            <div className="relative">
+          <div className="pt-1 grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in-50 duration-300 delay-100">
+            <div className="relative ">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
               <Input
                 className="pl-10 pr-10"
@@ -538,7 +581,13 @@ export function AddProductsDialog({
                                   alt={product.ten_san_pham}
                                   className="w-8 h-8 object-cover rounded transition-all duration-200 hover:scale-110"
                                 />
-                                <p className="font-medium line-clamp-1">{product.ten_san_pham}</p>
+                                <Link 
+                                  href={`/products/${product.id_san_pham}`}
+                                  className="font-medium line-clamp-1 hover:text-blue-600 transition-colors duration-200"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {product.ten_san_pham}
+                                </Link>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -571,7 +620,7 @@ export function AddProductsDialog({
                           {expandedProductId === product.id_san_pham && (
                             <TableRow>
                               <TableCell colSpan={7} className="p-0">
-                                <div className="max-h-[400px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                                <div className="max-h-[400px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] transition-all duration-300 ease-in-out">
                                   {renderProductDetails(product)}
                                 </div>
                               </TableCell>
