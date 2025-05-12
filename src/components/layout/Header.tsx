@@ -22,7 +22,7 @@ export function Header() {
     try {
       authService.logout();
       toast.success('Đăng xuất thành công!');
-      router.push('/login');
+      router.push('/auth/login');
     } catch (error) {
       toast.error('Có lỗi xảy ra khi đăng xuất');
     }

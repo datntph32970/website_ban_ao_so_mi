@@ -133,7 +133,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         setProduct(data);
       } catch (error) {
         toast.error("Không thể tải thông tin sản phẩm");
-        router.push("/products");
+        router.push("/admin/products");
       } finally {
         setLoading(false);
       }
@@ -327,7 +327,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           {/* Page header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => router.push("/products")}>
+              <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => router.push("/admin/products")}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
@@ -356,7 +356,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <TooltipContent>Chia sẻ sản phẩm</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <Button variant="outline" className="h-10" onClick={() => router.push(`/products/${productId}/edit`)}>
+              <Button variant="outline" className="h-10" onClick={() => router.push(`/admin/products/${productId}/edit`)}>
                 <Edit className="w-4 h-4 mr-2" />
                 Chỉnh sửa
               </Button>
@@ -831,7 +831,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                         {formatCurrency(variant.gia_ban)}
                                       </div>
                                       {variant.giamGia.ten_giam_gia && (
-                                        <Link href={`/discounts?search=${encodeURIComponent(variant.giamGia.ten_giam_gia)}`} legacyBehavior>
+                                        <Link href={`/admin/discounts?search=${encodeURIComponent(variant.giamGia.ten_giam_gia)}`} legacyBehavior>
                                           <a className="text-xs text-blue-600 mt-1 hover:underline cursor-pointer" target="_self" rel="noopener noreferrer">
                                             {variant.giamGia.ten_giam_gia}
                                           </a>

@@ -52,7 +52,7 @@ export default function ChangePasswordPage() {
         xac_nhan_mat_khau_moi: formData.xac_nhan_mat_khau_moi,
       });
       toast.success('Đổi mật khẩu thành công!');
-      router.push('/dashboard');
+      router.push('/admin/dashboard');
     } catch (err: any) {
       toast.error(err.response?.data || 'Đổi mật khẩu thất bại');
     } finally {

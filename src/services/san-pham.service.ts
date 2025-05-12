@@ -51,10 +51,20 @@ export const sanPhamService = {
     const response = await api.post<PhanTrangSanPhamDTO>('/SanPham/lay-danh-sach-san-pham-admin-dto', params);
     return response.data;
   },
+  // Lấy danh sách sản phẩm đang hoạt động
+  getDanhSachSanPhamHoatDong: async (params: ThamSoPhanTrangSanPhamDTO): Promise<PhanTrangSanPhamDTO> => {
+    const response = await api.post<PhanTrangSanPhamDTO>('/SanPham/lay-danh-sach-san-pham-hoat-dong', params);
+    return response.data;
+  },
 
   // Lấy chi tiết sản phẩm theo ID
   getChiTietSanPham: async (id: string) => {
     const response = await api.get<SanPham>(`/SanPham/lay-san-pham-admin-dto-theo-id?id=${id}`);
+    return response.data;
+  },
+  // Lấy chi tiết sản phẩm theo ID
+  getChiTietSanPhamHoatDong: async (id: string) => {
+    const response = await api.get<SanPham>(`/SanPham/lay-san-pham-hoat-dong-theo-id/${id}`);
     return response.data;
   },
 

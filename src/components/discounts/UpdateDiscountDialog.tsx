@@ -20,12 +20,14 @@ interface UpdateDiscountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   discount: GiamGia | null;
+  onSuccess?: () => void;
 }
 
 export function UpdateDiscountDialog({
   open,
   onOpenChange,
   discount,
+  onSuccess,
 }: UpdateDiscountDialogProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
@@ -123,10 +125,11 @@ export function UpdateDiscountDialog({
       await giamGiaService.update(discount.id_giam_gia, data);
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
       toast.success("Cập nhật giảm giá thành công!");
+      onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Lỗi khi cập nhật giảm giá:", error);
-      toast.error(error.response.data || "Có lỗi xảy ra khi cập nhật giảm giá!");
+      toast.error(error.response?.data || "Có lỗi xảy ra khi cập nhật giảm giá!");
     }
   };
 

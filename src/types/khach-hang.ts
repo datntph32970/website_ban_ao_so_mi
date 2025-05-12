@@ -1,5 +1,5 @@
 import { GioHangChiTiet } from "./gio-hang";
-import { HoaDon } from "./hoa-don";
+import { HoaDonAdminDTO } from "./hoa-don";
 import { TaiKhoan } from "./nhan-vien";
 
 export interface KhachHang {
@@ -14,7 +14,7 @@ export interface KhachHang {
   trang_thai: string;
   TaiKhoan?: TaiKhoan;
   GioHangChiTiets?: GioHangChiTiet[];
-  HoaDons?: HoaDon[];
+  HoaDons?: HoaDonAdminDTO[];
   DiaChis?: DiaChi[];
 }
 

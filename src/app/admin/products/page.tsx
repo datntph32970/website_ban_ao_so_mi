@@ -45,21 +45,6 @@ import { attributeService } from "@/services/attribute.service";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Slider } from "@/components/ui/slider";
 
-// Thêm các chương trình khuyến mãi mẫu
-const mockPromotions = [
-  { id: "1", name: "Khuyến mãi mùa hè", code: "SUMMER2024", discount: 150000, startDate: "2024-06-01", endDate: "2024-08-31", status: "active" },
-  { id: "2", name: "Khuyến mãi mùa đông", code: "WINTER2024", discount: 200000, startDate: "2024-11-01", endDate: "2025-01-31", status: "active" },
-  { id: "3", name: "Khuyến mãi Black Friday", code: "BF2024", discount: 300000, startDate: "2024-11-25", endDate: "2024-11-30", status: "pending" },
-  { id: "4", name: "Khuyến mãi sinh nhật", code: "BDAY2024", discount: 250000, startDate: "2024-04-15", endDate: "2024-04-30", status: "active" },
-  { id: "5", name: "Khuyến mãi Tết", code: "TET2025", discount: 350000, startDate: "2025-01-15", endDate: "2025-02-15", status: "pending" },
-];
-
-// Hàm lấy thông tin giảm giá từ ID chương trình khuyến mãi
-const getPromotionDiscount = (promotionId: string): number => {
-  if (!promotionId || promotionId === "_none") return 0;
-  const promotion = mockPromotions.find(p => p.id === promotionId);
-  return promotion?.status === 'active' ? (promotion?.discount || 0) : 0;
-};
 
 // Định nghĩa type cho item hiển thị danh sách sản phẩm
 type ProductListItem = {
@@ -386,7 +371,7 @@ export default function ProductsPage() {
                 <span>Xóa ({selectedProducts.length})</span>
               </Button>
             )}
-          <Link href="/products/new">
+          <Link href="/admin/products/new">
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
               <span>Thêm sản phẩm</span>
@@ -648,7 +633,7 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell className="font-medium">
                       <Link
-                        href={`/products/${String(product.id)}`}
+                        href={`/admin/products/${String(product.id)}`}
                         className="hover:text-blue-600 hover:underline transition-colors"
                       >
                         {product.name}
@@ -702,7 +687,7 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Link href={`/products/${String(product.id)}/edit`}>
+                        <Link href={`/admin/products/${String(product.id)}/edit`}>
                         <Button size="icon" variant="ghost" className="text-blue-500 hover:bg-blue-50">
                             <Edit className="h-4 w-4" />
                           </Button>

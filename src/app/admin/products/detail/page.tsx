@@ -8,7 +8,7 @@ export default function ProductDetailRedirect() {
 
   useEffect(() => {
     // Redirect to the new product page with "new" as the ID
-    router.replace("/products/new");
+    router.replace("/admin/products/new");
   }, [router]);
 
   return (

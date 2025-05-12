@@ -36,5 +36,14 @@ export const hoaDonService = {
     }) => {
         const response = await api.post(`/HoaDon/them-hoac-sua-hoa-don-chi-tiet`, data);
         return response.data;
+    },
+    updateHoaDon: async (data: {
+        id_hoa_don: string;
+        id_khach_hang?: string;
+        id_khuyen_mai?: string;
+        ghi_chu?: string;
+    }) => {
+        const response = await api.put('/HoaDon/cap-nhat-hoa-don-ban-tai-quay', data);
+        return response.data;
     }
 }

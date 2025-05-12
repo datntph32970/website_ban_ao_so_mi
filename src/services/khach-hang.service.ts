@@ -1,11 +1,37 @@
 import { AxiosResponse } from "axios";
 import { api } from '@/lib/api';
 import { KhachHangAdminDTO, ThemKhachHangMuaTaiQuayAdminDTO, SuaKhachHangAdminDTO, CapNhatTrangThaiKhachHangDTO } from "@/types/khach-hang";
+export interface ThamSoPhanTrangKhachHangDTO {
+  trang_hien_tai: number;
+  so_phan_tu_tren_trang: number;
+  tong_so_trang: number;
+  tong_so_phan_tu: number;
+  tim_kiem?: string;
+}
+export interface PhanTrangKhachHangDTO {
+  trang_hien_tai: number;
+  so_phan_tu_tren_trang: number;
+  tong_so_trang: number;
+  tong_so_phan_tu: number;
+  danh_sach: KhachHangAdminDTO[];
+}
+
+
+
 
 export const khachHangService = {
   // Lấy danh sách khách hàng
-  getDanhSachKhachHang: async (): Promise<KhachHangAdminDTO[]> => {
-    const response = await api.get<KhachHangAdminDTO[]>("/KhachHang");
+  getDanhSachKhachHang: async (tham_so_phan_trang: ThamSoPhanTrangKhachHangDTO): Promise<PhanTrangKhachHangDTO> => {
+    const response = await api.get<PhanTrangKhachHangDTO>("/KhachHang", { params: tham_so_phan_trang });
+    return response.data;
+  },
+
+  // Tìm kiếm khách hàng
+  timKiemKhachHang: async (tuKhoa?: string): Promise<KhachHangAdminDTO[]> => {
+    const params = {
+      tuKhoa: tuKhoa || undefined,
+    };
+    const response = await api.get<KhachHangAdminDTO[]>("/KhachHang/tim-kiem", { params });
     return response.data;
   },
 

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Copy, Edit, Package, Trash, ArrowUp, ArrowDown, BarChart2, ShoppingBag } from "lucide-react";
 import { GiamGia, TrangThaiGiamGia } from "@/types/giam-gia";
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import { useState } from "react";
 import { UpdateDiscountDialog } from "./UpdateDiscountDialog";
 import {
@@ -21,6 +21,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -65,6 +67,8 @@ export function DiscountTable({
   const [selectedDiscount, setSelectedDiscount] = useState<GiamGia | null>(null);
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [discountToDelete, setDiscountToDelete] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("details");
 
   // Query để lấy chi tiết giảm giá
@@ -82,7 +86,17 @@ export function DiscountTable({
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    onDelete(id);
+    setDiscountToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (discountToDelete) {
+      onDelete(discountToDelete);
+      toast.success("Đã xóa giảm giá thành công");
+      setIsDeleteDialogOpen(false);
+      setDiscountToDelete(null);
+    }
   };
 
   const handleRowClick = (discount: GiamGia) => {
@@ -104,14 +118,17 @@ export function DiscountTable({
     );
   }
 
+  if (isFetching) {
+    return (
+      <div className="fixed top-0 right-0 p-4">
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-200 overflow-hidden">
-        {isFetching && (
-          <div className="fixed top-0 right-0 p-4">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-          </div>
-        )}
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
@@ -345,7 +362,39 @@ export function DiscountTable({
         open={isUpdateDialogOpen}
         onOpenChange={setIsUpdateDialogOpen}
         discount={selectedDiscount}
+        onSuccess={() => {
+          toast.success("Cập nhật giảm giá thành công");
+          setIsUpdateDialogOpen(false);
+        }}
       />
+
+      <Dialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa giảm giá này? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog 
         open={isDetailsDialogOpen} 

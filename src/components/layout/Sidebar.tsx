@@ -18,16 +18,16 @@ import { authService } from "@/services/auth.service";
 import toast from "react-hot-toast";
 
 const menuItems = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Sản phẩm", href: "/products", icon: ShoppingBag },
-  { name: "Thuộc tính sản phẩm", href: "/products/attributes", icon: Tags },
-  { name: "Nhân viên", href: "/employees", icon: Users },
-  { name: "Khách hàng", href: "/customers", icon: UserCircle },
-  { name: "Đơn hàng", href: "/orders", icon: Package },
-  { name: "Bán hàng tại quầy", href: "/pos", icon: ShoppingCart },
-  { name: "Khuyến mãi", href: "/promotions", icon: Percent },
-  { name: "Giảm giá", href: "/discounts", icon: Tags },
-  { name: "Cài đặt", href: "/settings", icon: Settings },
+  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Bán hàng tại quầy", href: "/admin/pos", icon: ShoppingCart },
+  { name: "Sản phẩm", href: "/admin/products", icon: ShoppingBag },
+  { name: "Thuộc tính sản phẩm", href: "/admin/products/attributes", icon: Tags },
+  { name: "Nhân viên", href: "/admin/employees", icon: Users },
+  { name: "Khách hàng", href: "/admin/customers", icon: UserCircle },
+  { name: "Đơn hàng", href: "/admin/orders", icon: Package },
+  { name: "Khuyến mãi", href: "/admin/promotions", icon: Percent },
+  { name: "Giảm giá", href: "/admin/discounts", icon: Tags },
+  { name: "Cài đặt", href: "/admin/settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -38,7 +38,7 @@ export function Sidebar() {
     try {
       authService.logout();
       toast.success('Đăng xuất thành công!');
-      router.push('/login');
+      router.push('/auth/login');
     } catch (error) {
       toast.error('Có lỗi xảy ra khi đăng xuất');
     }
@@ -53,7 +53,7 @@ export function Sidebar() {
 
       <nav className="space-y-2">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href);
           const ItemIcon = item.icon;
 
           return (

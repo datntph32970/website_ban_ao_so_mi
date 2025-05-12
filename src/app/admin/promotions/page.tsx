@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AdminLayout } from "@/components/layout/AdminLayout";
@@ -47,6 +47,8 @@ import { Package } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CreateDialog } from "@/components/promotions/CreateDialog";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface FormData {
   id_khuyen_mai?: string;
@@ -811,6 +813,7 @@ const DetailDialog = ({
 export default function PromotionsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [filterConfig, setFilterConfig] = useState({
     status: 'all',
     discountType: 'all',
@@ -833,7 +836,7 @@ export default function PromotionsPage() {
     isLoading,
     isFetching 
   } = useQuery({
-    queryKey: ['promotions', filterConfig, searchTerm],
+    queryKey: ['promotions', filterConfig, debouncedSearchTerm],
     queryFn: () => {
       const params: any = {};
       
@@ -845,8 +848,8 @@ export default function PromotionsPage() {
         params.kieu_khuyen_mai = filterConfig.discountType;
       }
       
-      if (searchTerm) {
-        params.tim_kiem = searchTerm;
+      if (debouncedSearchTerm) {
+        params.tim_kiem = debouncedSearchTerm;
       }
       
       if (filterConfig.startDate) {
@@ -939,15 +942,6 @@ export default function PromotionsPage() {
     }
   });
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ['promotions'] });
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm, queryClient]);
-
   const handleAdd = async (data: FormData) => {
     addMutation.mutate(data);
   };
@@ -993,12 +987,13 @@ export default function PromotionsPage() {
                 <span>Xóa ({selectedPromotions.length})</span>
               </Button>
             )}
-            <Link href="/promotions/new">
-              <Button className="gap-2">
+            <Button 
+              className="gap-2"
+              onClick={() => setIsAddDialogOpen(true)}
+            >
             <Plus className="h-4 w-4" />
             <span>Thêm khuyến mãi</span>
           </Button>
-            </Link>
           </div>
         </div>
 
@@ -1006,11 +1001,21 @@ export default function PromotionsPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
-              className="pl-10"
+              className="pl-10 pr-10"
               placeholder="Tìm kiếm theo tên hoặc mã khuyến mãi..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 hover:bg-slate-100"
+                onClick={() => setSearchTerm("")}
+              >
+                <X className="h-4 w-4 text-slate-500" />
+              </Button>
+            )}
           </div>
           <div className="flex gap-2">
             <Select value={filterConfig.status} onValueChange={(value) => setFilterConfig(prev => ({ ...prev, status: value }))}>
@@ -1240,11 +1245,12 @@ export default function PromotionsPage() {
         </CardContent>
       </Card>
 
-      <AddEditDialog
+      <CreateDialog
         isOpen={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
-        data={null}
-        onSubmit={handleAdd}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['promotions'] });
+        }}
       />
 
       <AddEditDialog

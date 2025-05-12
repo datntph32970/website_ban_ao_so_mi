@@ -178,7 +178,7 @@ export default function AddEmployeePage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/employees')}
+            onClick={() => router.push('/admin/employees')}
             className="hover:bg-gray-100"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -366,7 +366,7 @@ export default function AddEmployeePage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push('/employees')}
+              onClick={() => router.push('/admin/employees')}
               className="min-w-[100px]"
               disabled={isLoading}
             >

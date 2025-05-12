@@ -100,7 +100,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     const fetchData = async () => {
       if (!productId) {
         toast.error("Không tìm thấy ID sản phẩm");
-        router.push("/products");
+        router.push("/admin/products");
         return;
       }
 
@@ -130,7 +130,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
         if (!productData) {
           toast.error("Không tìm thấy thông tin sản phẩm");
-          router.push("/products");
+          router.push("/admin/products");
           return;
         }
 
@@ -476,7 +476,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         setProduct(updatedProduct);
         
         toast.success("Cập nhật sản phẩm thành công");
-        router.push("/products");
+        router.push("/admin/products");
       } catch (error: any) {
         console.error("Error updating product:", error);
         toast.error(error?.response?.data || "Không thể cập nhật sản phẩm");
@@ -622,7 +622,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             <Button
               variant="outline"
               size="icon"
-              onClick={() => router.push("/products")}
+              onClick={() => router.push("/admin/products")}
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>

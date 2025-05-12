@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authService } from '@/services/auth.service';
+import Cookies from 'js-cookie';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -15,13 +16,19 @@ export default function LoginPage() {
   });
   const [loading, setLoading] = useState(false);
 
+  // Xóa token và role cũ khi vào trang login
+  useEffect(() => {
+    Cookies.remove('token', { path: '/' });
+    Cookies.remove('userRole', { path: '/' });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       // Đăng nhập
-      await authService.login(formData);
+      const loginResponse = await authService.login(formData);
       
       // Lấy thông tin người dùng
       const user = await authService.getCurrentUser();
@@ -39,7 +46,7 @@ export default function LoginPage() {
       // Nếu đã đổi mật khẩu, chuyển hướng đến trang được yêu cầu hoặc dashboard
       const from = searchParams.get('from');
       toast.success('Đăng nhập thành công');
-      router.push(from || '/dashboard');
+      router.push(from || '/admin/dashboard');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Đăng nhập thất bại');
     } finally {

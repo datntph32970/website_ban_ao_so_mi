@@ -116,7 +116,7 @@ export default function NewProductPage() {
           {/* Page header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => form.originalPush('/products')} disabled={loading || attrLoading}>
+              <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => form.originalPush('/admin/products')} disabled={loading || attrLoading}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <h1 className="text-2xl font-bold text-slate-800">Thêm sản phẩm mới</h1>

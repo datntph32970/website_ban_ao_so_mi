@@ -2,17 +2,31 @@ import { api } from '@/lib/api';
 import { LoginCredentials, RegisterCredentials, AuthResponse, DoiMatKhau, User } from '@/types/auth';
 import Cookies from 'js-cookie';
 
-
-
 export const authService = {
   // Đăng nhập
   login: async (credentials: LoginCredentials) => {
     const response = await api.post<AuthResponse>('/Auth/dang-nhap-tai-khoan', credentials);
     const { token } = response.data;
     
-    // Lưu token vào cả localStorage và cookie
-    localStorage.setItem('token', token);
-    Cookies.set('token', token, { expires: 1/24 }); // Cookie hết hạn sau 1 giờ
+    // Lưu token vào cookie
+    Cookies.set('token', token, { 
+      expires: 1/24, // Cookie hết hạn sau 1 giờ
+      path: '/', // Cookie có hiệu lực cho toàn bộ website
+      secure: process.env.NODE_ENV === 'production', // Chỉ gửi cookie qua HTTPS trong môi trường production
+      sameSite: 'lax' // Cho phép gửi cookie trong các request cross-site
+    });
+
+    // Lấy thông tin user và lưu role vào cookie
+    const userResponse = await api.get<User>('/Auth/me');
+    Cookies.set('userRole', userResponse.data.chuc_vu, {
+      expires: 1/24,
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax'
+    });
+    
+    // Thêm token vào header mặc định của axios
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
     return response.data;
   },
@@ -25,8 +39,9 @@ export const authService = {
 
   // Đăng xuất
   logout: () => {
-    localStorage.removeItem('token');
-    Cookies.remove('token');
+    Cookies.remove('token', { path: '/' });
+    Cookies.remove('userRole', { path: '/' });
+    delete api.defaults.headers.common['Authorization'];
   },
 
   // Lấy thông tin người dùng hiện tại
@@ -37,7 +52,7 @@ export const authService = {
 
   // Kiểm tra xem người dùng đã đăng nhập chưa
   isAuthenticated: () => {
-    return !!localStorage.getItem('token') || !!Cookies.get('token');
+    return !!Cookies.get('token');
   },
 
   // Đổi mật khẩu

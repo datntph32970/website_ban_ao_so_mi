@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,32 +37,41 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Edit, Trash2, Eye } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import toast from "react-hot-toast";
-import { khachHangService } from "@/services/khach-hang.service";
+import { khachHangService, ThamSoPhanTrangKhachHangDTO } from "@/services/khach-hang.service";
 import { KhachHangAdminDTO, ThemKhachHangMuaTaiQuayAdminDTO, SuaKhachHangAdminDTO } from "@/types/khach-hang";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<KhachHangAdminDTO[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<KhachHangAdminDTO | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<KhachHangAdminDTO | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [newCustomer, setNewCustomer] = useState<ThemKhachHangMuaTaiQuayAdminDTO>({
     ten_khach_hang: "",
     so_dien_thoai: "",
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Lấy danh sách khách hàng
   const fetchCustomers = async () => {
     try {
       setIsLoading(true);
-      const data = await khachHangService.getDanhSachKhachHang();
-      setCustomers(data);
+      const params: ThamSoPhanTrangKhachHangDTO = {
+        trang_hien_tai: 1,
+        so_phan_tu_tren_trang: 10,
+        tong_so_trang: 1,
+        tong_so_phan_tu: 10,
+        tim_kiem: debouncedSearchTerm || undefined
+      };
+      const data = await khachHangService.getDanhSachKhachHang(params);
+      setCustomers(data.danh_sach);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || "Không thể tải danh sách khách hàng";
       toast.error(errorMessage);
@@ -72,17 +81,21 @@ export default function CustomersPage() {
     }
   };
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [debouncedSearchTerm]);
 
-  // Lọc khách hàng theo từ khóa tìm kiếm
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      customer.ma_khach_hang.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (customer.ten_khach_hang?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (customer.so_dien_thoai || "").includes(searchTerm)
-  );
+  // Xóa phần lọc khách hàng ở client vì đã xử lý ở server
+  const filteredCustomers = customers;
 
   // Xử lý thêm khách hàng mới
   const handleAddCustomer = async () => {
@@ -152,6 +165,121 @@ export default function CustomersPage() {
     }
   };
 
+  // Xử lý xem chi tiết khách hàng
+  const handleViewCustomer = async (customer: KhachHangAdminDTO) => {
+    try {
+      setSelectedCustomer(customer);
+      setIsViewDialogOpen(true);
+      
+      // Gọi API lấy chi tiết khách hàng
+      const chiTietKhachHang = await khachHangService.getChiTietKhachHang(customer.id_khach_hang);
+      
+      // Cập nhật state với dữ liệu chi tiết
+      setSelectedCustomer(chiTietKhachHang);
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Không thể lấy thông tin chi tiết khách hàng";
+      toast.error(errorMessage);
+      setIsViewDialogOpen(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    searchInputRef.current?.focus();
+  };
+
+  // Tách riêng phần loading cho bảng
+  const renderTableContent = () => {
+    if (isLoading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} className="text-center py-16">
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (filteredCustomers.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} className="text-center py-16">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="rounded-full bg-slate-100 p-3">
+                <Search className="h-6 w-6 text-slate-500" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-slate-900">
+                  {searchTerm ? "Không tìm thấy khách hàng" : "Chưa có khách hàng nào"}
+                </p>
+                <p className="text-sm text-slate-500">
+                  {searchTerm 
+                    ? "Hãy thử tìm kiếm với từ khóa khác" 
+                    : "Bắt đầu thêm khách hàng mới bằng cách nhấn nút 'Thêm khách hàng'"}
+                </p>
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return filteredCustomers.map((customer, index) => (
+      <TableRow key={customer.id_khach_hang}>
+        <TableCell>{index + 1}</TableCell>
+        <TableCell>{customer.ma_khach_hang || "N/A"}</TableCell>
+        <TableCell className="font-medium">{customer.ten_khach_hang || "Chưa cập nhật"}</TableCell>
+        <TableCell>{customer.so_dien_thoai || "Chưa cập nhật"}</TableCell>
+        <TableCell>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              customer.trang_thai === "HoatDong"
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {customer.trang_thai === "HoatDong" ? "Hoạt động" : "Không hoạt động"}
+          </span>
+        </TableCell>
+        <TableCell className="text-right">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-blue-500 hover:bg-blue-50"
+            onClick={() => handleViewCustomer(customer)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-blue-500 hover:bg-blue-50"
+            onClick={() => {
+              setSelectedCustomer(customer);
+              setIsEditDialogOpen(true);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-red-500 hover:bg-red-50"
+            onClick={() => {
+              setSelectedCustomer(customer);
+              setIsDeleteDialogOpen(true);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </TableCell>
+      </TableRow>
+    ));
+  };
+
   if (isLoading) {
     return (
       <AdminLayout>
@@ -185,11 +313,22 @@ export default function CustomersPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input
-                  className="pl-10"
+                  ref={searchInputRef}
+                  className="pl-10 pr-10"
                   placeholder="Tìm kiếm khách hàng..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
+                {searchTerm && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    aria-label="Xóa tìm kiếm"
+                    title="Xóa tìm kiếm"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <Button
                 onClick={() => {
@@ -219,82 +358,7 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCustomers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-16">
-                        <div className="flex flex-col items-center justify-center space-y-4">
-                          <div className="rounded-full bg-slate-100 p-3">
-                            <Search className="h-6 w-6 text-slate-500" />
-                          </div>
-                          <div className="space-y-2">
-                            <p className="text-lg font-medium text-slate-900">
-                              {searchTerm ? "Không tìm thấy khách hàng" : "Chưa có khách hàng nào"}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              {searchTerm 
-                                ? "Hãy thử tìm kiếm với từ khóa khác" 
-                                : "Bắt đầu thêm khách hàng mới bằng cách nhấn nút 'Thêm khách hàng'"}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredCustomers.map((customer, index) => (
-                      <TableRow key={customer.id_khach_hang}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>{customer.ma_khach_hang || "N/A"}</TableCell>
-                        <TableCell className="font-medium">{customer.ten_khach_hang || "Chưa cập nhật"}</TableCell>
-                        <TableCell>{customer.so_dien_thoai || "Chưa cập nhật"}</TableCell>
-                        <TableCell>
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              customer.trang_thai === "HoatDong"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {customer.trang_thai === "HoatDong" ? "Hoạt động" : "Không hoạt động"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-blue-500 hover:bg-blue-50"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setIsViewDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-blue-500 hover:bg-blue-50"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setIsEditDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="text-red-500 hover:bg-red-50"
-                            onClick={() => {
-                              setSelectedCustomer(customer);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  {renderTableContent()}
                 </TableBody>
               </Table>
             </div>

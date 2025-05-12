@@ -14,9 +14,11 @@ export const api = axios.create({
 // Add a request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token') || Cookies.get('token');
+    const token = Cookies.get('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -27,9 +29,7 @@ api.interceptors.request.use(
 
 // Add a response interceptor
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     // Xử lý lỗi timeout
     if (error.code === 'ECONNABORTED') {
@@ -55,13 +55,13 @@ api.interceptors.response.use(
 
     // Xử lý lỗi 401 (Unauthorized)
     if (error.response.status === 401) {
-      // Xóa token
-      localStorage.removeItem('token');
-      Cookies.remove('token');
-      
-      // Chuyển hướng về trang đăng nhập
-      window.location.href = '/login';
-      
+      // Chỉ redirect nếu không phải đang ở trang login
+      if (!window.location.pathname.includes('/auth/login')) {
+        Cookies.remove('token', { path: '/' });
+        Cookies.remove('userRole', { path: '/' });
+        const currentPath = window.location.pathname;
+        window.location.href = `/auth/login?from=${encodeURIComponent(currentPath)}`;
+      }
       return Promise.reject({
         response: {
           data: {
@@ -73,23 +73,15 @@ api.interceptors.response.use(
 
     // Xử lý lỗi 403 (Forbidden)
     if (error.response.status === 403) {
+      // Chỉ redirect nếu không phải đang ở trang 403
+      if (!window.location.pathname.includes('/403')) {
+        window.location.href = '/403';
+      }
       return Promise.reject({
         response: {
           status: 403,
           data: {
             message: 'Bạn không có quyền truy cập tính năng này.',
-          },
-        },
-      });
-    }
-
-    // Xử lý lỗi 404 (Not Found)
-    if (error.response.status === 404) {
-      return Promise.reject({
-        response: {
-          status: 404,
-          data: {
-            message: 'Không tìm thấy tài nguyên yêu cầu.',
           },
         },
       });
@@ -107,7 +99,6 @@ api.interceptors.response.use(
       });
     }
 
-    // Xử lý các lỗi khác
     return Promise.reject(error);
   }
 ); 

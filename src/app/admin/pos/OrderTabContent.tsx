@@ -60,6 +60,8 @@ interface OrderTabContentProps {
   onDeleteOrderItem: (orderIndex: number, itemId: string) => void;
   onAddCustomer: (customer: any) => void;
   onPayment: () => void;
+  onApplyFilter: () => void;
+  maxPrice: number;
 }
 
 export default function OrderTabContent({
@@ -77,7 +79,9 @@ export default function OrderTabContent({
   onUpdateCartItemQuantity,
   onDeleteOrderItem,
   onAddCustomer,
-  onPayment
+  onPayment,
+  onApplyFilter,
+  maxPrice
 }: OrderTabContentProps) {
   const updateOrderField = (field: string, value: any) => {
     onOrderChange({ ...order, [field]: value });
@@ -94,6 +98,19 @@ export default function OrderTabContent({
     setSelectedColor(null);
     setSelectedSize(null);
   }, [order.selectedProduct]);
+
+  // Trigger parent search when customerSearch changes
+  React.useEffect(() => {
+    onOrderChange({ ...order });
+  }, [order.customerSearch]);
+
+  // Debounce searchTerm and call onApplyFilter
+  React.useEffect(() => {
+    const timeout = setTimeout(() => {
+      onApplyFilter();
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [order.searchTerm]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
   let images = (
@@ -135,7 +152,20 @@ export default function OrderTabContent({
                 placeholder="Tìm kiếm sản phẩm..."
                 value={order.searchTerm || ''}
                 onChange={e => updateOrderField('searchTerm', e.target.value)}
+                name="search-product"
+                autoComplete="off"
               />
+              {order.searchTerm && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  onClick={() => updateOrderField('searchTerm', '')}
+                  tabIndex={-1}
+                  aria-label="Xóa tìm kiếm"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <Button variant="outline" onClick={() => updateOrderField('isFilterOpen', true)}>Lọc</Button>
           </div>
@@ -164,6 +194,7 @@ export default function OrderTabContent({
                       )}
                     </div>
                     <h3 className="font-medium text-sm mb-1">{product.name}</h3>
+                    <p className="text-xs text-slate-500 mb-1">Mã: {product.code}</p>
                     <div className="flex justify-between items-center">
                       <p className="text-slate-500 text-xs">{product.category}</p>
                       <div className="text-right">
@@ -207,15 +238,33 @@ export default function OrderTabContent({
                     placeholder="Tìm tên hoặc số điện thoại khách hàng..."
                     value={order.customerSearch || ''}
                     onChange={e => updateOrderField('customerSearch', e.target.value)}
+                    name="search-customer"
+                    autoComplete="off"
+                    disabled={!!order.selectedCustomer}
                   />
-                  {order.customerSearch && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border rounded shadow z-20 max-h-56 overflow-y-auto">
+                  {order.customerSearch && !order.selectedCustomer && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      onClick={() => updateOrderField('customerSearch', '')}
+                      tabIndex={-1}
+                      aria-label="Xóa tìm kiếm"
+                    >
+                      <CloseIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                  {order.customerSearch && !order.selectedCustomer && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border rounded shadow z-20 max-h-56 overflow-y-auto scrollbar-hide">
                       {customerOptions.length > 0 ? (
                         customerOptions.map((kh, index) => (
                           <div
                             key={index}
                             className="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center gap-2"
-                            onClick={() => updateOrderField('selectedCustomer', kh)}
+                            onClick={() => onOrderChange({
+                              ...order,
+                              selectedCustomer: kh,
+                              customerSearch: ''
+                            })}
                           >
                             <span className="font-medium">{kh.ten_khach_hang}</span>
                             <span className="text-xs text-slate-500">({kh.so_dien_thoai})</span>
@@ -231,6 +280,7 @@ export default function OrderTabContent({
                   variant="outline"
                   className="shrink-0"
                   onClick={() => updateOrderField('isAddCustomerOpen', true)}
+                  disabled={!!order.selectedCustomer}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Thêm
@@ -419,7 +469,7 @@ export default function OrderTabContent({
                 <label className="block text-sm font-medium mb-1">Khoảng giá</label>
                 <Slider
                   min={0}
-                  max={5000000}
+                  max={maxPrice}
                   step={10000}
                   value={order.priceRange}
                   onValueChange={values => updateOrderField('priceRange', values)}
@@ -430,11 +480,18 @@ export default function OrderTabContent({
                 </div>
               </div>
             </div>
+            <div className="p-4 border-t">
+              <Button 
+                className="w-full" 
+                onClick={() => {
+                  onApplyFilter();
+                  updateOrderField('isFilterOpen', false);
+                }}
+              >
+                Áp dụng
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => updateOrderField('isFilterOpen', false)}>Đóng</Button>
-            <Button onClick={() => updateOrderField('isFilterOpen', false)}>Áp dụng</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -485,8 +542,13 @@ export default function OrderTabContent({
               <label className="block text-sm font-medium mb-1">Tên khách hàng</label>
               <input
                 className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={order.newCustomer?.ten_khach_hang || ''}
-                onChange={e => updateOrderField('newCustomer', { ...order.newCustomer, ten_khach_hang: e.target.value })}
+                value={order.newCustomer.ten_khach_hang}
+                onChange={e => {
+                  console.log('Tên khách hàng:', e.target.value);
+                  const newCustomer = { ...order.newCustomer, ten_khach_hang: e.target.value };
+                  console.log('newCustomer sau khi cập nhật:', newCustomer);
+                  updateOrderField('newCustomer', newCustomer);
+                }}
                 placeholder="Nhập tên khách hàng"
               />
             </div>
@@ -494,15 +556,28 @@ export default function OrderTabContent({
               <label className="block text-sm font-medium mb-1">Số điện thoại</label>
               <input
                 className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={order.newCustomer?.so_dien_thoai || ''}
-                onChange={e => updateOrderField('newCustomer', { ...order.newCustomer, so_dien_thoai: e.target.value })}
+                value={order.newCustomer.so_dien_thoai}
+                onChange={e => {
+                  console.log('Số điện thoại:', e.target.value);
+                  const newCustomer = { ...order.newCustomer, so_dien_thoai: e.target.value };
+                  console.log('newCustomer sau khi cập nhật:', newCustomer);
+                  updateOrderField('newCustomer', newCustomer);
+                }}
                 placeholder="Nhập số điện thoại"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => updateOrderField('isAddCustomerOpen', false)}>Hủy</Button>
-            <Button>Thêm mới</Button>
+            <Button 
+              onClick={() => {
+                console.log('Dữ liệu khách hàng trước khi thêm:', order.newCustomer);
+                onAddCustomer(order.newCustomer);
+              }}
+              disabled={!order.newCustomer.ten_khach_hang || !order.newCustomer.so_dien_thoai}
+            >
+              {order.isLoadingCustomer ? 'Đang thêm...' : 'Thêm mới'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -701,15 +776,16 @@ export default function OrderTabContent({
                     <Button
                       className="w-full"
                       disabled={!(selectedColor && selectedSize)}
-                      onClick={() => {
+                      onClick={async () => {
                         if (selectedColor && selectedSize) {
                           const variant = order.selectedProduct?.variants.find(
                             (v: any) => v.color === selectedColor && v.size === selectedSize
                           );
                           console.log('Variant được chọn:', variant);
                           if (variant) {
-                            onAddToCart(variant);
-                            setTimeout(() => updateOrderField('selectedProduct', null), 100);
+                            await onAddToCart(variant);
+                            // Lấy lại thông tin chi tiết sản phẩm bằng ID
+                            await onSelectProduct(order.selectedProduct.id_san_pham);
                           }
                         }
                       }}

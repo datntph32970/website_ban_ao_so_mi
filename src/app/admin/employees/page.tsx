@@ -345,7 +345,7 @@ export default function EmployeesPage() {
         </div>
         <Button 
           className="flex items-center gap-2"
-          onClick={() => router.push("/employees/add")}
+          onClick={() => router.push("/admin/employees/add")}
         >
           <Plus className="h-4 w-4" />
           <span>Thêm nhân viên</span>
