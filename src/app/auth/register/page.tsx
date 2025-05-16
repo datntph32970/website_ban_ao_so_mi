@@ -40,7 +40,7 @@ export default function RegisterPage() {
         xac_nhan_mat_khau: formData.xac_nhan_mat_khau,
       });
       toast.success('Đăng ký thành công!');
-      router.push('/login');
+      router.push('/auth/login');
     } catch (err: any) {
       const errorMessage = err.response?.data || 'Đăng ký thất bại';
       setError(errorMessage);
@@ -123,7 +123,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="text-sm text-center">
-            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link href="/auth/login" className="font-medium text-indigo-600 hover:text-indigo-500">
               Đã có tài khoản? Đăng nhập
             </Link>
           </div>

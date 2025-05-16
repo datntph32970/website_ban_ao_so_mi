@@ -2,7 +2,7 @@
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Package, Tag, Info, Image as ImageIcon, Edit, Trash2, Copy, Share2, Eye, EyeOff, AlertCircle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Search, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Package, Tag, Info, Image as ImageIcon, Edit, Trash2, Copy, Share2, Eye, EyeOff, AlertCircle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Search, ArrowUpDown, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useCallback } from "react";
 import { SanPham } from "@/types/san-pham";
@@ -18,7 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatCurrency } from "@/lib/utils";
 import useEmblaCarousel from 'embla-carousel-react';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Link from 'next/link';
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -63,6 +64,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [filterSize, setFilterSize] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
+  const [isUpdateStatusDialogOpen, setIsUpdateStatusDialogOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<'HoatDong' | 'KhongHoatDong'>('HoatDong');
 
   // All useRef hooks
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
@@ -124,6 +129,42 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       setSortDirection('asc');
     }
   }, [sortField, sortDirection]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedVariants(filteredAndSortedVariants.map(v => v.id_san_pham_chi_tiet));
+    } else {
+      setSelectedVariants([]);
+    }
+  };
+
+  const handleSelectVariant = (variantId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedVariants(prev => [...prev, variantId]);
+    } else {
+      setSelectedVariants(prev => prev.filter(id => id !== variantId));
+    }
+  };
+
+  // Add handler for updating status
+  const handleUpdateStatus = async () => {
+    try {
+      setIsUpdatingStatus(true);
+      await sanPhamService.capNhatTrangThaiNhieuSanPhamChiTiet(selectedVariants, selectedStatus);
+      
+      toast.success('Cập nhật trạng thái thành công');
+      setIsUpdateStatusDialogOpen(false);
+      setSelectedVariants([]);
+      
+      // Refresh product data
+      const updatedProduct = await sanPhamService.getChiTietSanPham(productId);
+      setProduct(updatedProduct);
+    } catch (error: any) {
+      toast.error(error.response?.data || 'Không thể cập nhật trạng thái');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // All useEffect hooks
   useEffect(() => {
@@ -262,6 +303,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   // Calculate total stock and average price
   const totalStock = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.so_luong || 0), 0) : 0;
   const averagePrice = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.gia_ban || 0), 0) / product.sanPhamChiTiets.length : 0;
+  const totalSold = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.so_luong_da_ban || 0), 0) : 0;
 
   // Get unique colors
   const uniqueColors = product.sanPhamChiTiets ?
@@ -297,13 +339,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     if (selectedColor) {
       // If color is selected, only show images for that color
       const colorImages = product.sanPhamChiTiets?.find(v => String(v.mauSac?.id_mau_sac) === selectedColor)?.hinhAnhSanPhamChiTiets || [];
-      images.push(...colorImages);
+      images.push(...colorImages.map(img => ({ ...img, mac_dinh: false })));
     } else {
       // If no color selected, show all variant images
       product.sanPhamChiTiets?.forEach(variant => {
         variant.hinhAnhSanPhamChiTiets?.forEach(image => {
           if (!images.some(img => img.hinh_anh_urls === image.hinh_anh_urls)) {
-            images.push(image);
+            images.push({ ...image, mac_dinh: false });
           }
         });
       });
@@ -368,7 +410,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -378,6 +420,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                   <div className="p-3 bg-blue-100 rounded-full">
                     <Package className="w-6 h-6 text-blue-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-500">Đã bán</p>
+                    <p className="text-2xl font-bold">{totalSold}</p>
+                  </div>
+                  <div className="p-3 bg-green-100 rounded-full">
+                    <ShoppingCart className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>
@@ -725,11 +780,49 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         </Select>
                       </div>
 
+                      {/* Toolbar */}
+                      {selectedVariants.length > 0 && (
+                        <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-lg border">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-500">
+                              Đã chọn {selectedVariants.length} biến thể
+                            </span>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setSelectedVariants([])}
+                              className="h-8"
+                            >
+                              Bỏ chọn
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setIsUpdateStatusDialogOpen(true)}
+                              className="h-8"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Cập nhật trạng thái
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Variants Table */}
                       <div className="rounded-md border">
                         <Table>
                           <TableHeader>
                             <TableRow>
+                              <TableHead className="w-[50px]">
+                                <Checkbox
+                                  checked={
+                                    filteredAndSortedVariants.length > 0 && 
+                                    selectedVariants.length === filteredAndSortedVariants.length
+                                  }
+                                  onCheckedChange={handleSelectAll}
+                                  aria-label="Chọn tất cả"
+                                />
+                              </TableHead>
                               <TableHead 
                                 className="cursor-pointer hover:bg-slate-100"
                                 onClick={() => handleSort('ma_san_pham_chi_tiet')}
@@ -766,22 +859,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                               </TableHead>
                               <TableHead 
                                 className="cursor-pointer hover:bg-slate-100"
-                                onClick={() => handleSort('gia_nhap')}
+                                onClick={() => handleSort('so_luong_da_ban')}
                               >
                                 <div className="flex items-center gap-2">
-                                  Giá nhập
-                                  {sortField === 'gia_nhap' && (
+                                  Đã bán
+                                  {sortField === 'so_luong_da_ban' && (
                                     <ArrowUpDown className="h-4 w-4" />
                                   )}
                                 </div>
                               </TableHead>
                               <TableHead 
                                 className="cursor-pointer hover:bg-slate-100"
-                                onClick={() => handleSort('gia_ban')}
+                                onClick={() => handleSort('gia_nhap')}
                               >
                                 <div className="flex items-center gap-2">
-                                  Giá bán
-                                  {sortField === 'gia_ban' && (
+                                  Giá nhập
+                                  {sortField === 'gia_nhap' && (
                                     <ArrowUpDown className="h-4 w-4" />
                                   )}
                                 </div>
@@ -800,6 +893,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                     : 'hover:bg-slate-50'
                                 }`}
                               >
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedVariants.includes(variant.id_san_pham_chi_tiet)}
+                                    onCheckedChange={(checked) => 
+                                      handleSelectVariant(variant.id_san_pham_chi_tiet, checked as boolean)
+                                    }
+                                    aria-label={`Chọn biến thể ${variant.ma_san_pham_chi_tiet}`}
+                                  />
+                                </TableCell>
                                 <TableCell className="font-medium">{variant.ma_san_pham_chi_tiet}</TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-2">
@@ -817,7 +919,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   <span className="transition-colors duration-300">{variant.so_luong}</span>
                                 </TableCell>
                                 <TableCell>
-                                  <span className="transition-colors duration-300">{formatCurrency(variant.gia_nhap)}</span>
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    variant.so_luong_da_ban > 100 ? "bg-blue-100 text-blue-800" :
+                                    variant.so_luong_da_ban > 50 ? "bg-indigo-100 text-indigo-800" :
+                                    variant.so_luong_da_ban > 0 ? "bg-purple-100 text-purple-800" :
+                                    "bg-slate-100 text-slate-800"
+                                  }`}>
+                                    {variant.so_luong_da_ban || 0}
+                                  </span>
                                 </TableCell>
                                 <TableCell>
                                   {variant.giamGia ? (
@@ -951,6 +1060,56 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog cập nhật trạng thái */}
+      <Dialog open={isUpdateStatusDialogOpen} onOpenChange={setIsUpdateStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cập nhật trạng thái</DialogTitle>
+            <DialogDescription>
+              Chọn trạng thái mới cho {selectedVariants.length} biến thể đã chọn
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <Select
+              value={selectedStatus}
+              onValueChange={(value: 'HoatDong' | 'KhongHoatDong') => setSelectedStatus(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HoatDong">Đang bán</SelectItem>
+                <SelectItem value="KhongHoatDong">Ngừng bán</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsUpdateStatusDialogOpen(false)}
+              disabled={isUpdatingStatus}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={handleUpdateStatus}
+              disabled={isUpdatingStatus}
+            >
+              {isUpdatingStatus ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Đang cập nhật...
+                </>
+              ) : (
+                'Cập nhật'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminLayout>

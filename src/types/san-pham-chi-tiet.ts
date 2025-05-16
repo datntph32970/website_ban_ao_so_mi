@@ -7,13 +7,14 @@ import { HinhAnh } from "./hinh-anh";
 import { MauSac } from "./mau-sac";
 import { GioHangChiTiet } from "./gio-hang";
 import { GiamGia } from "./giam-gia";
-import { HoaDonChiTiet } from "./hoa-don";
+import { HoaDonChiTietAdminDTO } from "./hoa-don";
 import { HinhAnhSanPhamChiTiet } from "./hinh-anh-san-pham-chi-tiet";
 
 export interface SanPhamChiTiet {
     id_san_pham_chi_tiet: string;
     ma_san_pham_chi_tiet: string;
     so_luong: number;
+    so_luong_da_ban: number;
     gia_ban: number;
     gia_nhap: number;
     trang_thai: string;
@@ -26,7 +27,7 @@ export interface SanPhamChiTiet {
     kichCo?: KichCo;
     mauSac?: MauSac;
     hinhAnhSanPhamChiTiets?: HinhAnhSanPhamChiTiet[];
-    hoaDonChiTiets?: HoaDonChiTiet[];
+    hoaDonChiTiets?: HoaDonChiTietAdminDTO[];
     gioHangChiTiets?: GioHangChiTiet[];
     giamGia?: GiamGia;
 }

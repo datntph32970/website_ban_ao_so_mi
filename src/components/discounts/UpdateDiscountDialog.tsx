@@ -39,6 +39,7 @@ export function UpdateDiscountDialog({
     thoi_gian_bat_dau: "",
     thoi_gian_ket_thuc: "",
     trang_thai: TrangThaiGiamGia.HoatDong,
+    ma_giam_gia: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -54,6 +55,7 @@ export function UpdateDiscountDialog({
         thoi_gian_bat_dau: new Date(discount.thoi_gian_bat_dau).toISOString().slice(0, 16),
         thoi_gian_ket_thuc: new Date(discount.thoi_gian_ket_thuc).toISOString().slice(0, 16),
         trang_thai: discount.trang_thai,
+        ma_giam_gia: discount.ma_giam_gia || "",
       });
       setErrors({});
     }
@@ -61,6 +63,12 @@ export function UpdateDiscountDialog({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+
+    if (!formData.ma_giam_gia.trim()) {
+      newErrors.ma_giam_gia = "Mã giảm giá không được để trống";
+    } else if (formData.ma_giam_gia.length > 20) {
+      newErrors.ma_giam_gia = "Mã giảm giá không được vượt quá 20 ký tự";
+    }
 
     if (!formData.ten_giam_gia.trim()) {
       newErrors.ten_giam_gia = "Vui lòng nhập tên giảm giá";
@@ -117,19 +125,22 @@ export function UpdateDiscountDialog({
     try {
       const data = {
         ...formData,
-        ma_giam_gia: discount.ma_giam_gia,
         gia_tri_giam: Number(formData.gia_tri_giam),
         so_luong_toi_da: Number(formData.so_luong_toi_da),
       };
 
-      await giamGiaService.update(discount.id_giam_gia, data);
+      const response = await giamGiaService.update(discount.id_giam_gia, data);
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
       toast.success("Cập nhật giảm giá thành công!");
       onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Lỗi khi cập nhật giảm giá:", error);
-      toast.error(error.response?.data || "Có lỗi xảy ra khi cập nhật giảm giá!");
+      if (error.response?.data) {
+        toast.error(error.response.data);
+      } else {
+        toast.error("Có lỗi xảy ra khi cập nhật giảm giá!");
+      }
     }
   };
 
@@ -142,7 +153,20 @@ export function UpdateDiscountDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="ten_giam_gia">Tên giảm giá</Label>
+              <Label htmlFor="ma_giam_gia">Mã giảm giá <span className="text-red-500">*</span></Label>
+              <Input
+                id="ma_giam_gia"
+                value={formData.ma_giam_gia}
+                onChange={(e) => setFormData({ ...formData, ma_giam_gia: e.target.value.toUpperCase() })}
+                placeholder="Nhập mã giảm giá"
+                required
+              />
+              {errors.ma_giam_gia && (
+                <p className="text-sm text-red-500">{errors.ma_giam_gia}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ten_giam_gia">Tên giảm giá <span className="text-red-500">*</span></Label>
               <Input
                 id="ten_giam_gia"
                 value={formData.ten_giam_gia}

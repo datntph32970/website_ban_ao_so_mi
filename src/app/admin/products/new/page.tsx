@@ -167,6 +167,8 @@ export default function NewProductPage() {
                   discounts={form.discounts}
                   variantValues={form.variantValues}
                   handleVariantValueChange={form.handleVariantValueChange}
+                  onDeleteColor={form.handleRemoveColorTab}
+                  onDeleteSize={form.handleToggleSizeForColor}
                 />
               </div>
             </div>

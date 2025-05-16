@@ -37,7 +37,7 @@ import { authService } from '@/services/auth.service';
 
 // Thêm interface cho sản phẩm chi tiết
 interface ProductDetail {
-  id: number;
+  id_san_pham: string;
   name: string;
   price: number;
   stock: number;
@@ -146,6 +146,8 @@ interface OrderTabState {
   selectedOriginIds: string[];
   priceRange: [number, number];
   searchTerm: string;
+  discountCode: string;
+  discountAmount: number;
 }
 
 function getDefaultOrder(maxPrice: number): OrderTabState {
@@ -174,7 +176,9 @@ function getDefaultOrder(maxPrice: number): OrderTabState {
     selectedMaterialIds: [],
     selectedOriginIds: [],
     priceRange: [0, maxPrice],
-    searchTerm: ''
+    searchTerm: '',
+    discountCode: '',
+    discountAmount: 0
   };
 }
 
@@ -212,6 +216,12 @@ export default function POSPage() {
   const [orderToDelete, setOrderToDelete] = useState<number | null>(null);
   const [isAddingOrder, setIsAddingOrder] = useState(false);
   const [isApplyingFilter, setIsApplyingFilter] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    pageSize: 9,
+    totalItems: 0
+  });
 
   // Thêm useEffect để lấy danh sách hóa đơn chờ khi component mount
   useEffect(() => {
@@ -235,7 +245,7 @@ export default function POSPage() {
                     item.sanPhamChiTiet?.ten_mau_sac,
                     item.sanPhamChiTiet?.ten_kich_co
                   ].filter(Boolean).join(' - '),
-                  price: item.gia_sau_giam_gia ?? item.don_gia,
+                  price: item.gia_sau_giam_gia,
                   originalPrice: item.don_gia,
                   quantity: item.so_luong,
                   total: item.thanh_tien
@@ -247,7 +257,10 @@ export default function POSPage() {
               ten_khach_hang: order.khachHang.ten_khach_hang,
               so_dien_thoai: order.khachHang.sdt_khach_hang,
               trang_thai: 'HoatDong'
-            } : null
+            } : null,
+            // Thêm thông tin khuyến mãi nếu có
+            discountCode: chiTiet.khuyenMai?.ma_khuyen_mai || '',
+            discountAmount: chiTiet.so_tien_khuyen_mai || 0
           }));
           setOrders(newOrders);
           setShowEmptyState(false);
@@ -276,34 +289,42 @@ export default function POSPage() {
   }, []);
 
   // Fetch products from API
-  useEffect(() => {
-    const fetchProducts = async () => {
+  const fetchProducts = async (page: number = 1) => {
       setIsLoadingProducts(true);
       try {
-        const params = {
-          trang_hien_tai: 1,
-          so_phan_tu_tren_trang: 9,
-          sap_xep_theo: 'ngay_tao',
-          sap_xep_tang: false
-        };
+      const params = {
+        trang_hien_tai: page,
+        so_phan_tu_tren_trang: pagination.pageSize,
+        sap_xep_theo: 'ngay_tao',
+        sap_xep_tang: false
+      };
 
-        const res = await sanPhamService.getDanhSachSanPhamHoatDong(params);
-        
-        // Cập nhật giá trị mặc định của priceRange dựa trên gia_lon_nhat từ API
-        if (res.gia_lon_nhat && typeof res.gia_lon_nhat === 'number') {
-          setMaxPrice(res.gia_lon_nhat);
-          setOrders(prev => {
-            const newOrders = [...prev];
-            newOrders[activeOrderIndex] = {
-              ...newOrders[activeOrderIndex],
-              priceRange: [0, res.gia_lon_nhat as number]
-            };
-            return newOrders;
-          });
-        }
+      const res = await sanPhamService.getDanhSachSanPhamHoatDong(params);
+      
+      // Cập nhật giá trị mặc định của priceRange dựa trên gia_lon_nhat từ API
+      if (res.gia_lon_nhat && typeof res.gia_lon_nhat === 'number') {
+        setMaxPrice(res.gia_lon_nhat);
+        setOrders(prev => {
+          const newOrders = [...prev];
+          newOrders[activeOrderIndex] = {
+            ...newOrders[activeOrderIndex],
+            priceRange: [0, res.gia_lon_nhat as number]
+          };
+          return newOrders;
+        });
+      }
+
+      // Cập nhật state phân trang
+      setPagination(prev => ({
+        ...prev,
+        currentPage: page,
+        totalPages: Math.ceil(res.tong_so_phan_tu / pagination.pageSize),
+        totalItems: res.tong_so_phan_tu
+      }));
 
         const mappedProducts = (res.danh_sach || []).map(sp => ({
           id: sp.id_san_pham,
+        id_san_pham: sp.id_san_pham,
           code: sp.ma_san_pham,
           name: sp.ten_san_pham,
           description: sp.mo_ta,
@@ -320,22 +341,25 @@ export default function POSPage() {
           minOriginPrice: Math.min(...(sp.sanPhamChiTiets?.map(v => v.gia_ban) || [0])),
           maxOriginPrice: Math.max(...(sp.sanPhamChiTiets?.map(v => v.gia_ban) || [0])),
           discountInfo: sp.sanPhamChiTiets?.[0]?.giamGia || null,
-          variants: (sp.sanPhamChiTiets || []).map((v: any) => ({
+        variants: (sp.sanPhamChiTiets || []).map((v: any) => ({
             ...v,
             color: v.mauSac?.ten_mau_sac || '',
             size: v.kichCo?.ten_kich_co || '',
           })),
         }));
         setProducts(mappedProducts);
-      } catch (error) {
-        console.error('Error fetching products:', error);
+    } catch (error) {
+      console.error('Error fetching products:', error);
         setProducts([]);
       } finally {
         setIsLoadingProducts(false);
       }
     };
-    fetchProducts();
-  }, []); // Chỉ chạy khi component mount
+
+  // Thêm hàm xử lý thay đổi trang
+  const handlePageChange = (page: number) => {
+    fetchProducts(page);
+  };
 
   // Lọc sản phẩm theo filter (nếu cần filter thêm phía client)
   const filteredProducts = products;
@@ -379,6 +403,7 @@ export default function POSPage() {
     const res = await sanPhamService.getDanhSachSanPhamHoatDong(cleanParams);
     const mappedProducts = (res.danh_sach || []).map(sp => ({
       id: sp.id_san_pham,
+      id_san_pham: sp.id_san_pham,
       code: sp.ma_san_pham,
       name: sp.ten_san_pham,
       description: sp.mo_ta,
@@ -433,11 +458,11 @@ export default function POSPage() {
         });
       }
 
-      // Add invoice detail
+      // Add invoice detail using themaHoaDonChiTiet
       console.log('Adding invoice detail for product/variant:', productOrVariant);
-      await hoaDonService.themHoacSuaHoaDonChiTiet({
+      await hoaDonService.themaHoaDonChiTiet({
         id_hoa_don: orders[activeOrderIndex].currentOrderId,
-        id_san_pham_chi_tiet: productOrVariant.id,
+        id_san_pham_chi_tiet: productOrVariant.id_san_pham_chi_tiet || productOrVariant.id,
         so_luong: 1
       });
 
@@ -457,7 +482,7 @@ export default function POSPage() {
               item.sanPhamChiTiet?.ten_mau_sac,
               item.sanPhamChiTiet?.ten_kich_co
             ].filter(Boolean).join(' - '),
-            price: item.gia_sau_giam_gia ?? item.don_gia,
+            price: item.gia_sau_giam_gia,
             originalPrice: item.don_gia,
             quantity: item.so_luong,
             total: item.thanh_tien
@@ -466,8 +491,64 @@ export default function POSPage() {
         });
       }
 
-      // Cập nhật lại danh sách sản phẩm
+      // Cập nhật lại danh sách sản phẩm và thông tin chi tiết sản phẩm
       await refreshProductList(activeOrderIndex);
+      
+      // Cập nhật lại thông tin chi tiết sản phẩm đang hiển thị
+      if (currentOrder.selectedProduct) {
+        const productId = currentOrder.selectedProduct.id_san_pham || currentOrder.selectedProduct.id_san_pham.toString();
+        const detail = await sanPhamService.getChiTietSanPhamHoatDong(productId);
+        const mappedProduct = {
+          id: parseInt(detail.id_san_pham),
+          id_san_pham: detail.id_san_pham,
+          code: detail.ma_san_pham,
+          name: detail.ten_san_pham,
+          description: detail.mo_ta,
+          status: detail.trang_thai,
+          imageUrl: detail.url_anh_mac_dinh
+            ? (detail.url_anh_mac_dinh.startsWith('/') ? API_URL + detail.url_anh_mac_dinh : detail.url_anh_mac_dinh)
+            : '',
+          brand: detail.thuongHieu?.ten_thuong_hieu || '',
+          category: detail.danhMuc?.ten_danh_muc || '',
+          price: detail.sanPhamChiTiets?.[0]?.gia_ban ?? 0,
+          stock: detail.sanPhamChiTiets?.reduce((sum: number, v: { so_luong: number }) => sum + (v.so_luong || 0), 0) ?? 0,
+          minPrice: Math.min(...(detail.sanPhamChiTiets?.map(v => getDiscountedPrice(v)) || [0])),
+          maxPrice: Math.max(...(detail.sanPhamChiTiets?.map(v => getDiscountedPrice(v)) || [0])),
+          minOriginPrice: Math.min(...(detail.sanPhamChiTiets?.map(v => v.gia_ban) || [0])),
+          maxOriginPrice: Math.max(...(detail.sanPhamChiTiets?.map(v => v.gia_ban) || [0])),
+          discountInfo: detail.sanPhamChiTiets?.[0]?.giamGia || null,
+          variants: (detail.sanPhamChiTiets || []).map((v: any) => ({
+            id: v.id_san_pham_chi_tiet,
+            id_san_pham_chi_tiet: v.id_san_pham_chi_tiet,
+            ma_san_pham_chi_tiet: v.ma_san_pham_chi_tiet,
+            color: v.mauSac?.ten_mau_sac || '',
+            size: v.kichCo?.ten_kich_co || '',
+            stock: v.so_luong,
+            price: v.gia_ban,
+            gia_ban: v.gia_ban,
+            giamGia: v.giamGia || null,
+            hinhAnhSanPhamChiTiets: v.hinhAnhSanPhamChiTiets || []
+          })),
+          images: [
+            detail.url_anh_mac_dinh
+              ? (detail.url_anh_mac_dinh.startsWith('/') ? API_URL + detail.url_anh_mac_dinh : detail.url_anh_mac_dinh)
+              : '',
+            ...(detail.sanPhamChiTiets || []).flatMap(v => 
+              (v.hinhAnhSanPhamChiTiets || []).map(img => 
+                img.hinh_anh_urls
+                  ? (img.hinh_anh_urls.startsWith('/') ? API_URL + img.hinh_anh_urls : img.hinh_anh_urls)
+                  : ''
+              )
+            ).filter(url => url !== '')
+          ]
+        };
+        
+        setOrders(prev => {
+          const newOrders = [...prev];
+          newOrders[activeOrderIndex].selectedProduct = mappedProduct;
+          return newOrders;
+        });
+      }
 
       toast.success('Thêm sản phẩm vào giỏ hàng thành công');
     } catch (error: any) {
@@ -479,21 +560,20 @@ export default function POSPage() {
   // Thay đổi số lượng sản phẩm trong giỏ hàng
   const updateCartItemQuantity = async (id: string, id_san_pham_chi_tiet: string, newQuantity: number) => {
     if (!orders[activeOrderIndex]) return;
-
     // Lưu lại số lượng cũ để có thể khôi phục nếu có lỗi
     const oldQuantity = orders[activeOrderIndex].cart.find(item => item.id === id)?.quantity || 0;
 
     try {
-      if (newQuantity <= 0) {
+    if (newQuantity <= 0) {
         // Xóa sản phẩm khỏi giỏ hàng
         await hoaDonService.xoaHoaDonChiTiet(id);
-        setOrders(prev => {
-          const newOrders = [...prev];
-          const activeOrder = newOrders[activeOrderIndex];
-          newOrders[activeOrderIndex].cart = activeOrder.cart.filter(item => item.id !== id);
-          return newOrders;
-        });
-      } else {
+      setOrders(prev => {
+        const newOrders = [...prev];
+        const activeOrder = newOrders[activeOrderIndex];
+        newOrders[activeOrderIndex].cart = activeOrder.cart.filter(item => item.id !== id);
+        return newOrders;
+      });
+    } else {
         // Cập nhật số lượng
         console.log('Updating cart item with data:', {
           id_hoa_don: orders[activeOrderIndex].currentOrderId,
@@ -502,16 +582,17 @@ export default function POSPage() {
         });
         
         // Cập nhật trực tiếp số lượng trong cart trước khi gọi API
-        setOrders(prev => {
-          const newOrders = [...prev];
-          const activeOrder = newOrders[activeOrderIndex];
-          newOrders[activeOrderIndex].cart = activeOrder.cart.map(item =>
+      setOrders(prev => {
+        const newOrders = [...prev];
+        const activeOrder = newOrders[activeOrderIndex];
+        newOrders[activeOrderIndex].cart = activeOrder.cart.map(item =>
             item.id === id ? { ...item, quantity: newQuantity, total: item.price * newQuantity } : item
           );
           return newOrders;
         });
 
-        await hoaDonService.themHoacSuaHoaDonChiTiet({
+        // Sử dụng suaHoaDonChiTiet để cập nhật số lượng
+        const response = await hoaDonService.suaHoaDonChiTiet({
           id_hoa_don: orders[activeOrderIndex].currentOrderId,
           id_san_pham_chi_tiet: id_san_pham_chi_tiet,
           so_luong: newQuantity
@@ -533,13 +614,13 @@ export default function POSPage() {
                 item.sanPhamChiTiet?.ten_mau_sac,
                 item.sanPhamChiTiet?.ten_kich_co
               ].filter(Boolean).join(' - '),
-              price: item.gia_sau_giam_gia ?? item.don_gia,
+              price: item.gia_sau_giam_gia,
               originalPrice: item.don_gia,
               quantity: item.so_luong,
               total: item.thanh_tien
             }));
-            return newOrders;
-          });
+        return newOrders;
+      });
         }
       }
 
@@ -558,6 +639,7 @@ export default function POSPage() {
         return newOrders;
       });
       toast.error(error.response?.data || 'Không thể cập nhật số lượng sản phẩm');
+      throw error; // Ném lỗi để component con có thể bắt
     }
   };
 
@@ -604,7 +686,19 @@ export default function POSPage() {
       
       // Lấy thông tin chi tiết khách hàng vừa thêm
       const kh = await khachHangService.getChiTietKhachHang(id);
-      
+      const order = orders[activeOrderIndex];
+    if (!order.currentOrderId) return;
+  
+      const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+
+      await hoaDonService.updateHoaDon({
+        id_hoa_don: order.currentOrderId,
+        id_khach_hang: kh.id_khach_hang,
+        id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
+        id_phuong_thuc_thanh_toan: invoice.id_phuong_thuc_thanh_toan,
+        ghi_chu: invoice.ghi_chu,
+        so_tien_khach_tra: 0
+      });
       // Cập nhật state
       setOrders(prev => {
         const newOrders = [...prev];
@@ -658,17 +752,30 @@ export default function POSPage() {
   // Handler chọn sản phẩm để mở dialog chi tiết
   const handleSelectProduct = async (product: any) => {
     console.log('Selecting product:', product);
+    if (!product) {
+      console.error('Invalid product object:', product);
+      return;
+    }
+
     setOrders(prev => {
       const newOrders = [...prev];
       newOrders[activeOrderIndex].isProductDetailLoading = true;
       return newOrders;
     });
+
     try {
-      const detail = await sanPhamService.getChiTietSanPhamHoatDong(product.id);
+      // If product is a string, it's an ID
+      const productId = typeof product === 'string' ? product : product.id_san_pham;
+      if (!productId) {
+        throw new Error('Invalid product ID');
+      }
+
+      const detail = await sanPhamService.getChiTietSanPhamHoatDong(productId);
       console.log('Product detail from API:', detail);
       
       const mappedProduct = {
         id: parseInt(detail.id_san_pham),
+        id_san_pham: detail.id_san_pham,
         code: detail.ma_san_pham,
         name: detail.ten_san_pham,
         description: detail.mo_ta,
@@ -857,7 +964,7 @@ export default function POSPage() {
               item.sanPhamChiTiet?.ten_mau_sac,
               item.sanPhamChiTiet?.ten_kich_co
             ].filter(Boolean).join(' - '),
-            price: item.gia_sau_giam_gia ?? item.don_gia,
+            price: item.gia_sau_giam_gia,
             originalPrice: item.don_gia,
             quantity: item.so_luong,
             total: item.thanh_tien
@@ -887,10 +994,9 @@ export default function POSPage() {
     try {
       const currentOrder = orders[activeOrderIndex];
       
-      // Tạo object params với tất cả các bộ lọc từ order state
       const params = {
-        trang_hien_tai: 1,
-        so_phan_tu_tren_trang: 9,
+        trang_hien_tai: 1, // Reset về trang 1
+        so_phan_tu_tren_trang: pagination.pageSize,
         tim_kiem: currentOrder.searchTerm || undefined,
         id_thuong_hieu: currentOrder.selectedBrandIds.length > 0 ? currentOrder.selectedBrandIds : undefined,
         id_danh_muc: currentOrder.selectedCategoryIds.length > 0 ? currentOrder.selectedCategoryIds : undefined,
@@ -898,21 +1004,28 @@ export default function POSPage() {
         id_chat_lieu: currentOrder.selectedMaterialIds.length > 0 ? currentOrder.selectedMaterialIds : undefined,
         id_xuat_xu: currentOrder.selectedOriginIds.length > 0 ? currentOrder.selectedOriginIds : undefined,
         gia_tu: currentOrder.priceRange[0] > 0 ? currentOrder.priceRange[0] : undefined,
-        gia_den: currentOrder.priceRange[1] < 5000000 ? currentOrder.priceRange[1] : undefined,
+        gia_den: currentOrder.priceRange[1] < maxPrice ? currentOrder.priceRange[1] : undefined,
         sap_xep_theo: 'ngay_tao',
         sap_xep_tang: false
       };
 
-      // Loại bỏ các giá trị undefined
       const cleanParams = Object.fromEntries(
         Object.entries(params).filter(([_, value]) => value !== undefined)
       );
 
-      console.log('Filter params:', cleanParams); // Thêm log để debug
-
       const res = await sanPhamService.getDanhSachSanPhamHoatDong(cleanParams);
+      
+      // Cập nhật state phân trang
+      setPagination(prev => ({
+        ...prev,
+        currentPage: 1,
+        totalPages: Math.ceil(res.tong_so_phan_tu / pagination.pageSize),
+        totalItems: res.tong_so_phan_tu
+      }));
+
       const mappedProducts = (res.danh_sach || []).map(sp => ({
         id: sp.id_san_pham,
+        id_san_pham: sp.id_san_pham,
         code: sp.ma_san_pham,
         name: sp.ten_san_pham,
         description: sp.mo_ta,
@@ -937,7 +1050,6 @@ export default function POSPage() {
       }));
       setProducts(mappedProducts);
       
-      // Đóng panel filter sau khi áp dụng thành công
       setOrders(prev => {
         const newOrders = [...prev];
         newOrders[activeOrderIndex].isFilterOpen = false;
@@ -964,9 +1076,15 @@ export default function POSPage() {
     const order = orders[activeOrderIndex];
     if (!order.currentOrderId) return;
     try {
+      const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+
       await hoaDonService.updateHoaDon({
         id_hoa_don: order.currentOrderId,
-        id_khach_hang: customer.id_khach_hang
+        id_khach_hang: customer.id_khach_hang,
+        id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
+        id_phuong_thuc_thanh_toan: invoice.id_phuong_thuc_thanh_toan,
+        ghi_chu: invoice.ghi_chu,
+        so_tien_khach_tra: 0
       });
       setOrders(prev => {
         const newOrders = [...prev];
@@ -987,9 +1105,14 @@ export default function POSPage() {
     const order = orders[activeOrderIndex];
     if (!order.currentOrderId) return;
     try {
+      const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
       await hoaDonService.updateHoaDon({
         id_hoa_don: order.currentOrderId,
-        id_khach_hang: undefined
+        id_khach_hang: undefined,
+        id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
+        id_phuong_thuc_thanh_toan: invoice.id_phuong_thuc_thanh_toan,
+        ghi_chu: invoice.ghi_chu,
+        so_tien_khach_tra: 0
       });
       setOrders(prev => {
         const newOrders = [...prev];
@@ -1002,6 +1125,93 @@ export default function POSPage() {
       toast.success('Đã bỏ chọn khách hàng');
     } catch (error: any) {
       toast.error(error.response?.data || 'Không thể bỏ chọn khách hàng');
+    }
+  };
+
+  // Thêm hàm xử lý áp dụng mã khuyến mãi
+  const handleApplyDiscountCode = async (orderIndex: number, code: string) => {
+    try {
+      const order = orders[orderIndex];
+      if (!order.currentOrderId) return;
+      const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+      // Gọi API kiểm tra mã khuyến mãi
+      const response = await hoaDonService.updateHoaDon({
+        id_hoa_don: order.currentOrderId,
+        id_khuyen_mai: code,
+        id_khach_hang: invoice.khachHang?.id_khach_hang,
+        id_phuong_thuc_thanh_toan: invoice.id_phuong_thuc_thanh_toan,
+        ghi_chu: invoice.ghi_chu,
+        so_tien_khach_tra: 0
+      });
+
+      // Cập nhật state với thông tin giảm giá
+      setOrders(prev => {
+        const newOrders = [...prev];
+        // Giữ nguyên mã khuyến mãi hiển thị trong input
+        newOrders[orderIndex] = {
+          ...newOrders[orderIndex],
+          discountAmount: response.so_tien_giam || 0
+        };
+        return newOrders;
+      });
+
+    } catch (error: any) {
+      console.error('Error applying discount code:', error);
+      toast.error(error.response?.data || 'Không thể áp dụng mã khuyến mãi');
+    }
+  };
+
+  // Thêm hàm xử lý thanh toán thành công
+  const handlePaymentSuccess = async () => {
+    try {
+      // Lấy lại danh sách hóa đơn chờ mới nhất
+      const pendingOrders = await hoaDonService.getAllHoaDonTaiQuayCho();
+      
+      if (pendingOrders && pendingOrders.length > 0) {
+        // Lấy chi tiết hóa đơn đầu tiên
+        const firstOrder = pendingOrders[0];
+        const chiTiet = await hoaDonService.getHoaDonTaiQuayChoById(firstOrder.id_hoa_don);
+        
+        // Cập nhật state với danh sách hóa đơn mới
+        const newOrders = pendingOrders.map((order, idx) => ({
+          ...getDefaultOrder(maxPrice),
+          currentOrderId: order.id_hoa_don,
+          cart: idx === 0
+            ? (chiTiet.hoaDonChiTiets || []).map((item: any) => ({
+                id: item.id_hoa_don_chi_tiet.toString(),
+                id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
+                name: [
+                  item.sanPhamChiTiet?.ten_san_pham,
+                  item.sanPhamChiTiet?.ten_mau_sac,
+                  item.sanPhamChiTiet?.ten_kich_co
+                ].filter(Boolean).join(' - '),
+                price: item.gia_sau_giam_gia,
+                originalPrice: item.don_gia,
+                quantity: item.so_luong,
+                total: item.thanh_tien
+              }))
+            : [],
+          selectedCustomer: order.khachHang ? {
+            id_khach_hang: order.khachHang.id_khach_hang,
+            ma_khach_hang: order.khachHang.ma_khach_hang,
+            ten_khach_hang: order.khachHang.ten_khach_hang,
+            so_dien_thoai: order.khachHang.sdt_khach_hang,
+            trang_thai: 'HoatDong'
+          } : null,
+          discountCode: chiTiet.khuyenMai?.ma_khuyen_mai || '',
+          discountAmount: chiTiet.so_tien_khuyen_mai || 0
+        }));
+        
+        setOrders(newOrders);
+        setShowEmptyState(false);
+      } else {
+        // Nếu không còn hóa đơn nào, hiển thị trạng thái trống
+        setOrders([]);
+        setShowEmptyState(true);
+      }
+    } catch (error) {
+      console.error('Error refreshing orders:', error);
+      toast.error('Không thể cập nhật danh sách hóa đơn');
     }
   };
 
@@ -1104,7 +1314,11 @@ export default function POSPage() {
               onAddCustomer={handleAddCustomer}
               onPayment={handlePayment}
               onApplyFilter={handleApplyFilter}
+              onApplyDiscountCode={(code) => handleApplyDiscountCode(activeOrderIndex, code)}
               maxPrice={maxPrice}
+              pagination={pagination}
+              onPageChange={handlePageChange}
+              onPaymentSuccess={handlePaymentSuccess}
             />
           )}
         </>

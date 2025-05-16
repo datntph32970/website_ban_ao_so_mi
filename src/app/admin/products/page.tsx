@@ -22,7 +22,7 @@ import {
   DialogTrigger,
   DialogClose
 } from "@/components/ui/dialog";
-import { Edit, Plus, Search, Trash, Filter, ArrowUpDown, ChevronUp, ChevronDown, Tag, Layers, Footprints, Feather, Globe, DollarSign, RefreshCw, CheckCircle2, X as XIcon } from "lucide-react";
+import { Edit, Plus, Search, Trash, Filter, ArrowUpDown, ChevronUp, ChevronDown, Tag, Layers, Footprints, Feather, Globe, DollarSign, RefreshCw, CheckCircle2, X as XIcon, Eye } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { SanPham } from "@/types/san-pham";
@@ -65,6 +65,7 @@ type ProductListItem = {
   discountInfo?: GiamGia | null;
   minOriginPrice?: number;
   maxOriginPrice?: number;
+  trang_thai: string;
 };
 
 export default function ProductsPage() {
@@ -109,6 +110,9 @@ export default function ProductsPage() {
 
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isUpdateStatusDialogOpen, setIsUpdateStatusDialogOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<'HoatDong' | 'KhongHoatDong'>('HoatDong');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const fetchAttributes = async () => {
     setBrands(await sanPhamService.getDanhSachThuongHieu());
@@ -305,7 +309,8 @@ export default function ProductsPage() {
     new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND',
-      maximumFractionDigits: 0
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2
     }).format(Number(value));
 
   // Xử lý tìm kiếm
@@ -352,6 +357,26 @@ export default function ProductsPage() {
     }
   };
 
+  // Add handler for updating status
+  const handleUpdateStatus = async () => {
+    try {
+      setIsUpdatingStatus(true);
+      await sanPhamService.capNhatTrangThaiNhieuSanPham(selectedProducts, selectedStatus);
+      
+      toast.success('Cập nhật trạng thái thành công');
+      setIsUpdateStatusDialogOpen(false);
+      setSelectedProducts([]);
+      
+      // Refresh product list
+      fetchProducts();
+    } catch (error: any) {
+      console.error('Error updating status:', error);
+      toast.error(error.response?.data || 'Không thể cập nhật trạng thái');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="p-6">
@@ -362,6 +387,15 @@ export default function ProductsPage() {
           </div>
           <div className="flex gap-2">
             {selectedProducts.length > 0 && (
+              <>
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => setIsUpdateStatusDialogOpen(true)}
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>Cập nhật trạng thái ({selectedProducts.length})</span>
+                </Button>
               <Button 
                 variant="destructive" 
                 className="gap-2"
@@ -370,6 +404,7 @@ export default function ProductsPage() {
                 <Trash className="h-4 w-4" />
                 <span>Xóa ({selectedProducts.length})</span>
               </Button>
+              </>
             )}
           <Link href="/admin/products/new">
             <Button className="gap-2">
@@ -588,6 +623,17 @@ export default function ProductsPage() {
                 </TableHead>
                 <TableHead className="text-center">Tồn kho</TableHead>
                 <TableHead className="text-center">Đã bán</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-slate-100 transition-colors text-center"
+                  onClick={() => handleSort("trang_thai")}
+                >
+                  <div className="flex items-center justify-center">
+                    Trạng thái
+                    {sortBy === "trang_thai" && (
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
@@ -683,7 +729,25 @@ export default function ProductsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className="text-slate-600">{product.sold}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        product.sold > 100 ? "bg-blue-100 text-blue-800" :
+                        product.sold > 50 ? "bg-indigo-100 text-indigo-800" :
+                        product.sold > 0 ? "bg-purple-100 text-purple-800" :
+                        "bg-slate-100 text-slate-800"
+                      }`}>
+                        {product.sold}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge 
+                        className={`${
+                          product.trang_thai === "HoatDong" 
+                            ? "bg-green-100 text-green-700 hover:bg-green-200" 
+                            : "bg-red-100 text-red-700 hover:bg-red-200"
+                        }`}
+                      >
+                        {product.trang_thai === "HoatDong" ? "Đang bán" : "Ngừng bán"}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -768,6 +832,56 @@ export default function ProductsPage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Hủy</Button>
               <Button variant="destructive" onClick={confirmDelete}>Xóa sản phẩm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add update status dialog */}
+        <Dialog open={isUpdateStatusDialogOpen} onOpenChange={setIsUpdateStatusDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Cập nhật trạng thái sản phẩm</DialogTitle>
+              <DialogDescription>
+                Chọn trạng thái mới cho {selectedProducts.length} sản phẩm đã chọn
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <Select
+                value={selectedStatus}
+                onValueChange={(value: 'HoatDong' | 'KhongHoatDong') => setSelectedStatus(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HoatDong">Đang bán</SelectItem>
+                  <SelectItem value="KhongHoatDong">Ngừng bán</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsUpdateStatusDialogOpen(false)}
+                disabled={isUpdatingStatus}
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleUpdateStatus}
+                disabled={isUpdatingStatus}
+              >
+                {isUpdatingStatus ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    Đang cập nhật...
+                  </>
+                ) : (
+                  'Cập nhật'
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

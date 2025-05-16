@@ -1,9 +1,30 @@
 import { api } from '@/lib/api';
 import { HoaDonAdminDTO } from '@/types/hoa-don';
 
+interface ThamSoPhanTrangHoaDonAdminDTO {
+    trang_hien_tai: number;
+    so_phan_tu_tren_trang: number;
+    tong_so_trang: number;
+    tong_so_phan_tu: number;
+    tim_kiem?: string;
+    trang_thai?: string;
+    loai_hoa_don?: string;
+    id_phuong_thuc_thanh_toan?: string;
+    ngay_tao_tu?: string;
+    ngay_tao_den?: string;
+}
+
+interface PhanTrangHoaDonAdminDTO {
+    trang_hien_tai: number;
+    so_phan_tu_tren_trang: number;
+    tong_so_trang: number;
+    tong_so_phan_tu: number;
+    danh_sach: HoaDonAdminDTO[];
+}
+
 export const hoaDonService = {
-    getHoaDon: async (): Promise<HoaDonAdminDTO[]> => {
-        const response = await api.get('/HoaDon');
+    getHoaDon: async (tham_so: ThamSoPhanTrangHoaDonAdminDTO): Promise<PhanTrangHoaDonAdminDTO> => {
+        const response = await api.get('/HoaDon/lay-danh-sach-hoa-don', { params: tham_so });
         return response.data;
     },
     getHoaDonById: async (id: string): Promise<HoaDonAdminDTO> => {
@@ -28,22 +49,59 @@ export const hoaDonService = {
     xoaHoaDonChiTiet: async (id_hoa_don_chi_tiet: string) => {
         return api.delete(`/HoaDon/xoa-hoa-don-chi-tiet?id_hoa_don_chi_tiet=${id_hoa_don_chi_tiet}`);
     },
-    themHoacSuaHoaDonChiTiet: async ( data: {
+    themaHoaDonChiTiet: async ( data: {
         id_hoa_don: string;
         id_san_pham_chi_tiet: string;
         so_luong: number;
         ghi_chu?: string;
     }) => {
-        const response = await api.post(`/HoaDon/them-hoac-sua-hoa-don-chi-tiet`, data);
+        const response = await api.post(`/HoaDon/them-hoa-don-chi-tiet`, data);
         return response.data;
     },
+    suaHoaDonChiTiet: async ( data: {
+        id_hoa_don: string;
+        id_san_pham_chi_tiet: string;
+        so_luong: number;
+        ghi_chu?: string;
+    }) => {
+        const response = await api.post(`/HoaDon/sua-hoa-don-chi-tiet`, data);
+        return response.data;
+    },
+    
     updateHoaDon: async (data: {
         id_hoa_don: string;
         id_khach_hang?: string;
         id_khuyen_mai?: string;
         ghi_chu?: string;
+        so_tien_khach_tra?: number;
+        id_phuong_thuc_thanh_toan?: string;
     }) => {
         const response = await api.put('/HoaDon/cap-nhat-hoa-don-ban-tai-quay', data);
+        return response.data;
+    },
+    hoanTatThanhToan: async (id_hoa_don: string) => {
+        const response = await api.put(`/HoaDon/thanh-toan-hoa-don-cho-tai-quay/${id_hoa_don}`);
+        return response.data;
+    },
+    async inHoaDon(id_hoa_don: string) {
+        try {
+            const response = await api.get(`/HoaDon/in-hoa-don/${id_hoa_don}`);
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    },
+    async taoHoaDonOnline(data: {
+        dia_chi_nhan_hang: string;
+        ten_khach_hang: string;
+        sdt_khach_hang: string;
+        ghi_chu?: string;
+        id_phuong_thuc_thanh_toan: string;
+    }): Promise<{
+        message: string;
+        hoa_don: HoaDonAdminDTO;
+    }> {
+        const response = await api.post('/HoaDon/tao-hoa-don-online', data);
         return response.data;
     }
 }

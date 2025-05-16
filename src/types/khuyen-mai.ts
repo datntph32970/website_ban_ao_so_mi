@@ -1,4 +1,3 @@
-import { HoaDon } from "./hoa-don";
 import { NhanVien } from "./nhan-vien";
 
 export enum KieuKhuyenMai {
@@ -34,6 +33,7 @@ export interface KhuyenMai {
 }
 
 export interface ThemKhuyenMaiDTO {
+    ma_khuyen_mai: string;
     ten_khuyen_mai: string;
     mo_ta: string;
     kieu_khuyen_mai: KieuKhuyenMai;
@@ -46,6 +46,7 @@ export interface ThemKhuyenMaiDTO {
 }
 
 export interface SuaKhuyenMaiDTO {
+    ma_khuyen_mai: string;
     ten_khuyen_mai: string;
     mo_ta: string;
     kieu_khuyen_mai: KieuKhuyenMai;

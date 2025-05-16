@@ -45,6 +45,11 @@ export interface UpdateSanPhamChiTietDTO {
   id_mau_sac?: string;
 }
 
+// Thêm interface cho DTO cập nhật trạng thái
+export interface CapNhatTrangThaiSanPhamDTO {
+  trang_thai: 'HoatDong' | 'KhongHoatDong';
+}
+
 export const sanPhamService = {
   // Lấy danh sách sản phẩm
   getDanhSachSanPham: async (params: ThamSoPhanTrangSanPhamDTO): Promise<PhanTrangSanPhamDTO> => {
@@ -87,8 +92,11 @@ export const sanPhamService = {
   },
 
   // Cập nhật trạng thái sản phẩm
-  capNhatTrangThaiSanPham: async (id: string, trangThai: string): Promise<AxiosResponse> => {
-    const response = await api.put<SanPham>(`/SanPham/update-trang-thai-san-pham/${id}`, { trang_thai: trangThai });
+  capNhatTrangThaiSanPham: async (id: string, trangThai: 'HoatDong' | 'KhongHoatDong'): Promise<AxiosResponse> => {
+    const response = await api.put<string>(
+      `/SanPham/update-trang-thai-san-pham/${id}`,
+      { trang_thai: trangThai }
+    );
     return response;
   },
 
@@ -147,9 +155,23 @@ export const sanPhamService = {
   },
 
   // Cập nhật trạng thái sản phẩm chi tiết
-  capNhatTrangThaiSanPhamChiTiet: async (id: string, trangThai: string): Promise<AxiosResponse> => {
-    const response = await api.put<SanPhamChiTiet>(`/SanPhamChiTiet/update-trang-thai-san-pham-chi-tiet/${id}`, { trang_thai: trangThai });
+  capNhatTrangThaiSanPhamChiTiet: async (id: string, trangThai: 'HoatDong' | 'KhongHoatDong'): Promise<AxiosResponse> => {
+    const response = await api.put<string>(
+      `/SanPhamChiTiet/update-trang-thai-san-pham-chi-tiet?id=${id}`, 
+      { trang_thai: trangThai }
+    );
     return response;
+  },
+
+  // Cập nhật trạng thái cho nhiều sản phẩm chi tiết
+  capNhatTrangThaiNhieuSanPhamChiTiet: async (ids: string[], trangThai: 'HoatDong' | 'KhongHoatDong'): Promise<AxiosResponse[]> => {
+    const promises = ids.map(id => 
+      api.put<string>(
+        `/SanPham/update-trang-thai-san-pham-chi-tiet/${id}`,
+        { trang_thai: trangThai }
+      )
+    );
+    return Promise.all(promises);
   },
 
   // Cập nhật số lượng sản phẩm chi tiết
@@ -213,5 +235,16 @@ export const sanPhamService = {
       params: { idSanPham, idMauSac, idKichCo }
     });
     return response.data;
+  },
+
+  // Cập nhật trạng thái cho nhiều sản phẩm
+  capNhatTrangThaiNhieuSanPham: async (ids: string[], trangThai: 'HoatDong' | 'KhongHoatDong'): Promise<AxiosResponse[]> => {
+    const promises = ids.map(id => 
+      api.put<string>(
+        `/SanPham/update-trang-thai-san-pham/${id}`,
+        { trang_thai: trangThai }
+      )
+    );
+    return Promise.all(promises);
   },
 }; 

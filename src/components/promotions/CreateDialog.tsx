@@ -41,54 +41,63 @@ const defaultFormData = {
   so_luong_toi_da: 0,
   thoi_gian_bat_dau: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
   thoi_gian_ket_thuc: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+  ma_khuyen_mai: "",
 };
 
 export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) {
   const [formData, setFormData] = useState<ThemKhuyenMaiDTO>(defaultFormData);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setFormData(defaultFormData);
-      setError("");
+      setErrors({});
     }
   }, [isOpen]);
 
   const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    let isValid = true;
+
     if (!formData.ten_khuyen_mai.trim()) {
-      setError("Vui lòng nhập tên khuyến mãi");
-      return false;
+      newErrors.ten_khuyen_mai = "Vui lòng nhập tên khuyến mãi";
+      isValid = false;
+    }
+
+    if (formData.ma_khuyen_mai && formData.ma_khuyen_mai.length > 20) {
+      newErrors.ma_khuyen_mai = "Mã khuyến mãi không được vượt quá 20 ký tự";
+      isValid = false;
     }
 
     if (!formData.mo_ta.trim()) {
-      setError("Vui lòng nhập mô tả");
-      return false;
+      newErrors.mo_ta = "Vui lòng nhập mô tả";
+      isValid = false;
     }
 
     if (formData.gia_tri_giam <= 0) {
-      setError("Giá trị giảm phải lớn hơn 0");
-      return false;
+      newErrors.gia_tri_giam = "Giá trị giảm phải lớn hơn 0";
+      isValid = false;
     }
 
     if (formData.kieu_khuyen_mai === KieuKhuyenMai.PhanTram && formData.gia_tri_giam > 100) {
-      setError("Giá trị giảm phần trăm không được vượt quá 100%");
-      return false;
+      newErrors.gia_tri_giam = "Giá trị giảm phần trăm không được vượt quá 100%";
+      isValid = false;
     }
 
     if (formData.gia_tri_giam_toi_da < formData.gia_tri_giam) {
-      setError("Giá trị giảm tối đa phải lớn hơn giá trị giảm");
-      return false;
+      newErrors.gia_tri_giam_toi_da = "Giá trị giảm tối đa phải lớn hơn giá trị giảm";
+      isValid = false;
     }
 
     if (formData.gia_tri_don_hang_toi_thieu <= 0) {
-      setError("Giá trị đơn hàng tối thiểu phải lớn hơn 0");
-      return false;
+      newErrors.gia_tri_don_hang_toi_thieu = "Giá trị đơn hàng tối thiểu phải lớn hơn 0";
+      isValid = false;
     }
 
     if (formData.so_luong_toi_da <= 0) {
-      setError("Số lượng tối đa phải lớn hơn 0");
-      return false;
+      newErrors.so_luong_toi_da = "Số lượng tối đa phải lớn hơn 0";
+      isValid = false;
     }
 
     const startDate = new Date(formData.thoi_gian_bat_dau);
@@ -96,21 +105,22 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
     const now = new Date();
 
     if (startDate <= now) {
-      setError("Thời gian bắt đầu phải sau thời điểm hiện tại");
-      return false;
+      newErrors.thoi_gian_bat_dau = "Thời gian bắt đầu phải sau thời điểm hiện tại";
+      isValid = false;
     }
 
     if (endDate <= startDate) {
-      setError("Thời gian kết thúc phải sau thời gian bắt đầu");
-      return false;
+      newErrors.thoi_gian_ket_thuc = "Thời gian kết thúc phải sau thời gian bắt đầu";
+      isValid = false;
     }
 
-    return true;
+    setErrors(newErrors);
+    return isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setErrors({});
 
     if (validateForm()) {
       try {
@@ -140,17 +150,26 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-900">Thông tin cơ bản</h3>
                 <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ma_khuyen_mai" className="text-sm font-medium text-slate-700">
+                      Mã khuyến mãi
+                    </Label>
+                    <Input
+                      id="ma_khuyen_mai"
+                      value={formData.ma_khuyen_mai}
+                      onChange={(e) => setFormData({ ...formData, ma_khuyen_mai: e.target.value.toUpperCase() })}
+                      placeholder="Nhập mã khuyến mãi (không bắt buộc)"
+                      className={`w-full ${errors.ma_khuyen_mai ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    />
+                    {errors.ma_khuyen_mai && (
+                      <p className="text-sm text-red-500">{errors.ma_khuyen_mai}</p>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="ten_khuyen_mai" className="text-sm font-medium text-slate-700">
                       Tên khuyến mãi <span className="text-red-500">*</span>
@@ -160,8 +179,11 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                       value={formData.ten_khuyen_mai}
                       onChange={(e) => setFormData({ ...formData, ten_khuyen_mai: e.target.value })}
                       placeholder="Nhập tên khuyến mãi"
-                      className="w-full"
+                      className={`w-full ${errors.ten_khuyen_mai ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.ten_khuyen_mai && (
+                      <p className="text-sm text-red-500">{errors.ten_khuyen_mai}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="mo_ta" className="text-sm font-medium text-slate-700">
@@ -172,8 +194,11 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                       value={formData.mo_ta}
                       onChange={(e) => setFormData({ ...formData, mo_ta: e.target.value })}
                       placeholder="Nhập mô tả khuyến mãi"
-                      className="min-h-[100px] resize-none"
+                      className={`min-h-[100px] resize-none ${errors.mo_ta ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.mo_ta && (
+                      <p className="text-sm text-red-500">{errors.mo_ta}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -191,8 +216,11 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                       value={formData.thoi_gian_bat_dau}
                       onChange={(e) => setFormData({ ...formData, thoi_gian_bat_dau: e.target.value })}
                       min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
-                      className="w-full"
+                      className={`w-full ${errors.thoi_gian_bat_dau ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.thoi_gian_bat_dau && (
+                      <p className="text-sm text-red-500">{errors.thoi_gian_bat_dau}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="thoi_gian_ket_thuc" className="text-sm font-medium text-slate-700">
@@ -204,8 +232,11 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                       value={formData.thoi_gian_ket_thuc}
                       onChange={(e) => setFormData({ ...formData, thoi_gian_ket_thuc: e.target.value })}
                       min={formData.thoi_gian_bat_dau}
-                      className="w-full"
+                      className={`w-full ${errors.thoi_gian_ket_thuc ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
+                    {errors.thoi_gian_ket_thuc && (
+                      <p className="text-sm text-red-500">{errors.thoi_gian_ket_thuc}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -223,7 +254,7 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                       value={formData.kieu_khuyen_mai}
                       onValueChange={(value) => setFormData(prev => ({ ...prev, kieu_khuyen_mai: value as KieuKhuyenMai }))}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className={`w-full ${errors.kieu_khuyen_mai ? "border-red-500 focus-visible:ring-red-500" : ""}`}>
                         <SelectValue placeholder="Chọn kiểu giảm giá" />
                       </SelectTrigger>
                       <SelectContent>
@@ -231,6 +262,9 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                         <SelectItem value={KieuKhuyenMai.TienMat}>Tiền mặt</SelectItem>
                       </SelectContent>
                     </Select>
+                    {errors.kieu_khuyen_mai && (
+                      <p className="text-sm text-red-500">{errors.kieu_khuyen_mai}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -244,17 +278,13 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                         value={formData.gia_tri_giam}
                         onChange={(e) => {
                           const value = Number(e.target.value);
-                          if (formData.kieu_khuyen_mai === KieuKhuyenMai.PhanTram && value > 100) {
-                            setError("Giá trị giảm phần trăm không được vượt quá 100%");
-                            return;
-                          }
                           setFormData(prev => ({
                             ...prev,
                             gia_tri_giam: value,
                             gia_tri_giam_toi_da: prev.kieu_khuyen_mai === KieuKhuyenMai.TienMat ? value : prev.gia_tri_giam_toi_da
                           }));
                         }}
-                        className="pr-12"
+                        className={`pr-12 ${errors.gia_tri_giam ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                         min={0}
                         max={formData.kieu_khuyen_mai === KieuKhuyenMai.PhanTram ? 100 : undefined}
                       />
@@ -262,6 +292,9 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                         {formData.kieu_khuyen_mai === KieuKhuyenMai.PhanTram ? "%" : "VNĐ"}
                       </div>
                     </div>
+                    {errors.gia_tri_giam && (
+                      <p className="text-sm text-red-500">{errors.gia_tri_giam}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -274,13 +307,16 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                         type="number"
                         value={formData.gia_tri_don_hang_toi_thieu}
                         onChange={(e) => setFormData({ ...formData, gia_tri_don_hang_toi_thieu: Number(e.target.value) })}
-                        className="pr-12"
+                        className={`pr-12 ${errors.gia_tri_don_hang_toi_thieu ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                         min={0}
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
                         VNĐ
                       </div>
                     </div>
+                    {errors.gia_tri_don_hang_toi_thieu && (
+                      <p className="text-sm text-red-500">{errors.gia_tri_don_hang_toi_thieu}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -298,7 +334,7 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                           }
                           setFormData({ ...formData, gia_tri_giam_toi_da: Number(e.target.value) });
                         }}
-                        className={`pr-12 ${formData.kieu_khuyen_mai === KieuKhuyenMai.TienMat ? "bg-slate-100 cursor-not-allowed" : ""}`}
+                        className={`pr-12 ${formData.kieu_khuyen_mai === KieuKhuyenMai.TienMat ? "bg-slate-100 cursor-not-allowed" : ""} ${errors.gia_tri_giam_toi_da ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                         min={0}
                         disabled={formData.kieu_khuyen_mai === KieuKhuyenMai.TienMat}
                       />
@@ -306,6 +342,9 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                         VNĐ
                       </div>
                     </div>
+                    {errors.gia_tri_giam_toi_da && (
+                      <p className="text-sm text-red-500">{errors.gia_tri_giam_toi_da}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -319,7 +358,11 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
                       onChange={(e) => setFormData({ ...formData, so_luong_toi_da: Number(e.target.value) })}
                       min={1}
                       placeholder="Nhập số lượng tối đa"
+                      className={errors.so_luong_toi_da ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {errors.so_luong_toi_da && (
+                      <p className="text-sm text-red-500">{errors.so_luong_toi_da}</p>
+                    )}
                   </div>
                 </div>
               </div>

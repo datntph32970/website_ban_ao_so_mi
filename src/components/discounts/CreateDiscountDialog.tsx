@@ -35,6 +35,7 @@ interface FormErrors {
   so_luong_toi_da?: string;
   thoi_gian_bat_dau?: string;
   thoi_gian_ket_thuc?: string;
+  ma_giam_gia?: string;
 }
 
 export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialogProps) {
@@ -50,10 +51,17 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
     thoi_gian_bat_dau: "",
     thoi_gian_ket_thuc: "",
     trang_thai: TrangThaiGiamGia.HoatDong,
+    ma_giam_gia: "",
   });
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
+
+    // Validate mã giảm giá
+    if (formData.ma_giam_gia && formData.ma_giam_gia.length > 20) {
+      newErrors.ma_giam_gia = "Mã giảm giá không được vượt quá 20 ký tự";
+      toast.error("Mã giảm giá không được vượt quá 20 ký tự");
+    }
 
     // Validate tên giảm giá
     if (!formData.ten_giam_gia.trim()) {
@@ -138,6 +146,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
         thoi_gian_bat_dau: "",
         thoi_gian_ket_thuc: "",
         trang_thai: TrangThaiGiamGia.HoatDong,
+        ma_giam_gia: "",
       });
       setErrors({});
     } catch (error: any) {
@@ -161,7 +170,20 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="ten_giam_gia">Tên giảm giá</Label>
+              <Label htmlFor="ma_giam_gia">Mã giảm giá</Label>
+              <Input
+                id="ma_giam_gia"
+                value={formData.ma_giam_gia}
+                onChange={(e) => setFormData({ ...formData, ma_giam_gia: e.target.value.toUpperCase() })}
+                placeholder="Nhập mã giảm giá (không bắt buộc)"
+              />
+              {errors.ma_giam_gia && (
+                <p className="text-sm text-red-500">{errors.ma_giam_gia}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ten_giam_gia">Tên giảm giá <span className="text-red-500">*</span></Label>
               <Input
                 id="ten_giam_gia"
                 value={formData.ten_giam_gia}
@@ -174,7 +196,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kieu_giam_gia">Loại giảm giá</Label>
+              <Label htmlFor="kieu_giam_gia">Loại giảm giá <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.kieu_giam_gia}
                 onValueChange={(value) => setFormData({ ...formData, kieu_giam_gia: value as "PhanTram" | "SoTien" })}
@@ -191,7 +213,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mo_ta">Mô tả</Label>
+            <Label htmlFor="mo_ta">Mô tả <span className="text-red-500">*</span></Label>
             <Textarea
               id="mo_ta"
               value={formData.mo_ta}
@@ -205,7 +227,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="gia_tri_giam">Giá trị giảm</Label>
+              <Label htmlFor="gia_tri_giam">Giá trị giảm <span className="text-red-500">*</span></Label>
               <Input
                 id="gia_tri_giam"
                 type="number"
@@ -220,7 +242,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="so_luong_toi_da">Số lượng tối đa</Label>
+              <Label htmlFor="so_luong_toi_da">Số lượng tối đa <span className="text-red-500">*</span></Label>
               <Input
                 id="so_luong_toi_da"
                 type="number"
@@ -237,7 +259,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="thoi_gian_bat_dau">Thời gian bắt đầu</Label>
+              <Label htmlFor="thoi_gian_bat_dau">Thời gian bắt đầu <span className="text-red-500">*</span></Label>
               <Input
                 id="thoi_gian_bat_dau"
                 type="datetime-local"
@@ -251,7 +273,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="thoi_gian_ket_thuc">Thời gian kết thúc</Label>
+              <Label htmlFor="thoi_gian_ket_thuc">Thời gian kết thúc <span className="text-red-500">*</span></Label>
               <Input
                 id="thoi_gian_ket_thuc"
                 type="datetime-local"
@@ -266,7 +288,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="trang_thai">Trạng thái</Label>
+            <Label htmlFor="trang_thai">Trạng thái <span className="text-red-500">*</span></Label>
             <Select
               value={formData.trang_thai}
               onValueChange={(value) => setFormData({ ...formData, trang_thai: value as TrangThaiGiamGia })}

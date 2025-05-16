@@ -24,11 +24,12 @@ interface ColorTabsProps {
   variantImages: Record<string, File[]>;
   errors: { [key: string]: string };
   setVariantImages: (images: Record<string, File[]>) => void;
+  updateVariantImages?: (colorId: string, images: File[]) => Promise<void>;
   setPreviewImageUrl: (url: string) => void;
   handleToggleSizeForColor: (colorId: string, sizeId: string) => void;
   discounts: GiamGia[];
   variantValues: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string; images: File[] }>>;
-  handleVariantValueChange: (colorId: string, sizeId: string, field: string, value: any) => void;
+  handleVariantValueChange: (colorId: string, sizeId: string, field: 'stock' | 'importPrice' | 'price' | 'discount', value: any) => void;
   onDeleteColor: (colorId: string) => void;
   onDeleteSize: (colorId: string, sizeId: string) => void;
 }
@@ -47,6 +48,7 @@ export default function ColorTabs({
   variantImages,
   errors,
   setVariantImages,
+  updateVariantImages,
   setPreviewImageUrl,
   handleToggleSizeForColor,
   discounts,

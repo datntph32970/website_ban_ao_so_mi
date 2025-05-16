@@ -125,9 +125,9 @@ export default function CustomersPage() {
       if (!selectedCustomer) return;
 
       const updateData: SuaKhachHangAdminDTO = {
-        ten_khach_hang: selectedCustomer.ten_khach_hang,
-        so_dien_thoai: selectedCustomer.so_dien_thoai,
-        trang_thai: selectedCustomer.trang_thai as "HoatDong" | "KhongHoatDong",
+        ten_khach_hang: selectedCustomer.ten_khach_hang || "",
+        email: selectedCustomer.email || "",
+        so_dien_thoai: selectedCustomer.so_dien_thoai || "",
       };
 
       await khachHangService.capNhatKhachHang(selectedCustomer.id_khach_hang, updateData);

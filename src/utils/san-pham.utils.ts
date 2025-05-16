@@ -42,10 +42,11 @@ export function mapSanPhamList(data: SanPham[], apiBase: string) {
       maxOriginPrice: max?.originPrice ?? 0,
       discountInfo: min?.discountInfo ?? null,
       stock: chiTiets.reduce((sum: number, ct: SanPhamChiTiet) => sum + Number(ct.so_luong || 0), 0),
-      sold: 0,
+      sold: chiTiets.reduce((sum: number, ct: SanPhamChiTiet) => sum + Number(ct.so_luong_da_ban || 0), 0),
       imageUrl: defaultImageUrl,
       created_at: sp.ngay_tao,
       updated_at: sp.ngay_tao,
+      trang_thai: sp.trang_thai
     };
   });
 } 

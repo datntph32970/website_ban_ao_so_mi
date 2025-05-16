@@ -22,7 +22,7 @@ export default function ChangePasswordPage() {
         setUser(userData);
       } catch (error) {
         toast.error('Không thể lấy thông tin người dùng');
-        router.push('/login');
+        router.push('/auth/login');
       }
     };
 

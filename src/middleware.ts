@@ -3,35 +3,69 @@ import type { NextRequest } from 'next/server';
 
 // Định nghĩa các route và role được phép truy cập
 const routePermissions = {
-  '/admin/dashboard': ['Admin', 'NhanVien', 'KhachHang'],
+  '/admin/dashboard': ['Admin', 'NhanVien'],
   '/admin/customers': ['Admin', 'NhanVien'],
   '/admin/products': ['Admin', 'NhanVien'],
+  '/admin/employees': ['Admin'],
   '/admin/orders': ['Admin', 'NhanVien'],
   '/admin/promotions': ['Admin', 'NhanVien'],
   '/admin/discounts': ['Admin', 'NhanVien'],
   '/admin/pos': ['Admin', 'NhanVien'],
   '/admin/reports': ['Admin'],
   '/admin/settings': ['Admin'],
+  '/admin/payment-methods': ['Admin'],
 };
+
+// Định nghĩa các route dành cho khách hàng đã đăng nhập
+const customerProtectedRoutes = [
+  '/account',
+  '/orders',
+  '/cart',
+  '/checkout',
+];
 
 export async function middleware(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+  const isCustomerProtectedRoute = customerProtectedRoutes.some(route => 
+    request.nextUrl.pathname.startsWith(route)
+  );
 
+  const token = request.cookies.get('token')?.value;
+  const userRole = request.cookies.get('userRole')?.value;
+
+  // Xử lý route admin
   if (isAdminRoute) {
-    const token = request.cookies.get('token')?.value;
-
     if (!token) {
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('from', request.nextUrl.pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    // Kiểm tra quyền truy cập
-    const userRole = request.cookies.get('userRole')?.value;
-    const path = request.nextUrl.pathname;
+    // Kiểm tra quyền truy cập admin
+    if (!userRole || !isRouteAllowed(request.nextUrl.pathname, userRole)) {
+      return NextResponse.redirect(new URL('/403', request.url));
+    }
 
-    // Nếu không có role hoặc role không được phép truy cập
-    if (!userRole || !isRouteAllowed(path, userRole)) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('Authorization', `Bearer ${token}`);
+
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
+  // Xử lý route bảo vệ của khách hàng
+  if (isCustomerProtectedRoute) {
+    if (!token) {
+      const loginUrl = new URL('/auth/login', request.url);
+      loginUrl.searchParams.set('from', request.nextUrl.pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Kiểm tra xem có phải là khách hàng không
+    if (userRole !== 'KhachHang') {
       return NextResponse.redirect(new URL('/403', request.url));
     }
 

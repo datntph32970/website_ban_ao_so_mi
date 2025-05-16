@@ -418,7 +418,7 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
     try {
       await sanPhamService.themSanPham(cleanPayload);
       toast.success('Thêm sản phẩm thành công!');
-      router.push('/products');
+      router.push('/admin/products');
     } catch (error) {
       console.error('Error submitting product:', error);
       if (axios.isAxiosError(error) && error.response && error.response.data) {

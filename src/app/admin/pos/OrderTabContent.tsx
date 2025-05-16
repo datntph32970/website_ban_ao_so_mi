@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +22,15 @@ import {
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Slider } from '@/components/ui/slider';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { HoaDonAdminDTO, HoaDonChiTietAdminDTO } from "@/types/hoa-don";
+import { toast } from "react-hot-toast";
+import { khuyenMaiService } from "@/services/khuyen-mai.service";
+import { KhuyenMai } from "@/types/khuyen-mai";
+import { hoaDonService } from '@/services/hoa-don.service';
+import { phuongThucThanhToanService } from "@/services/phuong-thuc-thanh-toan.service";
+import { useRouter } from 'next/navigation';
+import { KhachHangAdminDTO } from "@/types/khach-hang";
+import InvoicePDF from '@/components/invoice/InvoicePDF';
 // ... import các type và service cần thiết ...
 
 // Hàm format giá tiền
@@ -29,17 +38,18 @@ const formatCurrency = (value: number | string) =>
   new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
-    maximumFractionDigits: 0
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2
   }).format(Number(value));
 
 // Hàm tính giá sau giảm cho 1 variant
 function getDiscountedPrice(variant: any) {
   if (!variant.giamGia) return variant.gia_ban;
   if (variant.giamGia.kieu_giam_gia === 'PhanTram') {
-    return Math.max(0, variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100));
+    return Number((variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100)).toFixed(2));
   }
   if (variant.giamGia.kieu_giam_gia === 'SoTien') {
-    return Math.max(0, variant.gia_ban - variant.giamGia.gia_tri_giam);
+    return Number((variant.gia_ban - variant.giamGia.gia_tri_giam).toFixed(2));
   }
   return variant.gia_ban;
 }
@@ -61,7 +71,16 @@ interface OrderTabContentProps {
   onAddCustomer: (customer: any) => void;
   onPayment: () => void;
   onApplyFilter: () => void;
+  onApplyDiscountCode: (code: string) => void;
   maxPrice: number;
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    pageSize: number;
+    totalItems: number;
+  };
+  onPageChange: (page: number) => void;
+  onPaymentSuccess: () => void; // Thêm prop mới
 }
 
 export default function OrderTabContent({
@@ -81,17 +100,69 @@ export default function OrderTabContent({
   onAddCustomer,
   onPayment,
   onApplyFilter,
-  maxPrice
+  onApplyDiscountCode,
+  maxPrice,
+  pagination,
+  onPageChange,
+  onPaymentSuccess
 }: OrderTabContentProps) {
+  const router = useRouter();
   const updateOrderField = (field: string, value: any) => {
     onOrderChange({ ...order, [field]: value });
   };
-  const cartTotal = order.cart.reduce((total: number, item: any) => total + item.total, 0);
+  
+  // Tính toán tổng tiền từ API response hoặc cart
+  const cartTotal = order.hoaDonChiTiets?.reduce((total: number, item: HoaDonChiTietAdminDTO) => total + item.thanh_tien, 0) || 
+                   order.cart?.reduce((total: number, item: any) => total + (item.total || 0), 0) || 0;
+  
+  // Tính toán giá trị giảm giá
+  const discountAmount = order.khuyenMai ? (
+    order.khuyenMai.loai_khuyen_mai === 'PhanTram' ? 
+      Number(Math.min(
+        (cartTotal * order.khuyenMai.gia_tri_khuyen_mai / 100),
+        order.khuyenMai.gia_tri_giam_toi_da || Infinity
+      ).toFixed(2)) : 
+      Number(Math.min(order.khuyenMai.gia_tri_khuyen_mai, cartTotal).toFixed(2))
+  ) : 0;
+
+  // Format số tiền giảm giá để hiển thị
+  const formatDiscountAmount = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  const totalAmount = Math.max(0, order.tong_tien_phai_thanh_toan || Number((cartTotal - discountAmount).toFixed(2)));
 
   // Thêm các state cục bộ cho dialog chi tiết sản phẩm
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [selectedColor, setSelectedColor] = React.useState<string | null>(null);
   const [selectedSize, setSelectedSize] = React.useState<string | null>(null);
+
+  // State for promotions dialog
+  const [isPromotionsDialogOpen, setIsPromotionsDialogOpen] = React.useState(false);
+  const [promotions, setPromotions] = React.useState<KhuyenMai[]>([]);
+  const [isLoadingPromotions, setIsLoadingPromotions] = React.useState(false);
+  const [promotionSearch, setPromotionSearch] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+
+  const [isConfirmPaymentOpen, setIsConfirmPaymentOpen] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+
+  // New state for invoice printing dialog
+  const [isPrintInvoiceOpen, setIsPrintInvoiceOpen] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<any>(null);
+
+  // Thêm state cho debounce
+  const [customerCashDebounced, setCustomerCashDebounced] = useState<number | null>(null);
+  const [paymentMethodDebouncedID, setPaymentMethodDebouncedID] = useState<string | null>(null);
+  const [noteDebounced, setNoteDebounced] = useState<string | null>(null);
+
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
 
   React.useEffect(() => {
     setCurrentImageIndex(0);
@@ -111,6 +182,133 @@ export default function OrderTabContent({
     }, 400);
     return () => clearTimeout(timeout);
   }, [order.searchTerm]);
+
+  // Debounce search term
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(promotionSearch);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [promotionSearch]);
+
+  // Effect to fetch promotions when debounced search changes
+  React.useEffect(() => {
+    if (isPromotionsDialogOpen) {
+      fetchActivePromotions();
+    }
+  }, [debouncedSearch, isPromotionsDialogOpen]);
+
+  // Effect để cập nhật lại thông tin khuyến mãi khi quay lại tab
+  React.useEffect(() => {
+    // Chỉ gọi API khi có id_khuyen_mai và không phải từ việc chọn khuyến mãi mới
+    if (order.khuyenMai?.id_khuyen_mai) {
+      const timer = setTimeout(() => {
+        onApplyDiscountCode(order.khuyenMai.id_khuyen_mai);
+      }, 100); // Thêm delay nhỏ để tránh gọi API trùng lặp
+
+      return () => clearTimeout(timer);
+    }
+  }, [order.khuyenMai?.id_khuyen_mai]);
+
+  // Effect để load thông tin khuyến mãi khi có mã
+  React.useEffect(() => {
+    const loadPromotionInfo = async () => {
+      if (order.discountCode && !order.khuyenMai) {
+        try {
+          const promotions = await khuyenMaiService.getActivePromotions({ search: order.discountCode });
+          const promotion = promotions.find(p => p.ma_khuyen_mai === order.discountCode);
+          if (promotion) {
+            onOrderChange({
+              ...order,
+              khuyenMai: {
+                id_khuyen_mai: promotion.id_khuyen_mai,
+                ten_khuyen_mai: promotion.ten_khuyen_mai,
+                ma_khuyen_mai: promotion.ma_khuyen_mai,
+                loai_khuyen_mai: promotion.kieu_khuyen_mai,
+                gia_tri_khuyen_mai: promotion.gia_tri_giam,
+                gia_tri_giam_toi_da: promotion.gia_tri_giam_toi_da
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Error loading promotion info:', error);
+        }
+      }
+    };
+
+    loadPromotionInfo();
+  }, [order.discountCode]);
+
+  // Effect để lấy danh sách phương thức thanh toán
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        setIsLoadingPaymentMethods(true);
+        const data = await phuongThucThanhToanService.getDanhSachPhuongThucThanhToanHoatDong();
+        setPaymentMethods(data);
+      } catch (error) {
+        console.error('Error fetching payment methods:', error);
+        toast.error('Không thể tải danh sách phương thức thanh toán');
+      } finally {
+        setIsLoadingPaymentMethods(false);
+      }
+    };
+
+    if (order.isPaymentOpen) {
+      fetchPaymentMethods();
+    }
+  }, [order.isPaymentOpen]);
+
+  // Effect để debounce phương thức thanh toán
+  useEffect(() => {
+    if (order.paymentMethodID && order.paymentMethodID !== paymentMethodDebouncedID) {
+      const timer = setTimeout(() => {
+        setPaymentMethodDebouncedID(order.paymentMethodID);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [order.paymentMethodID]);
+
+  // Effect để debounce ghi chú
+  useEffect(() => {
+    if (order.note !== undefined && order.note !== noteDebounced) {
+      const timer = setTimeout(() => {
+        setNoteDebounced(order.note);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [order.note]);
+
+  // Effect để gọi API khi phương thức thanh toán hoặc ghi chú thay đổi
+  useEffect(() => {
+    const updateOrder = async () => {
+      if ((paymentMethodDebouncedID || noteDebounced) && order.currentOrderId) {
+        try {
+          const selectedMethod = paymentMethods.find(m => m.id_phuong_thuc_thanh_toan === paymentMethodDebouncedID);
+                  const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+
+          if (!selectedMethod) return;
+
+          await hoaDonService.updateHoaDon({
+            id_hoa_don: order.currentOrderId,
+            id_khach_hang: invoice.khachHang?.id_khach_hang,
+            id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
+            id_phuong_thuc_thanh_toan: selectedMethod.id_phuong_thuc_thanh_toan,
+            ghi_chu: noteDebounced || undefined,
+            so_tien_khach_tra: 0
+          });
+        } catch (error) {
+          console.error('Error updating order:', error);
+          toast.error('Không thể cập nhật thông tin hóa đơn');
+        }
+      }
+    };
+
+    updateOrder();
+  }, [paymentMethodDebouncedID, noteDebounced, order.currentOrderId, paymentMethods]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
   let images = (
@@ -137,6 +335,178 @@ export default function OrderTabContent({
   const sizes = selectedColor
     ? (order.selectedProduct?.variants?.filter((v: any) => v.color === selectedColor).map((v: any) => v.size) ?? []) as string[]
     : [];
+
+  // Function to fetch active promotions
+  const fetchActivePromotions = async () => {
+    try {
+      setIsLoadingPromotions(true);
+      const data = await khuyenMaiService.getActivePromotions({ search: debouncedSearch });
+      setPromotions(data);
+    } catch (error) {
+      toast.error("Không thể tải danh sách khuyến mãi");
+    } finally {
+      setIsLoadingPromotions(false);
+    }
+  };
+
+  // Function to handle opening promotions dialog
+  const handleOpenPromotionsDialog = async () => {
+    setIsPromotionsDialogOpen(true);
+    setPromotionSearch("");
+    setDebouncedSearch("");
+  };
+
+  // Function to handle search promotions
+  const handleSearchPromotions = (value: string) => {
+    setPromotionSearch(value);
+  };
+
+  // Function to handle selecting a promotion
+  const handleSelectPromotion = (promotion: KhuyenMai) => {
+    if (promotion.ma_khuyen_mai) {
+      // Tính toán giá trị giảm giá
+      let discountAmount = 0;
+      if (promotion.kieu_khuyen_mai === 'PhanTram') {
+        // Nếu là giảm theo phần trăm
+        const maxDiscount = promotion.gia_tri_giam_toi_da || Infinity;
+        discountAmount = Math.min(
+          (cartTotal * promotion.gia_tri_giam / 100),
+          maxDiscount
+        );
+      } else {
+        // Nếu là giảm theo số tiền
+        discountAmount = Math.min(promotion.gia_tri_giam, cartTotal); // Đảm bảo không giảm quá tổng tiền hàng
+      }
+
+      // Cập nhật state ngay lập tức với đầy đủ thông tin
+      onOrderChange({
+        ...order,
+        discountCode: promotion.ma_khuyen_mai,
+        khuyenMai: {
+          id_khuyen_mai: promotion.id_khuyen_mai,
+          ten_khuyen_mai: promotion.ten_khuyen_mai,
+          ma_khuyen_mai: promotion.ma_khuyen_mai,
+          loai_khuyen_mai: promotion.kieu_khuyen_mai,
+          gia_tri_khuyen_mai: promotion.gia_tri_giam,
+          gia_tri_giam_toi_da: promotion.gia_tri_giam_toi_da
+        },
+        so_tien_khuyen_mai: discountAmount,
+        discountAmount: discountAmount,
+        tong_tien_phai_thanh_toan: Math.max(0, cartTotal - discountAmount)
+      });
+
+      // Gọi API để cập nhật server
+      onApplyDiscountCode(promotion.id_khuyen_mai);
+    }
+    setIsPromotionsDialogOpen(false);
+  };
+
+  // Function to handle updating cart item quantity
+  const handleUpdateQuantity = (item: any, newQuantity: number) => {
+    // Cập nhật state ngay lập tức
+    const updatedCart = order.cart.map((cartItem: any) =>
+      cartItem.id === item.id 
+        ? { 
+            ...cartItem, 
+            quantity: newQuantity,
+            total: cartItem.price * newQuantity 
+          } 
+        : cartItem
+    );
+    
+    onOrderChange({
+      ...order,
+      cart: updatedCart
+    });
+
+    // Sau đó gọi API để cập nhật server
+    onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, newQuantity);
+  };
+
+  // Function to handle adding to cart
+  const handleAddToCart = async (variant: any) => {
+    // Tạo item mới cho giỏ hàng
+    const newItem = {
+      id: Date.now().toString(), // Tạm thời dùng timestamp làm id
+      id_san_pham_chi_tiet: variant.id_san_pham_chi_tiet,
+      name: order.selectedProduct?.name,
+      price: getDiscountedPrice(variant), // Giá sau giảm
+      originalPrice: variant.gia_ban,     // Giá gốc
+      quantity: 1,
+      total: getDiscountedPrice(variant), // Tổng tiền ban đầu = giá sau giảm * 1
+      color: variant.color,
+      size: variant.size
+    };
+
+    // Cập nhật state ngay lập tức
+    onOrderChange({
+      ...order,
+      cart: [...(order.cart || []), newItem]
+    });
+
+    // Sau đó gọi API để cập nhật server
+    await onAddToCart(variant);
+  };
+
+  // Function to handle payment button click
+  const handlePayment = async () => {
+    if (!order.cart || order.cart.length === 0) {
+      toast.error('Giỏ hàng trống!');
+      return;
+    }
+    try {
+      setIsPaymentLoading(true);
+      // Gọi API lấy hóa đơn mới nhất
+      const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+      // Chỉ cập nhật thông tin hóa đơn mà không thay đổi khách hàng
+      onOrderChange({
+        ...order,
+        hoaDonChiTiets: invoice.hoaDonChiTiets,
+        discountCode: invoice.khuyenMai?.ma_khuyen_mai || '',
+        discountAmount: invoice.so_tien_khuyen_mai || 0
+      });
+      updateOrderField('isPaymentOpen', true);
+    } catch (error) {
+      toast.error('Không thể tải thông tin hóa đơn mới nhất');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
+  // Effect để debounce số tiền khách đưa
+  useEffect(() => {
+    if (order.customerCash !== undefined) {
+      const timer = setTimeout(() => {
+        setCustomerCashDebounced(order.customerCash);
+      }, 500); // 500ms debounce
+
+      return () => clearTimeout(timer);
+    }
+  }, [order.customerCash]);
+
+  // Effect để gọi API khi số tiền khách đưa thay đổi
+  useEffect(() => {
+    const updateCustomerCash = async () => {
+      if (customerCashDebounced !== null && order.currentOrderId) {
+        try {
+          const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+
+          await hoaDonService.updateHoaDon({
+            id_hoa_don: order.currentOrderId,
+            id_khach_hang: invoice.khachHang?.id_khach_hang,
+            id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
+            ghi_chu: invoice.ghi_chu,
+            id_phuong_thuc_thanh_toan: invoice.id_phuong_thuc_thanh_toan,
+            so_tien_khach_tra: customerCashDebounced
+          });
+        } catch (error) {
+          console.error('Error updating customer cash:', error);
+        }
+      }
+    };
+
+    updateCustomerCash();
+  }, [customerCashDebounced, order.currentOrderId]);
 
   return (
     <div>
@@ -225,6 +595,78 @@ export default function OrderTabContent({
               ))
             )}
           </div>
+
+          {/* Phân trang */}
+          {products && products.length > 0 && (
+            <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 mt-4">
+              <div className="flex flex-1 justify-between sm:hidden">
+                <Button
+                  variant="outline"
+                  onClick={() => onPageChange(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage === 1}
+                >
+                  Trang trước
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => onPageChange(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage === pagination.totalPages}
+                >
+                  Trang sau
+                </Button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-slate-700">
+                    Hiển thị <span className="font-medium">{((pagination.currentPage - 1) * pagination.pageSize) + 1}</span> đến{' '}
+                    <span className="font-medium">
+                      {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)}
+                    </span>{' '}
+                    của <span className="font-medium">{pagination.totalItems}</span> kết quả
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <Button
+                      variant="outline"
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0"
+                      onClick={() => onPageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
+                    >
+                      <span className="sr-only">Trang trước</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </Button>
+                    
+                    {/* Hiển thị các số trang */}
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={page === pagination.currentPage ? "default" : "outline"}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                          page === pagination.currentPage
+                            ? 'z-10 bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                            : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0'
+                        }`}
+                        onClick={() => onPageChange(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0"
+                      onClick={() => onPageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.totalPages}
+                    >
+                      <span className="sr-only">Trang sau</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </Button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         {/* Cột phải: Tìm kiếm khách hàng, giỏ hàng */}
         <div className="lg:col-span-1">
@@ -311,7 +753,7 @@ export default function OrderTabContent({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {order.cart.length === 0 ? (
+                {(!order.hoaDonChiTiets?.length && !order.cart?.length) ? (
                   <div className="text-center py-6 text-slate-500">
                     <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                     <p>Giỏ hàng trống</p>
@@ -319,30 +761,86 @@ export default function OrderTabContent({
                   </div>
                 ) : (
                   <>
-                    <div className="max-h-[400px] overflow-y-auto space-y-3">
-                      {order.cart.map((item: any, index: number) => (
+                    <div className="max-h-[400px] overflow-y-auto space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                      {order.hoaDonChiTiets?.map((item: any, index: number) => (
+                        <div key={index} className="flex items-center border-b border-slate-100 pb-3">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{item.sanPhamChiTiet.ten_san_pham}</p>
+                            {item.don_gia > item.gia_sau_giam_gia ? (
+                              <>
+                                <span className="text-green-600 font-bold text-sm mr-2">
+                                  {formatCurrency(item.gia_sau_giam_gia)}
+                                </span>
+                                <span className="text-xs text-slate-400 line-through">
+                                  {formatCurrency(item.don_gia)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm font-bold text-slate-700">
+                                {formatCurrency(item.don_gia)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
+                              handleUpdateQuantity(item, item.so_luong - 1);
+                            }}>
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min="1"
+                              className="w-16 h-7 text-center"
+                              value={item.so_luong || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (/^\d*$/.test(value)) {
+                                  const newQuantity = parseInt(value) || 0;
+                                  if (newQuantity >= 0) {
+                                    handleUpdateQuantity(item, newQuantity);
+                                  }
+                                }
+                              }}
+                            />
+                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
+                              handleUpdateQuantity(item, item.so_luong + 1);
+                            }}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => {
+                              handleUpdateQuantity(item, 0);
+                            }}>
+                              <Trash className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <div className="ml-4 w-20 text-right">
+                            <p className="font-bold text-sm">{formatCurrency(item.thanh_tien)}</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {order.cart?.map((item: any, index: number) => (
                         <div key={index} className="flex items-center border-b border-slate-100 pb-3">
                           <div className="flex-1">
                             <p className="font-medium text-sm">{item.name}</p>
                             {item.originalPrice > item.price ? (
                               <>
                                 <span className="text-green-600 font-bold text-sm mr-2">
-                                  {item.price.toLocaleString('vi-VN')}₫
+                                  {formatCurrency(item.price)}
                                 </span>
                                 <span className="text-xs text-slate-400 line-through">
-                                  {item.originalPrice.toLocaleString('vi-VN')}₫
+                                  {formatCurrency(item.originalPrice)}
                                 </span>
                               </>
                             ) : (
                               <span className="text-sm font-bold text-slate-700">
-                                {item.price.toLocaleString('vi-VN')}₫
+                                {formatCurrency(item.price)}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
                             <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
-                              console.log('Cart item data:', item);
-                              onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, item.quantity - 1);
+                              handleUpdateQuantity(item, item.quantity - 1);
                             }}>
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -353,35 +851,27 @@ export default function OrderTabContent({
                               value={item.quantity || ''}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                // Chỉ cho phép nhập số
                                 if (/^\d*$/.test(value)) {
                                   const newQuantity = parseInt(value) || 0;
                                   if (newQuantity >= 0) {
-                                    onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, newQuantity);
+                                    handleUpdateQuantity(item, newQuantity);
                                   }
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.currentTarget.blur();
                                 }
                               }}
                             />
                             <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
-                              console.log('Cart item data:', item);
-                              onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, item.quantity + 1);
+                              handleUpdateQuantity(item, item.quantity + 1);
                             }}>
                               <Plus className="h-3 w-3" />
                             </Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => {
-                              console.log('Cart item data:', item);
-                              onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, 0);
+                              handleUpdateQuantity(item, 0);
                             }}>
                               <Trash className="h-3 w-3" />
                             </Button>
                           </div>
                           <div className="ml-4 w-20 text-right">
-                            <p className="font-bold text-sm">{(item.total ?? 0).toLocaleString('vi-VN')}₫</p>
+                            <p className="font-bold text-sm">{formatCurrency(item.total)}</p>
                           </div>
                         </div>
                       ))}
@@ -389,20 +879,81 @@ export default function OrderTabContent({
                     <div className="border-t border-slate-200 pt-4 space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-slate-500">Tổng tiền hàng</span>
-                        <span className="font-medium">{(cartTotal ?? 0).toLocaleString('vi-VN')}₫</span>
+                        <span className="font-medium">{formatCurrency(cartTotal)}</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Thuế (10%)</span>
-                        <span className="font-medium">{(cartTotal ? cartTotal * 0.1 : 0).toLocaleString('vi-VN')}₫</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 relative">
+                          <Input
+                            type="text"
+                            value={order.discountCode || ""}
+                            onChange={(e) => updateOrderField('discountCode', e.target.value)}
+                            placeholder="Nhập mã khuyến mãi"
+                            name="discountCode"
+                            className="pr-32"
+                          />
+                          {order.khuyenMai && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-green-600">
+                              {order.khuyenMai.loai_khuyen_mai === 'PhanTram' ? (
+                                <>
+                                  {order.khuyenMai.gia_tri_khuyen_mai}% <span className="text-slate-500">(Tối đa: {formatCurrency(order.khuyenMai.gia_tri_giam_toi_da)})</span>
+                                </>
+                              ) : (
+                                formatDiscountAmount(order.khuyenMai.gia_tri_khuyen_mai)
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={handleOpenPromotionsDialog}
+                          title="Chọn mã khuyến mãi"
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                        {order.discountCode && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              // Cập nhật state ngay lập tức
+                              onOrderChange({
+                                ...order,
+                                discountCode: '',
+                                khuyenMai: undefined,
+                                so_tien_khuyen_mai: 0,
+                                discountAmount: 0,
+                                tong_tien_phai_thanh_toan: cartTotal
+                              });
+                              // Sau đó gọi API để cập nhật server
+                              onApplyDiscountCode('');
+                            }}
+                            title="Xóa mã giảm giá"
+                          >
+                            <CloseIcon className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between items-center text-green-600">
+                          <span>Giảm giá</span>
+                          <span>-{formatCurrency(discountAmount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center pt-2 border-t border-slate-200">
                         <span className="font-bold">Tổng thanh toán</span>
-                        <span className="font-bold text-lg">{(cartTotal ? cartTotal * 1.1 : 0).toLocaleString('vi-VN')}₫</span>
+                        <span className="font-bold text-lg">{formatCurrency(totalAmount)}</span>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-4">
                       <Button variant="outline" className="flex-1">Hủy</Button>
-                      <Button className="flex-1" onClick={onPayment}>Thanh toán</Button>
+                      <Button 
+                        className="flex-1" 
+                        onClick={handlePayment}
+                        disabled={!order.cart || order.cart.length === 0 || isPaymentLoading}
+                      >
+                        {isPaymentLoading ? 'Đang tải...' : 'Thanh toán'}
+                      </Button>
                     </div>
                   </>
                 )}
@@ -496,37 +1047,173 @@ export default function OrderTabContent({
       </Dialog>
 
       {/* Dialog thanh toán */}
-      <Dialog open={order.isPaymentOpen} onOpenChange={value => updateOrderField('isPaymentOpen', value)}>
-        <DialogContent className="sm:max-w-[500px]">
+      <Dialog open={order.isPaymentOpen} onOpenChange={async (value) => {
+        if (value) {
+          try {
+            // Gọi API lấy thông tin hóa đơn khi mở dialog
+            const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+            onOrderChange({
+              ...order,
+              paymentMethodID: invoice.id_phuong_thuc_thanh_toan || '',
+              note: invoice.ghi_chu || '',
+              customerCash: 0, // Reset customer cash when opening dialog
+              isPaymentOpen: true
+            });
+          } catch (error) {
+            console.error('Error fetching invoice details:', error);
+            toast.error('Không thể tải thông tin hóa đơn');
+          }
+        } else {
+          updateOrderField('isPaymentOpen', false);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Thanh toán đơn hàng</DialogTitle>
-            <DialogDescription>Chọn phương thức thanh toán</DialogDescription>
+            <DialogTitle className="text-xl font-bold">Thanh toán đơn hàng</DialogTitle>
+            <DialogDescription>Vui lòng kiểm tra thông tin và chọn phương thức thanh toán</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Phương thức thanh toán</label>
-              <div className="grid grid-cols-2 gap-3">
-                {/* TODO: Render paymentMethods từ props nếu cần */}
-                <div className="border rounded-lg p-3 cursor-pointer flex items-center gap-2 border-blue-600 bg-blue-50">
-                  <DollarSign className="h-5 w-5" />
-                  <span>Tiền mặt</span>
+
+          <div className="space-y-6 py-4">
+            {/* Thông tin khách hàng */}
+            <div className="bg-slate-50 p-4 rounded-lg">
+              <h3 className="font-medium mb-2">Thông tin khách hàng</h3>
+              {order.selectedCustomer ? (
+                <div className="space-y-1">
+                  <p className="text-sm">
+                    <span className="font-medium">Tên:</span> {order.selectedCustomer.ten_khach_hang}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">SĐT:</span> {order.selectedCustomer.so_dien_thoai}
+                  </p>
                 </div>
-                <div className="border rounded-lg p-3 cursor-pointer flex items-center gap-2 border-slate-200">
-                  <CreditCard className="h-5 w-5" />
-                  <span>Thẻ tín dụng/ghi nợ</span>
-                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Khách lẻ</p>
+              )}
+            </div>
+
+            {/* Chi tiết đơn hàng */}
+            <div>
+              <h3 className="font-medium mb-2">Chi tiết đơn hàng</h3>
+              <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                {order.cart?.map((item: any, index: number) => (
+                  <div key={index} className="p-3 flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-slate-500">
+                        {item.quantity} x {formatCurrency(item.price)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium">{formatCurrency(item.total)}</p>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="border-t border-slate-200 pt-4 mt-4">
-              <div className="flex justify-between items-center font-bold">
-                <span>Tổng thanh toán</span>
-                <span className="text-lg">0₫</span>
+
+            {/* Tổng tiền và giảm giá */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Tổng tiền hàng</span>
+                <span>{formatCurrency(cartTotal)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Giảm giá</span>
+                  <span>-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold pt-2 border-t">
+                <span>Tổng thanh toán</span>
+                <span className="text-lg">{formatCurrency(totalAmount)}</span>
+              </div>
+            </div>
+
+            {/* Phương thức thanh toán */}
+            <div className="space-y-3">
+              <h3 className="font-medium">Phương thức thanh toán</h3>
+              {isLoadingPaymentMethods ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {paymentMethods.map((method) => (
+                    <button
+                      key={method.id_phuong_thuc_thanh_toan}
+                      className={`p-3 border rounded-lg flex items-center gap-2 transition-all ${
+                        order.paymentMethod === method.id_phuong_thuc_thanh_toan
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-200 hover:border-blue-300'
+                      }`}
+                      onClick={() => updateOrderField('paymentMethodID', method.id_phuong_thuc_thanh_toan)}
+                    >
+                      <div className={`p-2 rounded-full ${
+                        order.paymentMethodID === method.id_phuong_thuc_thanh_toan ? 'bg-blue-100' : 'bg-slate-100'
+                      }`}>
+                        {method.ma_phuong_thuc_thanh_toan === 'cash' ? (
+                          <DollarSign className={`h-5 w-5 ${
+                            order.paymentMethodID === method.id_phuong_thuc_thanh_toan ? 'text-blue-600' : 'text-slate-600'
+                          }`} />
+                        ) : (
+                          <CreditCard className={`h-5 w-5 ${
+                            order.paymentMethodID === method.id_phuong_thuc_thanh_toan ? 'text-blue-600' : 'text-slate-600'
+                          }`} />
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium">{method.ten_phuong_thuc_thanh_toan}</p>
+                        <p className="text-xs text-slate-500">{method.mo_ta}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Ghi chú */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Ghi chú</label>
+              <textarea
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                rows={3}
+                placeholder="Nhập ghi chú cho đơn hàng (nếu có)"
+                value={order.note || ''}
+                onChange={(e) => updateOrderField('note', e.target.value)}
+              />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => updateOrderField('isPaymentOpen', false)}>Hủy</Button>
-            <Button>Hoàn tất thanh toán</Button>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => updateOrderField('isPaymentOpen', false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={async () => {
+                try {
+                  // Lấy thông tin chi tiết hóa đơn
+                  const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+                  // Tìm phương thức thanh toán được chọn
+                  const selectedMethod = paymentMethods.find(m => m.id_phuong_thuc_thanh_toan === order.paymentMethodID);
+                  
+                  if (selectedMethod?.id_phuong_thuc_thanh_toan === invoice.phuong_thuc_thanh_toan) {
+                    // Nếu là thanh toán tiền mặt, mở dialog nhập tiền
+                    setIsConfirmPaymentOpen(true);
+                  } else {
+                    // Nếu là thanh toán khác, mở dialog xác nhận
+                    setIsConfirmPaymentOpen(true);
+                  }
+                } catch (error) {
+                  console.error('Error fetching invoice details:', error);
+                  toast.error('Không thể tải thông tin hóa đơn');
+                }
+              }}
+              disabled={!order.paymentMethodID}
+            >
+              {!order.paymentMethodID ? 'Vui lòng chọn phương thức thanh toán' : 'Xác nhận'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -781,9 +1468,8 @@ export default function OrderTabContent({
                           const variant = order.selectedProduct?.variants.find(
                             (v: any) => v.color === selectedColor && v.size === selectedSize
                           );
-                          console.log('Variant được chọn:', variant);
                           if (variant) {
-                            await onAddToCart(variant);
+                            await handleAddToCart(variant);
                             // Lấy lại thông tin chi tiết sản phẩm bằng ID
                             await onSelectProduct(order.selectedProduct.id_san_pham);
                           }
@@ -797,6 +1483,348 @@ export default function OrderTabContent({
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog hiển thị danh sách khuyến mãi */}
+      <Dialog open={isPromotionsDialogOpen} onOpenChange={setIsPromotionsDialogOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Chọn mã khuyến mãi</DialogTitle>
+            <DialogDescription>
+              Danh sách các mã khuyến mãi đang hoạt động
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <Input
+              className="pl-10"
+              placeholder="Tìm kiếm theo tên hoặc mã khuyến mãi..."
+              value={promotionSearch}
+              onChange={(e) => handleSearchPromotions(e.target.value)}
+            />
+            {promotionSearch && (
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                onClick={() => handleSearchPromotions("")}
+                tabIndex={-1}
+                aria-label="Xóa tìm kiếm"
+              >
+                <CloseIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {isLoadingPromotions ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            </div>
+          ) : (
+            <div className="max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mã</TableHead>
+                    <TableHead>Tên khuyến mãi</TableHead>
+                    <TableHead>Mô tả</TableHead>
+                    <TableHead>Giá trị giảm</TableHead>
+                    <TableHead>Đơn hàng tối thiểu</TableHead>
+                    <TableHead>Thời gian áp dụng</TableHead>
+                    <TableHead>Số lượng còn lại</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {promotions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                        Không tìm thấy khuyến mãi nào
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    promotions.map((promotion) => (
+                      <TableRow
+                        key={promotion.id_khuyen_mai}
+                        className="cursor-pointer hover:bg-slate-50"
+                        onClick={() => handleSelectPromotion(promotion)}
+                      >
+                        <TableCell className="font-medium">{promotion.ma_khuyen_mai}</TableCell>
+                        <TableCell>{promotion.ten_khuyen_mai}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{promotion.mo_ta}</TableCell>
+                        <TableCell>
+                          {promotion.kieu_khuyen_mai === 'PhanTram' ? (
+                            <div className="space-y-1">
+                              <div className="font-medium text-green-600">{promotion.gia_tri_giam}%</div>
+                              <div className="text-xs text-slate-500">
+                                Tối đa: {promotion.gia_tri_giam_toi_da?.toLocaleString('vi-VN')}đ
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="font-medium text-green-600">
+                              {promotion.gia_tri_giam?.toLocaleString('vi-VN')}đ
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{promotion.gia_tri_don_hang_toi_thieu?.toLocaleString('vi-VN')}đ</TableCell>
+                        <TableCell>
+                          <div className="text-xs space-y-1">
+                            <div>
+                              <span className="font-medium">Từ:</span>{" "}
+                              {new Date(promotion.thoi_gian_bat_dau).toLocaleString('vi-VN')}
+                            </div>
+                            <div>
+                              <span className="font-medium">Đến:</span>{" "}
+                              {new Date(promotion.thoi_gian_ket_thuc).toLocaleString('vi-VN')}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {promotion.so_luong_toi_da - promotion.so_luong_da_su_dung} / {promotion.so_luong_toi_da}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPromotionsDialogOpen(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận thanh toán */}
+      <Dialog open={isConfirmPaymentOpen} onOpenChange={async (value) => {
+        if (value) {
+          try {
+            // Gọi API lấy thông tin hóa đơn khi mở dialog xác nhận
+
+            const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+            onOrderChange({
+              ...order,
+              customerCash: 0 // Reset customer cash when opening dialog
+            });
+            setIsConfirmPaymentOpen(true);
+          } catch (error) {
+            console.error('Error fetching invoice details:', error);
+            toast.error('Không thể tải thông tin hóa đơn');
+          }
+        } else {
+          setIsConfirmPaymentOpen(false);
+          updateOrderField('customerCash', 0);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-blue-600" />
+              Xác nhận thanh toán
+            </DialogTitle>
+            <DialogDescription className="text-slate-500">
+              Vui lòng nhập số tiền khách đưa để hoàn tất thanh toán
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Thông tin thanh toán */}
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-lg space-y-3 border border-slate-200">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-600 flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-slate-400" />
+                  Tổng tiền cần thanh toán:
+                </span>
+                <span className="font-bold text-lg text-blue-600">{formatCurrency(totalAmount)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-600 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-slate-400" />
+                  Phương thức thanh toán:
+                </span>
+                <span className="font-medium text-slate-700">
+                  {paymentMethods.find(m => m.id_phuong_thuc_thanh_toan === order.paymentMethodID)?.ten_phuong_thuc_thanh_toan}
+                </span>
+              </div>
+            </div>
+
+            {/* Nhập số tiền khách đưa */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-slate-400" />
+                Số tiền khách đưa
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type="number"
+                    value={order.customerCash ?? ''}
+                    onChange={(e) => {
+                      const value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        updateOrderField('customerCash', value);
+                      }
+                    }}
+                    placeholder="Nhập số tiền"
+                    className="text-lg font-medium focus:ring-2 focus:ring-blue-500 pr-10"
+                  />
+                  {order.customerCash !== undefined && order.customerCash !== 0 && (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      onClick={() => updateOrderField('customerCash', 0)}
+                      tabIndex={-1}
+                      aria-label="Xóa số tiền"
+                    >
+                      <CloseIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    updateOrderField('customerCash', totalAmount);
+                  }}
+                  className="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+                >
+                  Đúng bằng
+                </Button>
+              </div>
+            </div>
+
+            {/* Thông tin tiền thối */}
+            {order.customerCash && (
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg space-y-2 border border-green-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-500" />
+                    Tiền khách đưa:
+                  </span>
+                  <span className="font-medium text-slate-700">{formatCurrency(order.customerCash)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-500" />
+                    Tiền thối:
+                  </span>
+                  <span className="font-bold text-lg text-green-600">
+                    {formatCurrency(Math.max(0, order.customerCash - totalAmount))}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsConfirmPaymentOpen(false);
+                updateOrderField('customerCash', 0);
+              }}
+              className="hover:bg-slate-100"
+            >
+              Hủy
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              onClick={async () => {
+                if (!order.customerCash || order.customerCash < totalAmount) {
+                  toast.error('Số tiền khách đưa phải lớn hơn hoặc bằng tổng tiền cần thanh toán');
+                  return;
+                }
+
+                try {
+                  // Cập nhật phương thức thanh toán và số tiền khách đưa
+            debugger
+
+                  const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+                  await hoaDonService.updateHoaDon({
+                    id_hoa_don: order.currentOrderId,
+                    id_phuong_thuc_thanh_toan: order.paymentMethodID,
+                    id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
+                    id_khach_hang: invoice.khachHang?.id_khach_hang,
+                    so_tien_khach_tra: order.customerCash,
+                    ghi_chu: order.note
+                  });
+
+                  // Hoàn tất thanh toán
+                  await hoaDonService.hoanTatThanhToan(order.currentOrderId);
+                  
+                  // Lấy thông tin hóa đơn để in
+                  const response = await hoaDonService.inHoaDon(order.currentOrderId);
+                  
+                  if (response.success) {
+                    setInvoiceData(response.data);
+
+                  toast.success('Thanh toán thành công!');
+                  setIsConfirmPaymentOpen(false);
+                  updateOrderField('isPaymentOpen', false);
+                  updateOrderField('customerCash', 0);
+                  setCustomerCashDebounced(0);
+                  
+                    // Mở dialog in hóa đơn
+                    setIsPrintInvoiceOpen(true);
+                  } else {
+                    throw new Error('Không thể tải thông tin hóa đơn');
+                  }
+                } catch (error: any) {
+                  console.error('Error completing payment:', error);
+                  toast.error(error.response?.data || 'Không thể hoàn tất thanh toán');
+                }
+              }}
+              disabled={!order.customerCash || order.customerCash < totalAmount}
+            >
+              Hoàn tất thanh toán
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog in hóa đơn */}
+      <Dialog 
+        open={isPrintInvoiceOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsPrintInvoiceOpen(false);
+            // Chỉ gọi callback sau khi dialog đóng
+            onPaymentSuccess();
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Printer className="h-5 w-5 text-blue-600" />
+              In hóa đơn
+            </DialogTitle>
+            <DialogDescription>
+              Xem trước và in hóa đơn thanh toán
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            {invoiceData && <InvoicePDF invoiceData={invoiceData} />}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => {
+                setIsPrintInvoiceOpen(false);
+                // Gọi callback sau khi đóng dialog
+                onPaymentSuccess();
+              }}
+            >
+              <CloseIcon className="h-4 w-4" />
+              Đóng
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

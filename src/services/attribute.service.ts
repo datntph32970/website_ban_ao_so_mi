@@ -77,5 +77,17 @@ export const attributeService = {
   // Xóa thuộc tính
   deleteAttribute: async (type: AttributeType, id: number) => {
     await api.delete(`/${type}?id=${id}`);
+  },
+
+  // Lấy danh sách danh mục đang hoạt động
+  getActiveCategories: async () => {
+    const response = await api.get<DanhMuc[]>('/DanhMuc/active');
+    return response.data;
+  },
+
+  // Lấy danh sách thương hiệu đang hoạt động
+  getActiveBrands: async () => {
+    const response = await api.get<ThuongHieu[]>('/ThuongHieu/active');
+    return response.data;
   }
 }; 

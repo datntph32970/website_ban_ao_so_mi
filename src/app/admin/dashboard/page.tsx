@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Package, DollarSign, TrendingUp, ArrowUp } from "lucide-react";
+import { thongKeService } from "@/services/thong-ke.service";
+import { sanPhamService } from "@/services/san-pham.service";
 import {
   BarChart,
   Bar,
@@ -19,8 +22,104 @@ import {
   Cell,
   TooltipProps
 } from "recharts";
+import { formatCurrency, getImageUrl } from "@/lib/utils";
+import Link from "next/link";
 
-// Định nghĩa kiểu dữ liệu cụ thể cho tooltip
+// API Response Types
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+  timestamp: string;
+}
+
+interface ThongKeDoanhThuResponse {
+  thang?: number;
+  nam: number;
+  doanh_thu: number;
+}
+
+interface SanPhamBanChay {
+  id_san_pham: string;
+  ma_san_pham: string;
+  ten_san_pham: string;
+  mo_ta: string;
+  so_luong_ban: number;
+}
+
+// Add interface for product detail response
+interface GiamGia {
+  kieu_giam_gia: 'PhanTram' | 'TienMat';
+  gia_tri_giam: number;
+  trang_thai: string;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+}
+
+interface SanPhamChiTiet {
+  id_san_pham: string;
+  ma_san_pham: string;
+  ten_san_pham: string;
+  mo_ta: string;
+  url_anh_mac_dinh: string;
+  sanPhamChiTiets: Array<{
+    gia_ban: number;
+    trang_thai: string;
+    giamGia?: GiamGia;
+  }>;
+}
+
+interface SanPhamBanChayChiTiet extends SanPhamBanChay {
+  thong_tin_chi_tiet?: {
+    url_anh_mac_dinh: string;
+    gia_ban_thap_nhat: number;
+    gia_ban_cao_nhat: number;
+    gia_sau_giam_thap_nhat: number;
+    gia_sau_giam_cao_nhat: number;
+  };
+}
+
+interface ThongKeSanPhamResponse {
+  thang: number;
+  nam: number;
+  san_pham_ban_chay: SanPhamBanChay[];
+  tong_san_pham: number;
+  message: string;
+}
+
+interface ThongKeDonHangResponse {
+  tuan?: number;
+  nam: number;
+  so_don_hang: number;
+}
+
+interface NhanVienDoanhThu {
+  nhan_vien: {
+    id: string;
+    ma_nhan_vien: string;
+    ten_nhan_vien: string;
+    email: string;
+    so_dien_thoai: string;
+  };
+  doanh_thu: number;
+}
+
+interface ThongKeNhanVienResponse {
+  thang: number;
+  nam: number;
+  tong_nhan_vien: number;
+  message: string;
+}
+
+interface ThongKeNhanVienDoanhThuResponse {
+  thang: number;
+  nam: number;
+  danh_sach: NhanVienDoanhThu[];
+  tong_nhan_vien: number;
+  message: string;
+}
+
+// Component Props Types
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{
@@ -44,14 +143,6 @@ const revenueData = [
   { name: 'T4', revenue: 130000000 },
   { name: 'T5', revenue: 145000000 },
   { name: 'T6', revenue: 156000000 },
-];
-
-// Dữ liệu cho biểu đồ doanh số theo danh mục sản phẩm
-const categoryData = [
-  { name: 'Giày thể thao', value: 55 },
-  { name: 'Giày thời trang', value: 25 },
-  { name: 'Giày chạy bộ', value: 15 },
-  { name: 'Giày đá bóng', value: 5 },
 ];
 
 // Dữ liệu cho biểu đồ số lượng đơn hàng theo ngày trong tuần gần đây
@@ -108,21 +199,263 @@ const topSellingProducts = [
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export default function DashboardPage() {
-  // Dữ liệu thực tế cho thống kê
+  // States for statistics
+  const [doanhThuThang, setDoanhThuThang] = useState<Array<{ name: string; revenue: number }>>([]);
+  const [doanhThuNam, setDoanhThuNam] = useState<number>(0);
+  const [donHangTuan, setDonHangTuan] = useState<Array<{ name: string; orders: number }>>([]);
+  const [tongDonHangThang, setTongDonHangThang] = useState<number>(0);
+  const [tongDonHangThangTruoc, setTongDonHangThangTruoc] = useState<number>(0);
+  const [tongNhanVien, setTongNhanVien] = useState<number>(0);
+  const [tongNhanVienThangTruoc, setTongNhanVienThangTruoc] = useState<number>(0);
+  const [sanPhamBanChay, setSanPhamBanChay] = useState<SanPhamBanChayChiTiet[]>([]);
+  const [nhanVienXuatSac, setNhanVienXuatSac] = useState<NhanVienDoanhThu[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Get current date info
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  
+  // Tính tuần hiện tại theo chuẩn ISO
+  const getWeekNumber = (date: Date) => {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  };
+  
+  const currentWeek = getWeekNumber(currentDate);
+
+  const formatDate = (date: Date): string => {
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${dayNames[date.getDay()]} ${day}/${month}`;
+  };
+
+  // Calculate percentage change for orders
+  const calculateOrderChange = (): { value: string; change: string } => {
+    if (tongDonHangThangTruoc === 0) return { value: tongDonHangThang.toString(), change: "0%" };
+    const change = ((tongDonHangThang - tongDonHangThangTruoc) / tongDonHangThangTruoc) * 100;
+    return {
+      value: tongDonHangThang.toString(),
+      change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
+    };
+  };
+
+  // Calculate new employees
+  const calculateEmployeeChange = (): { value: string; change: string } => {
+    const newEmployees = tongNhanVien - tongNhanVienThangTruoc;
+    return {
+      value: tongNhanVien.toString(),
+      change: `+${newEmployees > 0 ? newEmployees : 0}`
+    };
+  };
+
+  // Helper function to get previous month and year
+  const getPreviousMonthData = () => {
+    const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const previousMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    return { previousMonth, previousMonthYear };
+  };
+
+  const calculateDiscountedPrice = (price: number, giamGia?: GiamGia): number => {
+    if (!giamGia || giamGia.trang_thai !== 'HoatDong') return price;
+    
+    const now = new Date();
+    const startDate = new Date(giamGia.thoi_gian_bat_dau);
+    const endDate = new Date(giamGia.thoi_gian_ket_thuc);
+    
+    if (now < startDate || now > endDate) return price;
+    
+    if (giamGia.kieu_giam_gia === 'PhanTram') {
+      return price * (1 - giamGia.gia_tri_giam / 100);
+    } else {
+      return price - giamGia.gia_tri_giam;
+    }
+  };
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch monthly revenue for the last 6 months
+        const revenuePromises = Array.from({ length: 6 }, (_, i) => {
+          const month = currentMonth - i;
+          const year = currentYear - (month <= 0 ? 1 : 0);
+          const adjustedMonth = month <= 0 ? month + 12 : month;
+          return thongKeService.getDoanhThuTheoThang(adjustedMonth, year);
+        });
+        const revenueResults = await Promise.all(revenuePromises);
+        const formattedRevenueData = revenueResults.reverse()
+          .map((result: ApiResponse<ThongKeDoanhThuResponse>, index) => {
+            if (!result?.success) return null;
+            const monthNumber = currentMonth - 5 + index;
+            const adjustedMonth = monthNumber <= 0 ? monthNumber + 12 : monthNumber;
+            return {
+              name: 'T' + adjustedMonth,
+              revenue: result.data.doanh_thu || 0
+            };
+          })
+          .filter((item): item is { name: string; revenue: number } => item !== null);
+        setDoanhThuThang(formattedRevenueData);
+
+        // Fetch yearly revenue
+        const yearlyRevenue = await thongKeService.getDoanhThuTheoNam(currentYear) as ApiResponse<ThongKeDoanhThuResponse>;
+        setDoanhThuNam(yearlyRevenue?.success ? yearlyRevenue.data.doanh_thu : 0);
+
+        // Fetch orders for the past 7 days with improved date formatting
+        const today = new Date();
+        const orderPromises = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(today);
+          date.setDate(date.getDate() - (6 - i)); // Get last 7 days in order
+          const formattedDate = date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+          return thongKeService.getDonHangTheoNgay(formattedDate);
+        });
+        
+        const orderResults = await Promise.all(orderPromises);
+        const formattedOrders = orderResults.map((result, index) => {
+          const date = new Date(today);
+          date.setDate(date.getDate() - (6 - index));
+          return {
+            name: formatDate(date),
+            orders: result?.success ? result.data.so_don_hang : 0
+          };
+        });
+        setDonHangTuan(formattedOrders);
+
+        // Fetch total orders for current month
+        const currentMonthOrders = await thongKeService.getDonHangTheoThang(currentMonth, currentYear);
+        setTongDonHangThang(currentMonthOrders?.success ? currentMonthOrders.data.so_don_hang : 0);
+
+        // Fetch total orders for previous month
+        const { previousMonth, previousMonthYear } = getPreviousMonthData();
+        const previousMonthOrders = await thongKeService.getDonHangTheoThang(previousMonth, previousMonthYear);
+        setTongDonHangThangTruoc(previousMonthOrders?.success ? previousMonthOrders.data.so_don_hang : 0);
+
+        // Fetch top selling products with details
+        const topProducts = await thongKeService.getSanPhamBanChayTheoThang(currentMonth, currentYear) as ApiResponse<ThongKeSanPhamResponse>;
+        if (topProducts?.success && Array.isArray(topProducts.data.san_pham_ban_chay)) {
+          // Fetch detailed information for each product
+          const productsWithDetails = await Promise.all(
+            topProducts.data.san_pham_ban_chay.map(async (product) => {
+              try {
+                const chiTiet = await sanPhamService.getChiTietSanPham(product.id_san_pham) as unknown as SanPhamChiTiet;
+                const activeVariants = chiTiet.sanPhamChiTiets.filter(spct => spct.trang_thai === 'HoatDong');
+                
+                const pricesWithDiscount = activeVariants.map(spct => ({
+                  original: spct.gia_ban,
+                  discounted: calculateDiscountedPrice(spct.gia_ban, spct.giamGia)
+                }));
+
+                const originalPrices = pricesWithDiscount.map(p => p.original);
+                const discountedPrices = pricesWithDiscount.map(p => p.discounted);
+                
+                return {
+                  ...product,
+                  thong_tin_chi_tiet: {
+                    url_anh_mac_dinh: chiTiet.url_anh_mac_dinh,
+                    gia_ban_thap_nhat: Math.min(...originalPrices),
+                    gia_ban_cao_nhat: Math.max(...originalPrices),
+                    gia_sau_giam_thap_nhat: Math.min(...discountedPrices),
+                    gia_sau_giam_cao_nhat: Math.max(...discountedPrices)
+                  }
+                };
+              } catch (error) {
+                console.error(`Error fetching details for product ${product.id_san_pham}:`, error);
+                return product;
+              }
+            })
+          );
+          setSanPhamBanChay(productsWithDetails);
+        } else {
+          setSanPhamBanChay([]);
+        }
+
+        // Fetch current month's employee data for total count
+        const currentMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(currentMonth, currentYear) as unknown as ThongKeNhanVienResponse;
+        setTongNhanVien(currentMonthEmployeeCount?.tong_nhan_vien || 0);
+
+        // Fetch previous month's employee count
+        const previousMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(previousMonth, previousMonthYear) as unknown as ThongKeNhanVienResponse;
+        setTongNhanVienThangTruoc(previousMonthEmployeeCount?.tong_nhan_vien || 0);
+
+        // Fetch top performing employees (for display only)
+        const currentMonthEmployees = await thongKeService.getNhanVienDoanhThuCaoNhatTheoThang(currentMonth, currentYear) as ApiResponse<ThongKeNhanVienDoanhThuResponse>;
+        if (currentMonthEmployees?.success) {
+          setNhanVienXuatSac(currentMonthEmployees.data.danh_sach);
+        } else {
+          setNhanVienXuatSac([]);
+        }
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setDoanhThuThang([]);
+        setDoanhThuNam(0);
+        setDonHangTuan([]);
+        setTongDonHangThang(0);
+        setTongDonHangThangTruoc(0);
+        setTongNhanVien(0);
+        setTongNhanVienThangTruoc(0);
+        setSanPhamBanChay([]);
+        setNhanVienXuatSac([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [currentMonth, currentYear]);
+
+  // Các tab cho biểu đồ phân tích
+  const analysisTabs = [
+    { key: "revenue", label: "Doanh thu theo tháng" },
+    { key: "orders", label: "Đơn hàng 7 ngày gần nhất" }
+  ];
+
+  const formatMillions = (value: number): string =>
+    value >= 1000000 ? `${(value / 1000000).toFixed(1)}tr` : value.toString();
+
+  // Sử dụng kiểu dữ liệu đã định nghĩa
+  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
+    if (active && payload && payload.length > 0 && payload[0].payload) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border border-slate-200 rounded-md shadow-sm">
+          <p className="font-medium">{data.name}</p>
+          {data.revenue !== undefined && (
+            <p className="text-blue-600">
+              {formatCurrency(data.revenue)}
+            </p>
+          )}
+          {data.orders !== undefined && (
+            <p className="text-purple-600">
+              {data.orders} đơn hàng
+            </p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Update your stats cards with real data
+  const orderStats = calculateOrderChange();
+  const employeeStats = calculateEmployeeChange();
   const dashboardStats = [
     {
       title: "Tổng doanh thu",
-      value: "₫156.000.000",
-      change: "+23%",
+      value: formatCurrency(doanhThuNam),
+      change: "+23%", // Calculate this based on previous year
       icon: <DollarSign className="h-8 w-8 text-green-500" />,
-      description: "so với tháng trước",
+      description: "so với năm trước",
       color: "bg-green-50",
       textColor: "text-green-500"
     },
     {
       title: "Tổng đơn hàng",
-      value: "324",
-      change: "+18%",
+      value: orderStats.value,
+      change: orderStats.change,
       icon: <TrendingUp className="h-8 w-8 text-purple-500" />,
       description: "so với tháng trước",
       color: "bg-purple-50",
@@ -130,8 +463,8 @@ export default function DashboardPage() {
     },
     {
       title: "Nhân viên",
-      value: "12",
-      change: "+2",
+      value: employeeStats.value,
+      change: employeeStats.change,
       icon: <Users className="h-8 w-8 text-orange-500" />,
       description: "nhân viên mới",
       color: "bg-orange-50",
@@ -148,37 +481,15 @@ export default function DashboardPage() {
     },
   ];
 
-  // Các tab cho biểu đồ phân tích
-  const analysisTabs = [
-    { key: "revenue", label: "Doanh thu theo tháng" },
-    { key: "orders", label: "Đơn hàng trong tuần qua" },
-    { key: "categories", label: "Phân bổ theo loại giày" }
-  ];
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0
-    }).format(value);
-
-  // Sử dụng kiểu dữ liệu đã định nghĩa
-  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
-    if (active && payload && payload.length > 0 && payload[0].payload) {
-      return (
-        <div className="bg-white p-3 border border-slate-200 rounded-md shadow-sm">
-          <p className="font-medium">{payload[0].payload.name}</p>
-          <p className="text-blue-600">
-            {formatCurrency(payload[0].value || 0)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <AdminLayout>
+      {loading ? (
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2">Đang tải...</span>
+        </div>
+      ) : (
+        <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
         <p className="text-slate-500">Xem tổng quan về cửa hàng bán giày của bạn</p>
@@ -210,7 +521,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Biểu đồ doanh thu và phân tích */}
+          {/* Revenue Chart and Orders Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <Card className="shadow-sm">
           <CardHeader>
@@ -219,14 +530,11 @@ export default function DashboardPage() {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData}>
+                    <BarChart data={doanhThuThang}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis
-                    tickFormatter={(value) => value >= 1000000
-                      ? `${value / 1000000}tr`
-                      : value
-                    }
+                        tickFormatter={formatMillions}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="revenue" name="Doanh thu" fill="#6366f1" radius={[4, 4, 0, 0]} />
@@ -238,21 +546,21 @@ export default function DashboardPage() {
 
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Đơn hàng trong tuần qua</CardTitle>
+                <CardTitle>Đơn hàng 7 ngày gần nhất</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={orderData}>
+                    <LineChart data={donHangTuan}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip />
+                      <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Line
                     type="monotone"
                     dataKey="orders"
-                    name="Đơn hàng"
+                        name="Số đơn hàng"
                     stroke="#8884d8"
                     strokeWidth={2}
                     dot={{ r: 4 }}
@@ -265,64 +573,67 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Phân bổ theo loại giày</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2 shadow-sm">
+          {/* Best Selling Products */}
+          <Card className="shadow-sm mb-8">
           <CardHeader className="border-b pb-3">
             <CardTitle>Sản phẩm bán chạy</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {topSellingProducts.map((product, index) => (
-                <div key={product.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
+                {sanPhamBanChay.map((product) => (
+                  <div key={product.id_san_pham} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
                   <div className="h-16 w-16 rounded-md bg-slate-100 flex items-center justify-center overflow-hidden">
-                    {/* Sử dụng placeholder khi không có ảnh thực tế */}
-                    <span className="text-lg font-bold text-slate-400">AF1</span>
+                      <img 
+                        src={getImageUrl(product.thong_tin_chi_tiet?.url_anh_mac_dinh)}
+                        alt={product.ten_san_pham}
+                        className="object-cover w-full h-full"
+                      />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-medium">{product.name}</h3>
-                    <p className="text-sm text-slate-500">Đã bán: {product.sold} đôi</p>
+                      <Link 
+                        href={`/admin/products/${product.id_san_pham}`}
+                        className="font-medium hover:text-blue-600 transition-colors"
+                      >
+                        {product.ten_san_pham}
+                      </Link>
+                      <p className="text-sm text-slate-500">Đã bán: {product.so_luong_ban} đôi</p>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-green-600">{formatCurrency(product.price)}</span>
+                      {product.thong_tin_chi_tiet ? (
+                        <div>
+                          {product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat < product.thong_tin_chi_tiet.gia_ban_thap_nhat ? (
+                            <>
+                              <div className="text-sm line-through text-slate-500">
+                                {formatCurrency(product.thong_tin_chi_tiet.gia_ban_thap_nhat)}
+                                {product.thong_tin_chi_tiet.gia_ban_thap_nhat !== product.thong_tin_chi_tiet.gia_ban_cao_nhat && 
+                                  ` - ${formatCurrency(product.thong_tin_chi_tiet.gia_ban_cao_nhat)}`}
+                              </div>
+                              <div className="font-bold text-red-600">
+                                {formatCurrency(product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat)}
+                                {product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat !== product.thong_tin_chi_tiet.gia_sau_giam_cao_nhat && 
+                                  ` - ${formatCurrency(product.thong_tin_chi_tiet.gia_sau_giam_cao_nhat)}`}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="font-bold text-green-600">
+                              {formatCurrency(product.thong_tin_chi_tiet.gia_ban_thap_nhat)}
+                              {product.thong_tin_chi_tiet.gia_ban_thap_nhat !== product.thong_tin_chi_tiet.gia_ban_cao_nhat && 
+                                ` - ${formatCurrency(product.thong_tin_chi_tiet.gia_ban_cao_nhat)}`}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">Chưa có giá</span>
+                      )}
                   </div>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      <div className="mb-8">
-        <Card className="shadow-sm">
+          {/* Revenue Analysis */}
+          <Card className="shadow-sm mb-8">
           <CardHeader className="border-b">
             <CardTitle>Bảng phân tích doanh thu</CardTitle>
           </CardHeader>
@@ -333,7 +644,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
                     <p className="text-sm text-slate-500">Tháng hiện tại</p>
-                    <p className="text-xl font-bold">₫156.000.000</p>
+                      <p className="text-xl font-bold">{formatCurrency(doanhThuNam)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">So với tháng trước</p>
@@ -342,33 +653,21 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="p-4 hover:bg-slate-50">
-                <h3 className="font-medium">Đơn hàng trong tuần qua</h3>
+                  <h3 className="font-medium">Đơn hàng 7 ngày gần nhất</h3>
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
                     <p className="text-sm text-slate-500">Tổng số đơn</p>
-                    <p className="text-xl font-bold">324</p>
+                      <p className="text-xl font-bold">{donHangTuan.reduce((sum, item) => sum + item.orders, 0)}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">So với tuần trước</p>
+                      <p className="text-sm text-slate-500">So với 7 ngày trước</p>
                     <p className="text-xl font-bold text-green-600">+18%</p>
                   </div>
-                </div>
-              </div>
-              <div className="p-4 hover:bg-slate-50">
-                <h3 className="font-medium">Phân bổ theo loại giày</h3>
-                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {categoryData.map((category, i) => (
-                    <div key={i} className="p-2 rounded-md" style={{ backgroundColor: `${COLORS[i % COLORS.length]}20` }}>
-                      <p className="text-sm font-medium" style={{ color: COLORS[i % COLORS.length] }}>{category.name}</p>
-                      <p className="text-lg font-bold">{category.value}%</p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
 
       <div className="mt-8">
         <Card className="shadow-sm">
@@ -377,13 +676,13 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {[1, 2, 3, 4, 5].map((_, index) => (
-                <div key={index} className="flex flex-col items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
+                  {nhanVienXuatSac.map((nhanVien, index) => (
+                    <div key={nhanVien.nhan_vien.id} className="flex flex-col items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="h-16 w-16 rounded-full bg-slate-200 mb-3 flex items-center justify-center overflow-hidden">
                     <span className="text-lg font-bold text-slate-500">NV</span>
                   </div>
-                  <h3 className="font-medium text-center">Nguyễn Văn A</h3>
-                  <p className="text-sm text-slate-500 mb-2">Doanh số: ₫25.000.000</p>
+                      <h3 className="font-medium text-center">{nhanVien.nhan_vien.ten_nhan_vien}</h3>
+                      <p className="text-sm text-slate-500 mb-2">Doanh số: {formatCurrency(nhanVien.doanh_thu)}</p>
                   <span className={`px-2 py-1 text-xs rounded-full ${
                     index === 0 ? "bg-yellow-100 text-yellow-800" :
                     index === 1 ? "bg-slate-100 text-slate-800" :
@@ -401,6 +700,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
     </AdminLayout>
   );
 }

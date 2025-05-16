@@ -12,27 +12,40 @@ import {
   ShoppingCart,
   Tags,
   Percent,
-  UserCircle
+  UserCircle,
+  CreditCard
 } from "lucide-react";
 import { authService } from "@/services/auth.service";
 import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
+import Cookies from "js-cookie";
 
 const menuItems = [
-  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "Bán hàng tại quầy", href: "/admin/pos", icon: ShoppingCart },
-  { name: "Sản phẩm", href: "/admin/products", icon: ShoppingBag },
-  { name: "Thuộc tính sản phẩm", href: "/admin/products/attributes", icon: Tags },
-  { name: "Nhân viên", href: "/admin/employees", icon: Users },
-  { name: "Khách hàng", href: "/admin/customers", icon: UserCircle },
-  { name: "Đơn hàng", href: "/admin/orders", icon: Package },
-  { name: "Khuyến mãi", href: "/admin/promotions", icon: Percent },
-  { name: "Giảm giá", href: "/admin/discounts", icon: Tags },
-  { name: "Cài đặt", href: "/admin/settings", icon: Settings },
+  { name: "Thống kê", href: "/admin/dashboard", icon: LayoutDashboard, roles: ['Admin', 'NhanVien'] },
+  { name: "Bán hàng tại quầy", href: "/admin/pos", icon: ShoppingCart, roles: ['Admin', 'NhanVien'] },
+  { name: "Sản phẩm", href: "/admin/products", icon: ShoppingBag, roles: ['Admin', 'NhanVien'] },
+  { name: "Thuộc tính sản phẩm", href: "/admin/products/attributes", icon: Tags, roles: ['Admin'] },
+  { name: "Nhân viên", href: "/admin/employees", icon: Users, roles: ['Admin'] },
+  { name: "Khách hàng", href: "/admin/customers", icon: UserCircle, roles: ['Admin', 'NhanVien'] },
+  { name: "Đơn hàng", href: "/admin/orders", icon: Package, roles: ['Admin', 'NhanVien'] },
+  { name: "Khuyến mãi", href: "/admin/promotions", icon: Percent, roles: ['Admin', 'NhanVien'] },
+  { name: "Giảm giá", href: "/admin/discounts", icon: Tags, roles: ['Admin', 'NhanVien'] },
+  { name: "Phương thức thanh toán", href: "/admin/payment-methods", icon: CreditCard, roles: ['Admin'] },
+  { name: "Cài đặt", href: "/admin/settings", icon: Settings, roles: ['Admin'] },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [userRole, setUserRole] = useState<string>('');
+
+  useEffect(() => {
+    // Get user role from cookie
+    const role = Cookies.get('userRole');
+    if (role) {
+      setUserRole(role);
+    }
+  }, []);
 
   const handleLogout = () => {
     try {
@@ -44,15 +57,18 @@ export function Sidebar() {
     }
   };
 
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => item.roles.includes(userRole));
+
   return (
     <div className="h-screen w-64 bg-slate-900 text-white p-5 fixed left-0 top-0">
       <div className="flex items-center mb-10 mt-3">
         <ShoppingBag className="h-8 w-8 mr-2 text-blue-400" />
-        <h1 className="text-xl font-bold">Shoes Admin</h1>
+        <h1 className="text-xl font-bold"> FIFTY STORE</h1>
       </div>
 
       <nav className="space-y-2">
-        {menuItems.map((item) => {
+        {filteredMenuItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const ItemIcon = item.icon;
 

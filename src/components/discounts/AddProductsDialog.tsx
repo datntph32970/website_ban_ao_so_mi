@@ -292,9 +292,9 @@ export function AddProductsDialog({
       
       // Call onSuccess callback
       onSuccess?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding products to discount:', error);
-      toast.error('Có lỗi xảy ra khi thêm sản phẩm vào giảm giá!');
+      toast.error(error.response.data || 'Có lỗi xảy ra khi thêm sản phẩm vào giảm giá!');
     } finally {
       setIsSubmitting(false);
     }
