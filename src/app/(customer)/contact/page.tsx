@@ -9,7 +9,7 @@ export default function StoreInfoPage() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <Card className="shadow-lg rounded-2xl">
         <CardHeader>
-          <CardTitle className="text-2xl">🏬 Thông tin cửa hàng</CardTitle>
+          <CardTitle className="text-2xl">🏬 THÔNG TIN CỬA HÀNG</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
