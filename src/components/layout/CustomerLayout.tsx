@@ -193,7 +193,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             <div>
               <h3 className="text-lg font-bold mb-4">Về FIFTY STORE</h3>
               <p className="text-slate-400 text-sm">
-                Chuyên cung cấp các sản phẩm giày thể thao chính hãng với chất lượng tốt nhất cho khách hàng.
+                Chuyên cung cấp các sản phẩm áo sơ mi chính hãng với chất lượng tốt nhất cho khách hàng.
               </p>
             </div>
             <div>
