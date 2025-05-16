@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { ShoppingBag, User, ShoppingCart, Search, LogOut } from "lucide-react";
+import { ShoppingBag, User, ShoppingCart, Search, LogOut, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Cookies from "js-cookie";
@@ -197,7 +197,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
               <h3 className="text-lg font-bold mb-4">Thông tin</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/about" className="text-slate-400 hover:text-white text-sm">
+                  <Link href="/contact" className="text-slate-400 hover:text-white text-sm">
                     Giới thiệu
                   </Link>
                 </li>
@@ -241,6 +241,17 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 </li>
                 <li className="text-slate-400 text-sm">
                   Email: support@fiftystore.com
+                </li>
+                <li className="text-slate-400 text-sm">  
+                Facebook: 
+                <a 
+                  href="https://www.facebook.com/profile.php?id=61576264940151"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  FIFTY STORE
+                </a> 
                 </li>
                 <li className="text-slate-400 text-sm">
                   Địa chỉ: Trịnh Văn Bô, Xuân Phương, Nam Từ Liêm, Hà Nội
