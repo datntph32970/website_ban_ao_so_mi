@@ -82,12 +82,9 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
               <Link href="/products" className="text-sm font-medium hover:text-blue-600">
                 Sản phẩm
               </Link>
-              <Link href="/sale" className="text-sm font-medium hover:text-blue-600">
+              {/* <Link href="/sale" className="text-sm font-medium hover:text-blue-600">
                 Khuyến mãi
-              </Link>
-              <Link href="/about" className="text-sm font-medium hover:text-blue-600">
-                Giới thiệu
-              </Link>
+              </Link> */}              
               <Link href="/contact" className="text-sm font-medium hover:text-blue-600">
                 Liên hệ
               </Link>
