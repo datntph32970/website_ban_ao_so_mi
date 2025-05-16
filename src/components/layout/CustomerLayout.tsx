@@ -246,13 +246,13 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                   Email: support@fiftystore.com
                 </li>
                 <li className="text-slate-400 text-sm">
-                  Địa chỉ: TP. Hồ Chí Minh
+                  Địa chỉ: Trịnh Văn Bô, Xuân Phương, Nam Từ Liêm, Hà Nội
                 </li>
               </ul>
             </div>
           </div>
           <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-400 text-sm">
-            © 2024 FIFTY STORE. All rights reserved.
+            © 2025 FIFTY STORE. All rights reserved.
           </div>
         </div>
       </footer>
