@@ -156,50 +156,7 @@ const orderData = [
   { name: 'CN', orders: 38 },
 ];
 
-// Dữ liệu sản phẩm bán chạy (từ dữ liệu được cung cấp)
-const topSellingProducts = [
-  {
-    id: 1,
-    name: "Giày Nike Air Force 1",
-    sold: 42,
-    price: 2500000,
-    image: "/images/nike-air-force-1.png"
-  },
-  {
-    id: 2,
-    name: "Giày Nike Air Force 1",
-    sold: 42,
-    price: 2500000,
-    image: "/images/nike-air-force-1.png"
-  },
-  {
-    id: 3,
-    name: "Giày Nike Air Force 1",
-    sold: 42,
-    price: 2500000,
-    image: "/images/nike-air-force-1.png"
-  },
-  {
-    id: 4,
-    name: "Giày Nike Air Force 1",
-    sold: 42,
-    price: 2500000,
-    image: "/images/nike-air-force-1.png"
-  },
-  {
-    id: 5,
-    name: "Giày Nike Air Force 1",
-    sold: 42,
-    price: 2500000,
-    image: "/images/nike-air-force-1.png"
-  }
-];
-
-// Màu cho biểu đồ tròn
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
 export default function DashboardPage() {
-  // States for statistics
   const [doanhThuThang, setDoanhThuThang] = useState<Array<{ name: string; revenue: number }>>([]);
   const [doanhThuNam, setDoanhThuNam] = useState<number>(0);
   const [donHangTuan, setDonHangTuan] = useState<Array<{ name: string; orders: number }>>([]);
@@ -207,9 +164,20 @@ export default function DashboardPage() {
   const [tongDonHangThangTruoc, setTongDonHangThangTruoc] = useState<number>(0);
   const [tongNhanVien, setTongNhanVien] = useState<number>(0);
   const [tongNhanVienThangTruoc, setTongNhanVienThangTruoc] = useState<number>(0);
+  const [tongSanPhamThang, setTongSanPhamThang] = useState<number>(0);
+  const [tongSanPhamThangTruoc, setTongSanPhamThangTruoc] = useState<number>(0);
   const [sanPhamBanChay, setSanPhamBanChay] = useState<SanPhamBanChayChiTiet[]>([]);
   const [nhanVienXuatSac, setNhanVienXuatSac] = useState<NhanVienDoanhThu[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<Array<{
+    title: string;
+    value: string;
+    change: string;
+    icon: React.ReactNode;
+    description: string;
+    color: string;
+    textColor: string;
+  }>>([]);
 
   // Get current date info
   const currentDate = new Date();
@@ -234,20 +202,27 @@ export default function DashboardPage() {
 
   // Calculate percentage change for orders
   const calculateOrderChange = (): { value: string; change: string } => {
-    if (tongDonHangThangTruoc === 0) return { value: tongDonHangThang.toString(), change: "0%" };
+    console.log('Calculating order stats with:', { tongDonHangThang, tongDonHangThangTruoc });
+    if (tongDonHangThangTruoc === 0) {
+      if (tongDonHangThang > 0) {
+        console.log('Previous month is 0, current month has orders');
+        return { 
+          value: tongDonHangThang.toString(), 
+          change: "+100%" 
+        };
+      }
+      console.log('Both months have 0 orders');
+      return { 
+        value: "0", 
+        change: "0%" 
+      };
+    }
+    
     const change = ((tongDonHangThang - tongDonHangThangTruoc) / tongDonHangThangTruoc) * 100;
+    console.log('Calculated order change:', change);
     return {
       value: tongDonHangThang.toString(),
       change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
-    };
-  };
-
-  // Calculate new employees
-  const calculateEmployeeChange = (): { value: string; change: string } => {
-    const newEmployees = tongNhanVien - tongNhanVienThangTruoc;
-    return {
-      value: tongNhanVien.toString(),
-      change: `+${newEmployees > 0 ? newEmployees : 0}`
     };
   };
 
@@ -279,6 +254,9 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         
+        // Get previous month data once
+        const { previousMonth, previousMonthYear } = getPreviousMonthData();
+
         // Fetch monthly revenue for the last 6 months
         const revenuePromises = Array.from({ length: 6 }, (_, i) => {
           const month = currentMonth - i;
@@ -326,12 +304,159 @@ export default function DashboardPage() {
 
         // Fetch total orders for current month
         const currentMonthOrders = await thongKeService.getDonHangTheoThang(currentMonth, currentYear);
-        setTongDonHangThang(currentMonthOrders?.success ? currentMonthOrders.data.so_don_hang : 0);
-
-        // Fetch total orders for previous month
-        const { previousMonth, previousMonthYear } = getPreviousMonthData();
         const previousMonthOrders = await thongKeService.getDonHangTheoThang(previousMonth, previousMonthYear);
-        setTongDonHangThangTruoc(previousMonthOrders?.success ? previousMonthOrders.data.so_don_hang : 0);
+        
+        console.log('Orders API Response:', { currentMonthOrders, previousMonthOrders });
+        
+        const currentOrders = currentMonthOrders?.data?.so_don_hang || 0;
+        const previousOrders = previousMonthOrders?.data?.so_don_hang || 0;
+        
+        console.log('Order counts:', { currentOrders, previousOrders });
+        
+        setTongDonHangThang(currentOrders);
+        setTongDonHangThangTruoc(previousOrders);
+
+        // Calculate order stats
+        const calculateOrderStats = () => {
+          console.log('Calculating order stats with:', { currentOrders, previousOrders });
+          if (previousOrders === 0) {
+            if (currentOrders > 0) {
+              console.log('Previous month is 0, current month has orders');
+              return { 
+                value: currentOrders.toString(), 
+                change: "+100%" 
+              };
+            }
+            console.log('Both months have 0 orders');
+            return { 
+              value: "0", 
+              change: "0%" 
+            };
+          }
+          
+          const change = ((currentOrders - previousOrders) / previousOrders) * 100;
+          console.log('Calculated order change:', change);
+          return {
+            value: currentOrders.toString(),
+            change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
+          };
+        };
+
+        const orderStats = calculateOrderStats();
+        console.log('Calculated order stats:', orderStats);
+
+        // Fetch current month's employee data for total count
+        const currentMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(currentMonth, currentYear);
+        const previousMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(previousMonth, previousMonthYear);
+        
+        console.log('Employee API Response:', { currentMonthEmployeeCount, previousMonthEmployeeCount });
+        
+        const currentEmployees = currentMonthEmployeeCount?.data?.so_nhan_vien_moi || 0;
+        const previousEmployees = previousMonthEmployeeCount?.data?.so_nhan_vien_moi || 0;
+        
+        console.log('Employee counts:', { currentEmployees, previousEmployees });
+        
+        setTongNhanVien(currentEmployees);
+        setTongNhanVienThangTruoc(previousEmployees);
+
+        // Calculate employee stats
+        const calculateEmployeeStats = () => {
+          console.log('Calculating employee stats with:', { currentEmployees, previousEmployees });
+          const newEmployees = currentEmployees;  // For new employees, we just use the current month's value
+          console.log('New employees:', newEmployees);
+          return {
+            value: currentEmployees.toString(),
+            change: `+${newEmployees}`
+          };
+        };
+
+        const employeeStats = calculateEmployeeStats();
+        console.log('Calculated employee stats:', employeeStats);
+
+        // Fetch product data and calculate stats immediately
+        const currentMonthProducts = await thongKeService.getSanPhamMoiTheoThang(currentMonth, currentYear);
+        const previousMonthProducts = await thongKeService.getSanPhamMoiTheoThang(previousMonth, previousMonthYear);
+        
+        console.log('API Response:', { currentMonthProducts, previousMonthProducts });
+        
+        const currentCount = currentMonthProducts?.data?.so_san_pham_moi || 0;
+        const previousCount = previousMonthProducts?.data?.so_san_pham_moi || 0;
+        
+        console.log('Product counts:', { currentCount, previousCount });
+        
+        setTongSanPhamThang(currentCount);
+        setTongSanPhamThangTruoc(previousCount);
+
+        // Calculate product stats
+        const calculateProductStats = () => {
+          console.log('Calculating stats with:', { currentCount, previousCount });
+          if (previousCount === 0) {
+            if (currentCount > 0) {
+              console.log('Previous month is 0, current month has products');
+              return { 
+                value: currentCount.toString(), 
+                change: "+100%" 
+              };
+            }
+            console.log('Both months are 0');
+            return { 
+              value: "0", 
+              change: "0%" 
+            };
+          }
+          
+          const change = ((currentCount - previousCount) / previousCount) * 100;
+          console.log('Calculated change:', change);
+          return {
+            value: currentCount.toString(),
+            change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
+          };
+        };
+
+        const productStats = calculateProductStats();
+        console.log('Calculated product stats:', productStats);
+
+        // Update dashboard stats with the calculated values
+        const newDashboardStats = [
+          {
+            title: "Tổng doanh thu",
+            value: formatCurrency(doanhThuNam),
+            change: "+23%",
+            icon: <DollarSign className="h-8 w-8 text-green-500" />,
+            description: "so với năm trước",
+            color: "bg-green-50",
+            textColor: "text-green-500"
+          },
+          {
+            title: "Tổng đơn hàng",
+            value: orderStats.value,
+            change: orderStats.change,
+            icon: <TrendingUp className="h-8 w-8 text-purple-500" />,
+            description: "so với tháng trước",
+            color: "bg-purple-50",
+            textColor: "text-purple-500"
+          },
+          {
+            title: "Nhân viên",
+            value: employeeStats.value,
+            change: employeeStats.change,
+            icon: <Users className="h-8 w-8 text-orange-500" />,
+            description: "nhân viên mới",
+            color: "bg-orange-50",
+            textColor: "text-orange-500"
+          },
+          {
+            title: "Sản phẩm",
+            value: productStats.value,
+            change: productStats.change,
+            icon: <Package className="h-8 w-8 text-blue-500" />,
+            description: "so với tháng trước",
+            color: "bg-blue-50",
+            textColor: "text-blue-500"
+          },
+        ];
+
+        setDashboardStats(newDashboardStats);
 
         // Fetch top selling products with details
         const topProducts = await thongKeService.getSanPhamBanChayTheoThang(currentMonth, currentYear) as ApiResponse<ThongKeSanPhamResponse>;
@@ -372,15 +497,7 @@ export default function DashboardPage() {
           setSanPhamBanChay([]);
         }
 
-        // Fetch current month's employee data for total count
-        const currentMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(currentMonth, currentYear) as unknown as ThongKeNhanVienResponse;
-        setTongNhanVien(currentMonthEmployeeCount?.tong_nhan_vien || 0);
-
-        // Fetch previous month's employee count
-        const previousMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(previousMonth, previousMonthYear) as unknown as ThongKeNhanVienResponse;
-        setTongNhanVienThangTruoc(previousMonthEmployeeCount?.tong_nhan_vien || 0);
-
-        // Fetch top performing employees (for display only)
+        // Fetch top performing employees
         const currentMonthEmployees = await thongKeService.getNhanVienDoanhThuCaoNhatTheoThang(currentMonth, currentYear) as ApiResponse<ThongKeNhanVienDoanhThuResponse>;
         if (currentMonthEmployees?.success) {
           setNhanVienXuatSac(currentMonthEmployees.data.danh_sach);
@@ -399,13 +516,16 @@ export default function DashboardPage() {
         setTongNhanVienThangTruoc(0);
         setSanPhamBanChay([]);
         setNhanVienXuatSac([]);
+        setTongSanPhamThang(0);
+        setTongSanPhamThangTruoc(0);
+        setDashboardStats([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, doanhThuNam]);
 
   // Các tab cho biểu đồ phân tích
   const analysisTabs = [
@@ -438,48 +558,6 @@ export default function DashboardPage() {
     }
     return null;
   };
-
-  // Update your stats cards with real data
-  const orderStats = calculateOrderChange();
-  const employeeStats = calculateEmployeeChange();
-  const dashboardStats = [
-    {
-      title: "Tổng doanh thu",
-      value: formatCurrency(doanhThuNam),
-      change: "+23%", // Calculate this based on previous year
-      icon: <DollarSign className="h-8 w-8 text-green-500" />,
-      description: "so với năm trước",
-      color: "bg-green-50",
-      textColor: "text-green-500"
-    },
-    {
-      title: "Tổng đơn hàng",
-      value: orderStats.value,
-      change: orderStats.change,
-      icon: <TrendingUp className="h-8 w-8 text-purple-500" />,
-      description: "so với tháng trước",
-      color: "bg-purple-50",
-      textColor: "text-purple-500"
-    },
-    {
-      title: "Nhân viên",
-      value: employeeStats.value,
-      change: employeeStats.change,
-      icon: <Users className="h-8 w-8 text-orange-500" />,
-      description: "nhân viên mới",
-      color: "bg-orange-50",
-      textColor: "text-orange-500"
-    },
-    {
-      title: "Sản phẩm",
-      value: "156",
-      change: "+12%",
-      icon: <Package className="h-8 w-8 text-blue-500" />,
-      description: "so với tháng trước",
-      color: "bg-blue-50",
-      textColor: "text-blue-500"
-    },
-  ];
 
   return (
     <AdminLayout>
@@ -576,7 +654,7 @@ export default function DashboardPage() {
           {/* Best Selling Products */}
           <Card className="shadow-sm mb-8">
           <CardHeader className="border-b pb-3">
-            <CardTitle>Sản phẩm bán chạy</CardTitle>
+            <CardTitle>Sản phẩm bán chạy trong tháng {currentMonth}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">

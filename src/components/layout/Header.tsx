@@ -42,12 +42,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-            3
-          </span>
-        </Button>
+       
 
         <div className="flex items-center gap-3">
           <DropdownMenu>

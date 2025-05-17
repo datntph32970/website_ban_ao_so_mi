@@ -36,15 +36,13 @@ interface ThongKeSanPhamResponse {
 }
 
 interface ThongKeDonHangResponse {
-  thang?: number;
+  thang: number;
   nam: number;
-  tuan?: number;
-  ngay?: string;
   so_don_hang: number;
 }
 
 interface ThongKeNhanVienResponse {
-  thang?: number;
+  thang: number;
   nam: number;
   so_nhan_vien_moi: number;
 }
@@ -66,6 +64,12 @@ interface ThongKeNhanVienDoanhThuResponse {
   danh_sach: NhanVienDoanhThu[];
   tong_nhan_vien: number;
   message: string;
+}
+
+interface ThongKeSanPhamMoiResponse {
+  thang: number;
+  nam: number;
+  so_san_pham_moi: number;
 }
 
 export const thongKeService = {
@@ -134,28 +138,28 @@ export const thongKeService = {
 
   // Thống kê sản phẩm mới
   getSanPhamMoiTheoThang: async (thang: number, nam: number) => {
-    const response = await api.get<{ thang: number; nam: number; so_san_pham_moi: number }>(`/ThongKe/san-pham-moi/theo-thang?thang=${thang}&nam=${nam}`);
+    const response = await api.get<ApiResponse<ThongKeSanPhamMoiResponse>>(`/ThongKe/san-pham-moi/theo-thang?thang=${thang}&nam=${nam}`);
     return response.data;
   },
 
   getSanPhamMoiTheoNam: async (nam: number) => {
-    const response = await api.get<{ nam: number; so_san_pham_moi: number }>(`/ThongKe/san-pham-moi/theo-nam?nam=${nam}`);
+    const response = await api.get<ApiResponse<{ nam: number; so_san_pham_moi: number }>>(`/ThongKe/san-pham-moi/theo-nam?nam=${nam}`);
     return response.data;
   },
 
   getSanPhamMoiTheoTuan: async (tuan: number, nam: number) => {
-    const response = await api.get<{ tuan: number; nam: number; so_san_pham_moi: number }>(`/ThongKe/san-pham-moi/theo-tuan?tuan=${tuan}&nam=${nam}`);
+    const response = await api.get<ApiResponse<{ tuan: number; nam: number; so_san_pham_moi: number }>>(`/ThongKe/san-pham-moi/theo-tuan?tuan=${tuan}&nam=${nam}`);
     return response.data;
   },
 
   // Thống kê nhân viên
   getNhanVienTheoThang: async (thang: number, nam: number) => {
-    const response = await api.get<ThongKeNhanVienResponse>(`/ThongKe/nhan-vien/theo-thang?thang=${thang}&nam=${nam}`);
+    const response = await api.get<ApiResponse<ThongKeNhanVienResponse>>(`/ThongKe/nhan-vien/theo-thang?thang=${thang}&nam=${nam}`);
     return response.data;
   },
 
   getNhanVienTheoNam: async (nam: number) => {
-    const response = await api.get<ThongKeNhanVienResponse>(`/ThongKe/nhan-vien/theo-nam?nam=${nam}`);
+    const response = await api.get<ApiResponse<ThongKeNhanVienResponse>>(`/ThongKe/nhan-vien/theo-nam?nam=${nam}`);
     return response.data;
   },
 

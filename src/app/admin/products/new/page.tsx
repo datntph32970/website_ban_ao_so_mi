@@ -172,7 +172,7 @@ export default function NewProductPage() {
               <h1 className="text-2xl font-bold text-slate-800">Thêm sản phẩm mới</h1>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="h-12 rounded-lg font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-base" disabled={loading || attrLoading}>Lưu nháp</Button>
+              
               <Button onClick={handleSubmit} className="h-12 rounded-lg font-medium bg-blue-500 text-white hover:bg-blue-600 transition text-base" disabled={loading || attrLoading}>Thêm sản phẩm</Button>
             </div>
           </div>
