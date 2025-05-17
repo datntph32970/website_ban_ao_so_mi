@@ -1,16 +1,19 @@
 "use client";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Tag } from "lucide-react";
+import { ArrowLeft, Package, Tag, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import { ThemSanPhamChiTietAdminDTO } from "@/types/san-pham-chi-tiet";
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { attributeService } from '@/services/attribute.service';
 import ProductGeneralInfoForm from '@/components/product/ProductGeneralInfoForm';
 import ColorTabs from '@/components/product/ColorTabs';
 import { useProductForm } from '@/hooks/useProductForm';
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { toast } from "react-hot-toast";
 
 
 // Thêm hàm chuyển File sang base64
@@ -29,7 +32,10 @@ export default function NewProductPage() {
   const form = useProductForm(router, defaultProductImage, setDefaultProductImage);
   const [loading, setLoading] = useState(false);
   const [attrLoading, setAttrLoading] = useState(false);
-
+  const [isQuickAddColorOpen, setIsQuickAddColorOpen] = useState(false);
+  const [isQuickAddSizeOpen, setIsQuickAddSizeOpen] = useState(false);
+  const [newQuickColor, setNewQuickColor] = useState({ ten_mau_sac: "", mo_ta: "" });
+  const [newQuickSize, setNewQuickSize] = useState({ ten_kich_co: "", mo_ta: "" });
 
   useEffect(() => {
     // TODO: Gọi API chương trình giảm giá nếu có, hoặc để mock
@@ -101,6 +107,50 @@ export default function NewProductPage() {
     }
   };
 
+  const handleQuickAddColor = async () => {
+    try {
+      await attributeService.createAttribute('MauSac', {
+        ten_mau_sac: newQuickColor.ten_mau_sac,
+        mo_ta: newQuickColor.mo_ta,
+        trang_thai: "HoatDong"
+      });
+      
+      // Refresh colors list
+      const updatedColors = await attributeService.getAttributes('MauSac');
+      form.setColors(updatedColors);
+      
+      // Reset form and close dialog
+      setNewQuickColor({ ten_mau_sac: "", mo_ta: "" });
+      setIsQuickAddColorOpen(false);
+      
+      toast.success("Thêm màu sắc thành công");
+    } catch (error: any) {
+      toast.error(error.response?.data || "Không thể thêm màu sắc");
+    }
+  };
+
+  const handleQuickAddSize = async () => {
+    try {
+      await attributeService.createAttribute('KichCo', {
+        ten_kich_co: newQuickSize.ten_kich_co,
+        mo_ta: newQuickSize.mo_ta,
+        trang_thai: "HoatDong"
+      });
+      
+      // Refresh sizes list
+      const updatedSizes = await attributeService.getAttributes('KichCo');
+      form.setSizes(updatedSizes);
+      
+      // Reset form and close dialog
+      setNewQuickSize({ ten_kich_co: "", mo_ta: "" });
+      setIsQuickAddSizeOpen(false);
+      
+      toast.success("Thêm kích cỡ thành công");
+    } catch (error: any) {
+      toast.error(error.response?.data || "Không thể thêm kích cỡ");
+    }
+  };
+
   return (
     <AdminLayout>
       {(loading || attrLoading) && (
@@ -169,12 +219,35 @@ export default function NewProductPage() {
                   handleVariantValueChange={form.handleVariantValueChange}
                   onDeleteColor={form.handleRemoveColorTab}
                   onDeleteSize={form.handleToggleSizeForColor}
+                  addColorButton={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddColorOpen(true)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Thêm màu mới
+                    </Button>
+                  }
+                  addSizeButton={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddSizeOpen(true)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Thêm cỡ mới
+                    </Button>
+                  }
                 />
               </div>
             </div>
           </div>
         </div>
       </div>
+
       {/* Dialog preview ảnh lớn */}
       <Dialog open={!!form.previewImageUrl} onOpenChange={open => !open && form.setPreviewImageUrl(null)}>
         <DialogContent className="z-50 bg-transparent p-0 border-none">
@@ -189,6 +262,79 @@ export default function NewProductPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Quick Add Color Dialog */}
+      <Dialog open={isQuickAddColorOpen} onOpenChange={setIsQuickAddColorOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Thêm màu sắc mới</DialogTitle>
+            <DialogDescription>
+              Thêm nhanh màu sắc mới cho sản phẩm
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-color-name">Tên màu sắc <span className="text-red-500">*</span></Label>
+              <Input
+                id="quick-color-name"
+                placeholder="Nhập tên màu sắc"
+                value={newQuickColor.ten_mau_sac}
+                onChange={(e) => setNewQuickColor(prev => ({ ...prev, ten_mau_sac: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick-color-desc">Mô tả</Label>
+              <Input
+                id="quick-color-desc"
+                placeholder="Nhập mô tả"
+                value={newQuickColor.mo_ta}
+                onChange={(e) => setNewQuickColor(prev => ({ ...prev, mo_ta: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQuickAddColorOpen(false)}>Hủy</Button>
+            <Button onClick={handleQuickAddColor} disabled={!newQuickColor.ten_mau_sac}>Thêm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Add Size Dialog */}
+      <Dialog open={isQuickAddSizeOpen} onOpenChange={setIsQuickAddSizeOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Thêm kích cỡ mới</DialogTitle>
+            <DialogDescription>
+              Thêm nhanh kích cỡ mới cho sản phẩm
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-size-name">Tên kích cỡ <span className="text-red-500">*</span></Label>
+              <Input
+                id="quick-size-name"
+                placeholder="Nhập tên kích cỡ"
+                value={newQuickSize.ten_kich_co}
+                onChange={(e) => setNewQuickSize(prev => ({ ...prev, ten_kich_co: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick-size-desc">Mô tả</Label>
+              <Input
+                id="quick-size-desc"
+                placeholder="Nhập mô tả"
+                value={newQuickSize.mo_ta}
+                onChange={(e) => setNewQuickSize(prev => ({ ...prev, mo_ta: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQuickAddSizeOpen(false)}>Hủy</Button>
+            <Button onClick={handleQuickAddSize} disabled={!newQuickSize.ten_kich_co}>Thêm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* AlertDialog xác nhận reload/rời trang */}
       <AlertDialog open={form.showLeaveAlert} onOpenChange={form.setShowLeaveAlert}>
         <AlertDialogContent>
