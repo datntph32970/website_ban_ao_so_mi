@@ -561,31 +561,54 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     );
 
     if (existingVariant) {
-      // Nếu kích cỡ đã tồn tại, hiển thị dialog xác nhận xóa
+      // Nếu kích cỡ đã tồn tại trong sản phẩm, hiển thị dialog xác nhận xóa
       setSizeToDelete({ colorId, sizeId });
       setIsDeleteSizeDialogOpen(true);
-    } else {
-      // Nếu là kích cỡ mới, thêm vào danh sách
-      setSelectedSizesByColor(prev => ({
-        ...prev,
-        [colorId]: [...(prev[colorId] || []), sizeId]
-      }));
-
-      // Khởi tạo giá trị mặc định cho kích cỡ mới
-      setVariantValues(prev => ({
-        ...prev,
-        [colorId]: {
-          ...prev[colorId],
-          [sizeId]: {
-            stock: 0,
-            importPrice: 0,
-            price: 0,
-            discount: "",
-            images: []
-          }
-        }
-      }));
+      return;
     }
+
+    // Kiểm tra xem size đã được thêm vào danh sách chưa
+    const currentSizes = selectedSizesByColor[colorId] || [];
+    if (currentSizes.includes(sizeId)) {
+      // Nếu size đã tồn tại trong danh sách, xóa nó đi
+      const updatedSizes = currentSizes.filter(size => size !== sizeId);
+      setSelectedSizesByColor({
+        ...selectedSizesByColor,
+        [colorId]: updatedSizes
+      });
+
+      // Xóa các giá trị của size này
+      const currentColorVariants = { ...variantValues[colorId] };
+      delete currentColorVariants[sizeId];
+      setVariantValues({
+        ...variantValues,
+        [colorId]: currentColorVariants
+      });
+      return;
+    }
+
+    // Thêm size mới vào danh sách
+    const updatedSizes = [...currentSizes, sizeId];
+    setSelectedSizesByColor({
+      ...selectedSizesByColor,
+      [colorId]: updatedSizes
+    });
+
+    // Khởi tạo giá trị mặc định cho kích cỡ mới
+    const currentColorVariants = variantValues[colorId] || {};
+    setVariantValues({
+      ...variantValues,
+      [colorId]: {
+        ...currentColorVariants,
+        [sizeId]: {
+          stock: 0,
+          importPrice: 0,
+          price: 0,
+          discount: "",
+          images: []
+        }
+      }
+    });
   };
 
   if (isLoading) {
