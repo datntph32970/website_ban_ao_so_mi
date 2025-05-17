@@ -2,6 +2,16 @@ import { NhanVien, CreateNhanVienDTO, UpdateNhanVienDTO, UpdateRoleAndStatus, Ch
 import { api } from "@/lib/api";
 import { AxiosResponse } from "axios";
 
+interface CapNhatThongTinNhanVienDTO {
+  ho_ten: string;
+  so_dien_thoai: string;
+  email: string;
+  gioi_tinh: string;
+  cccd: string;
+  dia_chi: string;
+  ngay_sinh: Date;
+}
+
 export const nhanVienService = {
   // Lấy danh sách nhân viên
   getDanhSachNhanVien: async () => {
@@ -60,6 +70,12 @@ export const nhanVienService = {
   // Tìm kiếm nhân viên
   timKiemNhanVien: async (keyword: string) => {
     const response = await api.get<NhanVien[]>(`/NhanVien/search-nhan-vien?keyword=${keyword}`);
+    return response.data;
+  },
+
+  // Cập nhật thông tin cá nhân của nhân viên đang đăng nhập
+  capNhatThongTinNhanVien: async (thongTin: CapNhatThongTinNhanVienDTO) => {
+    const response = await api.put<{ message: string }>('/NhanVien/cap-nhat-thong-tin-nhan-vien', thongTin);
     return response.data;
   }
 }; 

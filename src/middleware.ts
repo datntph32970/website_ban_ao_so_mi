@@ -11,6 +11,7 @@ const routePermissions = {
   '/admin/promotions': ['Admin', 'NhanVien'],
   '/admin/discounts': ['Admin', 'NhanVien'],
   '/admin/pos': ['Admin', 'NhanVien'],
+  '/admin/profile': ['Admin', 'NhanVien'],
   '/admin/reports': ['Admin'],
   '/admin/settings': ['Admin'],
   '/admin/payment-methods': ['Admin'],

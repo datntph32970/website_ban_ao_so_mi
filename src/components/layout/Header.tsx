@@ -15,6 +15,8 @@ import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { getAvatarByRole } from "@/lib/utils";
 
 interface TaiKhoanNhanVien {
   id_tai_khoan: string;
@@ -104,7 +106,10 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar>
-                  <AvatarImage src="/avatars/admin.png" alt={nhanVien?.ten_nhan_vien || 'User'} />
+                  <AvatarImage 
+                    src={nhanVien ? getAvatarByRole(nhanVien.taiKhoanNhanVien.chuc_vu) : '/avatars/default-avatar.png'} 
+                    alt={nhanVien?.ten_nhan_vien || 'User'} 
+                  />
                   <AvatarFallback>{nhanVien?.ten_nhan_vien?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
               </Button>
@@ -112,7 +117,9 @@ export function Header() {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Hồ sơ</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/profile">Hồ sơ</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>Cài đặt</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 

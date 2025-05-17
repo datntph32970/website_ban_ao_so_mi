@@ -56,7 +56,7 @@ export default function LoginPage() {
         router.push(from || '/admin/dashboard');
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Đăng nhập thất bại');
+      toast.error(err.response?.data || 'Đăng nhập thất bại');
     } finally {
       setLoading(false);
     }

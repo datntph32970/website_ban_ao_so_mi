@@ -20,3 +20,14 @@ export function getImageUrl(path: string | null | undefined): string {
   if (path.startsWith('http')) return path;
   return `${process.env.NEXT_PUBLIC_API_URL}${path}`;
 }
+
+export function getAvatarByRole(role: string) {
+  switch (role) {
+    case 'Admin':
+      return '/images/avatars/admin-avatar.png';
+    case 'NhanVien':
+      return '/images/avatars/staff-avatar.png';
+    default:
+      return '/images/avatars/default-avatar.png';
+  }
+}
