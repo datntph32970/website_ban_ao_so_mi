@@ -53,6 +53,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Định nghĩa interface cho trạng thái đơn hàng
 interface OrderStatus {
@@ -73,6 +84,7 @@ interface OrderStatuses {
   ChuaThanhToan: OrderStatus;
   DaHoanThanh: OrderStatus;
   DaHuy: OrderStatus;
+  DaXacNhan: OrderStatus;
 }
 
 const orderStatuses: OrderStatuses = {
@@ -82,11 +94,18 @@ const orderStatuses: OrderStatuses = {
     color: "bg-yellow-100 text-yellow-800 border-yellow-200",
     icon: <Clock className="h-4 w-4" />,
     description: "Đơn hàng của bạn đang chờ xác nhận",
+    nextStatus: "DaXacNhan"
+  },
+  DaXacNhan: {
+    label: "Đã xác nhận",
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: <CheckCircle className="h-4 w-4" />,
+    description: "Đơn hàng đã được xác nhận và sẽ được chuẩn bị",
     nextStatus: "DangChuanBi"
   },
   DangChuanBi: {
     label: "Đang chuẩn bị",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
+    color: "bg-indigo-100 text-indigo-800 border-indigo-200",
     icon: <Package className="h-4 w-4" />,
     description: "Đơn hàng đang được chuẩn bị",
     nextStatus: "DangGiaoHang"
@@ -158,6 +177,7 @@ const OrderTimeline = ({
     "DangChoXuLy",
     ...(currentStatus === "DaHuy" ? ["DaHuy"] : []),
     ...(currentStatus === "HetHang" ? ["HetHang"] : []),
+    "DaXacNhan",
     "DangChuanBi",
     "DangGiaoHang",
     "DaHoanThanh"
@@ -243,23 +263,60 @@ const OrderTimeline = ({
           );
         })}
       </div>
-      {currentStatus === "ChuaThanhToan" && (
+      {/* Thêm nút hủy đơn cho trạng thái Chưa thanh toán và Đang chờ xử lý */}
+      {(currentStatus === "ChuaThanhToan" || currentStatus === "DangChoXuLy") && (
         <div className="mt-8 pt-6 border-t space-y-4">
-          <Button 
-            className="w-full"
-            onClick={handlePayment}
-          >
-            <CreditCard className="h-4 w-4 mr-2" />
-            Thanh toán đơn hàng ngay
-          </Button>
-          <Button 
-            variant="destructive"
-            className="w-full"
-            onClick={onOrderCancel}
-          >
-            <XCircle className="h-4 w-4 mr-2" />
-            Hủy đơn hàng
-          </Button>
+          {currentStatus === "ChuaThanhToan" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="w-full">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Thanh toán đơn hàng ngay
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xác nhận thanh toán</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Bạn sẽ được chuyển đến trang thanh toán. Bạn có chắc chắn muốn tiếp tục?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction onClick={handlePayment}>
+                    Tiếp tục thanh toán
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="w-full">
+                <XCircle className="h-4 w-4 mr-2" />
+                Hủy đơn hàng
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận hủy đơn hàng</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {currentStatus === "ChuaThanhToan" 
+                    ? "Bạn có chắc chắn muốn hủy đơn hàng này? Đơn hàng sẽ không thể khôi phục sau khi hủy."
+                    : "Bạn có chắc chắn muốn hủy đơn hàng đang chờ xử lý này? Đơn hàng sẽ không thể khôi phục sau khi hủy."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Không, giữ lại</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={onOrderCancel}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  Có, hủy đơn hàng
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>
@@ -346,19 +403,27 @@ export default function CustomerOrdersPage() {
 
     try {
       setCancelling(true);
-      const response = await hoaDonService.huyDonHangChuaThanhToan(selectedOrder.id_hoa_don);
+      let response;
       
-      // Cập nhật danh sách đơn hàng
-      setOrders(orders.map(order => 
-        order.id_hoa_don === response.hoa_don.id_hoa_don 
-          ? response.hoa_don 
-          : order
-      ));
-      
-      // Cập nhật đơn hàng đang xem
-      setSelectedOrder(response.hoa_don);
-      
-      toast.success("Đã hủy đơn hàng thành công");
+      if (selectedOrder.trang_thai === "ChuaThanhToan") {
+        response = await hoaDonService.huyDonHangChuaThanhToan(selectedOrder.id_hoa_don);
+      } else if (selectedOrder.trang_thai === "DangChoXuLy") {
+        response = await hoaDonService.huyDonHangChuaThanhToan(selectedOrder.id_hoa_don);
+      }
+
+      if (response) {
+        // Cập nhật danh sách đơn hàng
+        setOrders(orders.map(order => 
+          order.id_hoa_don === response.hoa_don.id_hoa_don 
+            ? response.hoa_don 
+            : order
+        ));
+        
+        // Cập nhật đơn hàng đang xem
+        setSelectedOrder(response.hoa_don);
+        
+        toast.success("Đã hủy đơn hàng thành công");
+      }
     } catch (error) {
       console.error("Error cancelling order:", error);
       toast.error("Không thể hủy đơn hàng. Vui lòng thử lại sau.");
