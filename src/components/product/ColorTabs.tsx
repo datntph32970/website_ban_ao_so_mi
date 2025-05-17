@@ -32,6 +32,8 @@ interface ColorTabsProps {
   handleVariantValueChange: (colorId: string, sizeId: string, field: 'stock' | 'importPrice' | 'price' | 'discount', value: any) => void;
   onDeleteColor: (colorId: string) => void;
   onDeleteSize: (colorId: string, sizeId: string) => void;
+  addColorButton?: React.ReactNode;
+  addSizeButton?: React.ReactNode;
 }
 
 export default function ColorTabs({
@@ -56,6 +58,8 @@ export default function ColorTabs({
   handleVariantValueChange,
   onDeleteColor,
   onDeleteSize,
+  addColorButton,
+  addSizeButton
 }: ColorTabsProps) {
   
   return (
@@ -83,39 +87,42 @@ export default function ColorTabs({
           );
         })}
         {/* Add color button with popover */}
-        <Popover open={addColorOpen} onOpenChange={setAddColorOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="flex items-center gap-2 min-w-[120px] h-10 px-5 py-2 rounded-xl border-2 text-base font-medium shadow-sm transition-all bg-white border-slate-200 hover:bg-slate-100"
-              onClick={() => setAddColorOpen(true)}
-            >
-              <Plus className="w-5 h-5 text-green-500" /> Thêm màu
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="p-2 w-48">
-            <div className="flex flex-col gap-1">
-              {colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).length === 0 ? (
-                <span className="text-slate-400 text-sm">Đã chọn hết màu</span>
-              ) : (
-                colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).map((color, idx) => (
-                  <button
-                    key={`${color.id_mau_sac}_${idx}`}
-                    type="button"
-                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-blue-50 text-base font-medium"
-                    onClick={() => {
-                      onAddColor(String(color.id_mau_sac));
-                      setAddColorOpen(false);
-                    }}
-                  >
-                    <span className="w-5 h-5 rounded-full border border-slate-200" style={{background: '#f3f4f6'}}></span>
-                    {color.ten_mau_sac}
-                  </button>
-                ))
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <div className="flex items-center gap-2">
+          <Popover open={addColorOpen} onOpenChange={setAddColorOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-2 min-w-[120px] h-10 px-5 py-2 rounded-xl border-2 text-base font-medium shadow-sm transition-all bg-white border-slate-200 hover:bg-slate-100"
+                onClick={() => setAddColorOpen(true)}
+              >
+                <Plus className="w-5 h-5 text-green-500" /> Chọn màu
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="p-2 w-48">
+              <div className="flex flex-col gap-1">
+                {colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).length === 0 ? (
+                  <span className="text-slate-400 text-sm">Đã chọn hết màu</span>
+                ) : (
+                  colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).map((color, idx) => (
+                    <button
+                      key={`${color.id_mau_sac}_${idx}`}
+                      type="button"
+                      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-blue-50 text-base font-medium"
+                      onClick={() => {
+                        onAddColor(String(color.id_mau_sac));
+                        setAddColorOpen(false);
+                      }}
+                    >
+                      <span className="w-5 h-5 rounded-full border border-slate-200" style={{background: '#f3f4f6'}}></span>
+                      {color.ten_mau_sac}
+                    </button>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+          {addColorButton}
+        </div>
       </TabsList>
       {errors.SanPhamChiTiets && (
         <div className="text-xs text-red-500 mt-2 mb-2">
@@ -160,25 +167,28 @@ export default function ColorTabs({
                 Chọn kích cỡ cho màu {color?.ten_mau_sac} <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-3">
-                {sizes.filter(size => size.id_kich_co).map((size: KichCo, idx) => (
-                  <div key={`${colorId}_${size.id_kich_co || 'none'}_${idx}`} className="flex flex-col items-center">
-                    <button
-                      type="button"
-                      className={`px-5 py-3 rounded-xl border-2 text-base font-medium shadow-sm transition-all
-                        ${selectedSizes.includes(String(size.id_kich_co)) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'}`}
-                      onClick={() => handleToggleSizeForColor(colorId, String(size.id_kich_co))}
-                    >
-                      {size.ten_kich_co}
-                    </button>
-                    {errors[`${colorId}_${size.id_kich_co}_size`] && (
-                      <div className="text-xs text-red-500 mt-1">
-                        {typeof errors[`${colorId}_${size.id_kich_co}_size`] === 'string' 
-                          ? errors[`${colorId}_${size.id_kich_co}_size`] 
-                          : 'Có lỗi xảy ra'}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                <div className="flex items-center gap-3">
+                  {sizes.filter(size => size.id_kich_co).map((size: KichCo, idx) => (
+                    <div key={`${colorId}_${size.id_kich_co || 'none'}_${idx}`} className="flex flex-col items-center">
+                      <button
+                        type="button"
+                        className={`px-5 py-3 rounded-xl border-2 text-base font-medium shadow-sm transition-all
+                          ${selectedSizes.includes(String(size.id_kich_co)) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'}`}
+                        onClick={() => handleToggleSizeForColor(colorId, String(size.id_kich_co))}
+                      >
+                        {size.ten_kich_co}
+                      </button>
+                      {errors[`${colorId}_${size.id_kich_co}_size`] && (
+                        <div className="text-xs text-red-500 mt-1">
+                          {typeof errors[`${colorId}_${size.id_kich_co}_size`] === 'string' 
+                            ? errors[`${colorId}_${size.id_kich_co}_size`] 
+                            : 'Có lỗi xảy ra'}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {addSizeButton}
+                </div>
               </div>
             </div>
             <div className="mt-8">

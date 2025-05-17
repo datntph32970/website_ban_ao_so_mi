@@ -11,7 +11,6 @@ export interface MauSac {
 }
 
 export interface CreateMauSacDTO {
-    ma_mau_sac: string;
     ten_mau_sac: string;
     mo_ta: string;
     trang_thai: string;

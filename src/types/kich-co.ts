@@ -11,7 +11,6 @@ export interface KichCo {
 }
 
 export interface CreateKichCoDTO {
-    ma_kich_co: string;
     ten_kich_co: string;
     mo_ta: string;
     trang_thai: string;

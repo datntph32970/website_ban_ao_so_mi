@@ -11,7 +11,7 @@ import { attributeService } from "@/services/attribute.service";
 import { giamGiaService } from "@/services/giam-gia.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +37,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Image from "next/image";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const formSchema = z.object({
   ten_san_pham: z.string().min(1, "Tên sản phẩm là bắt buộc").max(100, "Tên sản phẩm không được vượt quá 100 ký tự"),
@@ -80,6 +83,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [isDeleteSizeDialogOpen, setIsDeleteSizeDialogOpen] = useState(false);
   const [colorToDelete, setColorToDelete] = useState<string>("");
   const [sizeToDelete, setSizeToDelete] = useState<{colorId: string, sizeId: string} | null>(null);
+  const [isQuickAddColorOpen, setIsQuickAddColorOpen] = useState(false);
+  const [isQuickAddSizeOpen, setIsQuickAddSizeOpen] = useState(false);
+  const [newQuickColor, setNewQuickColor] = useState({ ten_mau_sac: "", mo_ta: "" });
+  const [newQuickSize, setNewQuickSize] = useState({ ten_kich_co: "", mo_ta: "" });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -611,6 +618,50 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     });
   };
 
+  const handleQuickAddColor = async () => {
+    try {
+      await attributeService.createAttribute('MauSac', {
+        ten_mau_sac: newQuickColor.ten_mau_sac,
+        mo_ta: newQuickColor.mo_ta,
+        trang_thai: "HoatDong"
+      });
+      
+      // Refresh colors list
+      const updatedColors = await attributeService.getAttributes('MauSac');
+      setColors(updatedColors);
+      
+      // Reset form and close dialog
+      setNewQuickColor({ ten_mau_sac: "", mo_ta: "" });
+      setIsQuickAddColorOpen(false);
+      
+      toast.success("Thêm màu sắc thành công");
+    } catch (error: any) {
+      toast.error(error.response?.data || "Không thể thêm màu sắc");
+    }
+  };
+
+  const handleQuickAddSize = async () => {
+    try {
+      await attributeService.createAttribute('KichCo', {
+        ten_kich_co: newQuickSize.ten_kich_co,
+        mo_ta: newQuickSize.mo_ta,
+        trang_thai: "HoatDong"
+      });
+      
+      // Refresh sizes list
+      const updatedSizes = await attributeService.getAttributes('KichCo');
+      setSizes(updatedSizes);
+      
+      // Reset form and close dialog
+      setNewQuickSize({ ten_kich_co: "", mo_ta: "" });
+      setIsQuickAddSizeOpen(false);
+      
+      toast.success("Thêm kích cỡ thành công");
+    } catch (error: any) {
+      toast.error(error.response?.data || "Không thể thêm kích cỡ");
+    }
+  };
+
   if (isLoading) {
     return (
       <AdminLayout>
@@ -812,10 +863,104 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     setSizeToDelete({ colorId, sizeId });
                     setIsDeleteSizeDialogOpen(true);
                   }}
+                  addColorButton={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddColorOpen(true)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Thêm màu mới
+                    </Button>
+                  }
+                  addSizeButton={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsQuickAddSizeOpen(true)}
+                      className="gap-1"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Thêm cỡ mới
+                    </Button>
+                  }
                 />
               </CardContent>
             </Card>
         </div>
+
+        {/* Quick Add Color Dialog */}
+        <Dialog open={isQuickAddColorOpen} onOpenChange={setIsQuickAddColorOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Thêm màu sắc mới</DialogTitle>
+              <DialogDescription>
+                Thêm nhanh màu sắc mới cho sản phẩm
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick-color-name">Tên màu sắc <span className="text-red-500">*</span></Label>
+                <Input
+                  id="quick-color-name"
+                  placeholder="Nhập tên màu sắc"
+                  value={newQuickColor.ten_mau_sac}
+                  onChange={(e) => setNewQuickColor(prev => ({ ...prev, ten_mau_sac: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quick-color-desc">Mô tả</Label>
+                <Input
+                  id="quick-color-desc"
+                  placeholder="Nhập mô tả"
+                  value={newQuickColor.mo_ta}
+                  onChange={(e) => setNewQuickColor(prev => ({ ...prev, mo_ta: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsQuickAddColorOpen(false)}>Hủy</Button>
+              <Button onClick={handleQuickAddColor} disabled={!newQuickColor.ten_mau_sac}>Thêm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quick Add Size Dialog */}
+        <Dialog open={isQuickAddSizeOpen} onOpenChange={setIsQuickAddSizeOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Thêm kích cỡ mới</DialogTitle>
+              <DialogDescription>
+                Thêm nhanh kích cỡ mới cho sản phẩm
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick-size-name">Tên kích cỡ <span className="text-red-500">*</span></Label>
+                <Input
+                  id="quick-size-name"
+                  placeholder="Nhập tên kích cỡ"
+                  value={newQuickSize.ten_kich_co}
+                  onChange={(e) => setNewQuickSize(prev => ({ ...prev, ten_kich_co: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quick-size-desc">Mô tả</Label>
+                <Input
+                  id="quick-size-desc"
+                  placeholder="Nhập mô tả"
+                  value={newQuickSize.mo_ta}
+                  onChange={(e) => setNewQuickSize(prev => ({ ...prev, mo_ta: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsQuickAddSizeOpen(false)}>Hủy</Button>
+              <Button onClick={handleQuickAddSize} disabled={!newQuickSize.ten_kich_co}>Thêm</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
