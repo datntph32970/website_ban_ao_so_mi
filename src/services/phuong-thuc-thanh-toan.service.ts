@@ -20,7 +20,6 @@ interface ThemPhuongThucThanhToanDTO {
 
 interface SuaPhuongThucThanhToanDTO {
   ten_phuong_thuc_thanh_toan: string;
-  ma_phuong_thuc_thanh_toan: string;
   mo_ta: string;
 }
 
@@ -74,6 +73,13 @@ export const phuongThucThanhToanService = {
   // Xóa phương thức thanh toán
   xoaPhuongThucThanhToan: async (id: string) => {
     const response = await api.delete<boolean>(`/PhuongThucThanhToan/${id}`);
+    return response.data;
+  }
+  ,
+
+  // Lấy danh sách phương thức thanh toán online đang hoạt động
+  getDanhSachPhuongThucThanhToanOnlineHoatDong: async () => {
+    const response = await api.get<PhuongThucThanhToan[]>("/PhuongThucThanhToan/lay-danh-sach-phuong-thuc-thanh-toan-online-hoat-dong");
     return response.data;
   }
 };

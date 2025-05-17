@@ -582,7 +582,7 @@ export function AddProductsDialog({
                                   className="w-8 h-8 object-cover rounded transition-all duration-200 hover:scale-110"
                                 />
                                 <Link 
-                                  href={`/products/${product.id_san_pham}`}
+                                  href={`/admin/products/${product.id_san_pham}`}
                                   className="font-medium line-clamp-1 hover:text-blue-600 transition-colors duration-200"
                                   onClick={(e) => e.stopPropagation()}
                                 >

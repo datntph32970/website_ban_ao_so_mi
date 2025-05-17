@@ -196,8 +196,6 @@ const OrderListPage = () => {
       const response = await hoaDonService.getHoaDon({
         trang_hien_tai: pagination.trang_hien_tai,
         so_phan_tu_tren_trang: pagination.so_phan_tu_tren_trang,
-        tong_so_trang: pagination.tong_so_trang,
-        tong_so_phan_tu: pagination.tong_so_phan_tu,
         tim_kiem: debouncedSearchTerm || undefined,
         trang_thai: filters.trang_thai === "all" ? undefined : filters.trang_thai || undefined,
         loai_hoa_don: filters.loai_hoa_don === "all" ? undefined : filters.loai_hoa_don || undefined,
@@ -709,7 +707,7 @@ const OrderListPage = () => {
                       </p>
                       <p className="text-slate-600 flex items-center gap-2">
                         <CreditCard className="h-4 w-4 text-slate-400" />
-                        <span className="font-medium">Phương thức:</span> {selectedOrder.phuong_thuc_thanh_toan}
+                        <span className="font-medium">Phương thức:</span> {selectedOrder.ten_phuong_thuc_thanh_toan}
                       </p>
                       {selectedOrder.ghi_chu && (
                         <p className="text-slate-600 flex items-center gap-2">

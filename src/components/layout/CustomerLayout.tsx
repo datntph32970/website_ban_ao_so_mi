@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { ShoppingBag, User, ShoppingCart, Search, LogOut } from "lucide-react";
+import { ShoppingBag, User, ShoppingCart, Search, LogOut, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Cookies from "js-cookie";
@@ -82,12 +82,9 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
               <Link href="/products" className="text-sm font-medium hover:text-blue-600">
                 Sản phẩm
               </Link>
-              <Link href="/sale" className="text-sm font-medium hover:text-blue-600">
+              {/* <Link href="/sale" className="text-sm font-medium hover:text-blue-600">
                 Khuyến mãi
-              </Link>
-              <Link href="/about" className="text-sm font-medium hover:text-blue-600">
-                Giới thiệu
-              </Link>
+              </Link> */}              
               <Link href="/contact" className="text-sm font-medium hover:text-blue-600">
                 Liên hệ
               </Link>
@@ -196,11 +193,11 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 Chuyên cung cấp các sản phẩm áo sơ mi chính hãng với chất lượng tốt nhất cho khách hàng.
               </p>
             </div>
-            <div>
+            {/* <div>
               <h3 className="text-lg font-bold mb-4">Thông tin</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/about" className="text-slate-400 hover:text-white text-sm">
+                  <Link href="/contact" className="text-slate-400 hover:text-white text-sm">
                     Giới thiệu
                   </Link>
                 </li>
@@ -215,44 +212,66 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                   </Link>
                 </li>
               </ul>
-            </div>
+            </div> */}
             <div>
               <h3 className="text-lg font-bold mb-4">Hỗ trợ khách hàng</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/shipping" className="text-slate-400 hover:text-white text-sm">
+                  <Link href="#" className="text-slate-400 hover:text-white text-sm">
                     Chính sách vận chuyển
                   </Link>
                 </li>
                 <li>
-                  <Link href="/returns" className="text-slate-400 hover:text-white text-sm">
+                  <Link href="#" className="text-slate-400 hover:text-white text-sm">
                     Chính sách đổi trả
                   </Link>
                 </li>
                 <li>
-                  <Link href="/faq" className="text-slate-400 hover:text-white text-sm">
+                  <Link href="#" className="text-slate-400 hover:text-white text-sm">
                     Câu hỏi thường gặp
                   </Link>
                 </li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Liên hệ</h3>
+              <h3 className="text-lg font-bold mb-4">Thông tin liên hệ</h3>
               <ul className="space-y-2">
+              <li className="text-slate-400 text-sm">  
+                <a 
+                  href="https://www.facebook.com/profile.php?id=61576264940151"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  FIFTY STORE
+                </a> 
+                </li>
                 <li className="text-slate-400 text-sm">
                   Hotline: 1900 xxxx
                 </li>
                 <li className="text-slate-400 text-sm">
                   Email: support@fiftystore.com
-                </li>
+                </li>                
                 <li className="text-slate-400 text-sm">
-                  Địa chỉ: TP. Hồ Chí Minh
+                  Địa chỉ: Trịnh Văn Bô, Xuân Phương, Nam Từ Liêm, Hà Nội
                 </li>
               </ul>
             </div>
+            <div className=" max-w-md mx-auto rounded-xl overflow-hidden border">
+      <iframe
+        src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D61576264940151&tabs=timeline&width=450&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=true&appId"
+        width="450"
+        height="400"
+        style={{ border: "none", overflow: "hidden" }}
+        scrolling="no"
+        frameBorder={0}
+        allowFullScreen
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+      ></iframe>
+    </div>
           </div>
           <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-400 text-sm">
-            © 2024 FIFTY STORE. All rights reserved.
+            © 2025 FIFTY STORE. All rights reserved.
           </div>
         </div>
       </footer>

@@ -90,8 +90,8 @@ export function CreateDialog({ isOpen, onClose, onSuccess }: CreateDialogProps) 
       isValid = false;
     }
 
-    if (formData.gia_tri_don_hang_toi_thieu <= 0) {
-      newErrors.gia_tri_don_hang_toi_thieu = "Giá trị đơn hàng tối thiểu phải lớn hơn 0";
+    if (formData.gia_tri_don_hang_toi_thieu < 0) {
+      newErrors.gia_tri_don_hang_toi_thieu = "Giá trị đơn hàng tối thiểu không được âm";
       isValid = false;
     }
 
