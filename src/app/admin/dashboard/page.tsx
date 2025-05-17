@@ -202,16 +202,13 @@ export default function DashboardPage() {
 
   // Calculate percentage change for orders
   const calculateOrderChange = (): { value: string; change: string } => {
-    console.log('Calculating order stats with:', { tongDonHangThang, tongDonHangThangTruoc });
     if (tongDonHangThangTruoc === 0) {
       if (tongDonHangThang > 0) {
-        console.log('Previous month is 0, current month has orders');
         return { 
           value: tongDonHangThang.toString(), 
           change: "+100%" 
         };
       }
-      console.log('Both months have 0 orders');
       return { 
         value: "0", 
         change: "0%" 
@@ -219,7 +216,6 @@ export default function DashboardPage() {
     }
     
     const change = ((tongDonHangThang - tongDonHangThangTruoc) / tongDonHangThangTruoc) * 100;
-    console.log('Calculated order change:', change);
     return {
       value: tongDonHangThang.toString(),
       change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
@@ -306,28 +302,23 @@ export default function DashboardPage() {
         const currentMonthOrders = await thongKeService.getDonHangTheoThang(currentMonth, currentYear);
         const previousMonthOrders = await thongKeService.getDonHangTheoThang(previousMonth, previousMonthYear);
         
-        console.log('Orders API Response:', { currentMonthOrders, previousMonthOrders });
         
         const currentOrders = currentMonthOrders?.data?.so_don_hang || 0;
         const previousOrders = previousMonthOrders?.data?.so_don_hang || 0;
         
-        console.log('Order counts:', { currentOrders, previousOrders });
         
         setTongDonHangThang(currentOrders);
         setTongDonHangThangTruoc(previousOrders);
 
         // Calculate order stats
         const calculateOrderStats = () => {
-          console.log('Calculating order stats with:', { currentOrders, previousOrders });
           if (previousOrders === 0) {
             if (currentOrders > 0) {
-              console.log('Previous month is 0, current month has orders');
               return { 
                 value: currentOrders.toString(), 
                 change: "+100%" 
               };
             }
-            console.log('Both months have 0 orders');
             return { 
               value: "0", 
               change: "0%" 
@@ -335,7 +326,6 @@ export default function DashboardPage() {
           }
           
           const change = ((currentOrders - previousOrders) / previousOrders) * 100;
-          console.log('Calculated order change:', change);
           return {
             value: currentOrders.toString(),
             change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
@@ -343,27 +333,22 @@ export default function DashboardPage() {
         };
 
         const orderStats = calculateOrderStats();
-        console.log('Calculated order stats:', orderStats);
 
         // Fetch current month's employee data for total count
         const currentMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(currentMonth, currentYear);
         const previousMonthEmployeeCount = await thongKeService.getNhanVienTheoThang(previousMonth, previousMonthYear);
         
-        console.log('Employee API Response:', { currentMonthEmployeeCount, previousMonthEmployeeCount });
         
         const currentEmployees = currentMonthEmployeeCount?.data?.so_nhan_vien_moi || 0;
         const previousEmployees = previousMonthEmployeeCount?.data?.so_nhan_vien_moi || 0;
         
-        console.log('Employee counts:', { currentEmployees, previousEmployees });
         
         setTongNhanVien(currentEmployees);
         setTongNhanVienThangTruoc(previousEmployees);
 
         // Calculate employee stats
         const calculateEmployeeStats = () => {
-          console.log('Calculating employee stats with:', { currentEmployees, previousEmployees });
           const newEmployees = currentEmployees;  // For new employees, we just use the current month's value
-          console.log('New employees:', newEmployees);
           return {
             value: currentEmployees.toString(),
             change: `+${newEmployees}`
@@ -371,34 +356,28 @@ export default function DashboardPage() {
         };
 
         const employeeStats = calculateEmployeeStats();
-        console.log('Calculated employee stats:', employeeStats);
 
         // Fetch product data and calculate stats immediately
         const currentMonthProducts = await thongKeService.getSanPhamMoiTheoThang(currentMonth, currentYear);
         const previousMonthProducts = await thongKeService.getSanPhamMoiTheoThang(previousMonth, previousMonthYear);
         
-        console.log('API Response:', { currentMonthProducts, previousMonthProducts });
         
         const currentCount = currentMonthProducts?.data?.so_san_pham_moi || 0;
         const previousCount = previousMonthProducts?.data?.so_san_pham_moi || 0;
         
-        console.log('Product counts:', { currentCount, previousCount });
         
         setTongSanPhamThang(currentCount);
         setTongSanPhamThangTruoc(previousCount);
 
         // Calculate product stats
         const calculateProductStats = () => {
-          console.log('Calculating stats with:', { currentCount, previousCount });
           if (previousCount === 0) {
             if (currentCount > 0) {
-              console.log('Previous month is 0, current month has products');
               return { 
                 value: currentCount.toString(), 
                 change: "+100%" 
               };
             }
-            console.log('Both months are 0');
             return { 
               value: "0", 
               change: "0%" 
@@ -406,7 +385,6 @@ export default function DashboardPage() {
           }
           
           const change = ((currentCount - previousCount) / previousCount) * 100;
-          console.log('Calculated change:', change);
           return {
             value: currentCount.toString(),
             change: `${change > 0 ? '+' : ''}${change.toFixed(0)}%`
@@ -414,7 +392,6 @@ export default function DashboardPage() {
         };
 
         const productStats = calculateProductStats();
-        console.log('Calculated product stats:', productStats);
 
         // Update dashboard stats with the calculated values
         const newDashboardStats = [
