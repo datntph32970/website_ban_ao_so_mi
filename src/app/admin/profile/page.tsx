@@ -21,6 +21,7 @@ import { vi } from "date-fns/locale";
 import toast from "react-hot-toast";
 import { nhanVienService } from "@/services/nhan-vien.service";
 import { getAvatarByRole } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface NhanVien {
   id_nhan_vien: string;
@@ -47,6 +48,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<Partial<NhanVien>>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchNhanVienInfo = async () => {
@@ -191,6 +193,15 @@ export default function ProfilePage() {
                 <div>
                   <p className="text-sm font-medium text-slate-500">Số điện thoại</p>
                   <p className="font-medium">{nhanVien?.so_dien_thoai}</p>
+                </div>
+                <div className="pt-4">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => router.push('/auth/change-password')}
+                  >
+                    Đổi mật khẩu
+                  </Button>
                 </div>
               </div>
             </CardContent>

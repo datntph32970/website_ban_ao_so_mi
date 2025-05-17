@@ -243,7 +243,9 @@ export default function AccountPage() {
               </div>
               <div>
                 <p className="text-sm font-medium">Trạng thái</p>
-                <p className="text-sm text-muted-foreground">{profile?.trang_thai}</p>
+                <p className="text-sm text-muted-foreground">
+                  {profile?.trang_thai === 'HoatDong' ? 'Hoạt động' : profile?.trang_thai}
+                </p>
               </div>
               <div>
                 <p className="text-sm font-medium">Ngày tạo tài khoản</p>
@@ -251,6 +253,16 @@ export default function AccountPage() {
                   {profile?.ngay_tao ? new Date(profile.ngay_tao).toLocaleDateString("vi-VN") : ""}
                 </p>
               </div>
+
+              <Separator className="my-4" />
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => window.location.href = '/auth/change-password'}
+              >
+                Đổi mật khẩu
+              </Button>
             </CardContent>
           </Card>
         </div>

@@ -15,12 +15,7 @@ const navigation = [
     name: "Đơn hàng của tôi",
     href: "/account/orders",
     icon: Package,
-  },
-  {
-    name: "Sổ địa chỉ",
-    href: "/account/addresses",
-    icon: MapPin,
-  },
+  }
 ];
 
 export default function AccountLayout({

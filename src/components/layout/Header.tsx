@@ -120,7 +120,6 @@ export function Header() {
               <DropdownMenuItem asChild>
                 <Link href="/admin/profile">Hồ sơ</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>Cài đặt</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="text-red-600 cursor-pointer"
