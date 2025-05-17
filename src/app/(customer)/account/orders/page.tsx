@@ -156,15 +156,18 @@ const OrderTimeline = ({
   paymentMethod,
   isVNPay = false,
   orderId,
-  onOrderCancel
+  onOrderCancel,
+  cancelling = false
 }: { 
   currentStatus: string;
   paymentMethod: string;
   isVNPay?: boolean;
   orderId: string;
-  onOrderCancel: () => void;
+  onOrderCancel: (reason: string) => void;
+  cancelling?: boolean;
 }) => {
   const router = useRouter();
+  const [cancellationReason, setCancellationReason] = useState("");
 
   const handlePayment = () => {
     router.push(`/checkout?order_id=${orderId}`);
@@ -306,13 +309,50 @@ const OrderTimeline = ({
                     : "Bạn có chắc chắn muốn hủy đơn hàng đang chờ xử lý này? Đơn hàng sẽ không thể khôi phục sau khi hủy."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              
+              <div className="mt-4 mb-4">
+                <label htmlFor="cancellation-reason" className="text-sm font-medium block mb-2">
+                  Lý do hủy đơn*
+                </label>
+                <textarea
+                  id="cancellation-reason"
+                  className="w-full p-2 border rounded-md h-20 focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Vui lòng nhập lý do hủy đơn hàng"
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={cancelling}
+                  required
+                />
+              </div>
+              
               <AlertDialogFooter>
-                <AlertDialogCancel>Không, giữ lại</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={onOrderCancel}
-                  className="bg-destructive hover:bg-destructive/90"
+                <AlertDialogCancel 
+                  onClick={() => setCancellationReason("")}
+                  disabled={cancelling}
                 >
-                  Có, hủy đơn hàng
+                  Không, giữ lại
+                </AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => {
+                    if (!cancellationReason.trim()) {
+                      toast.error("Vui lòng nhập lý do hủy đơn hàng");
+                      return;
+                    }
+                    onOrderCancel(cancellationReason);
+                    setCancellationReason("");
+                  }}
+                  className="bg-destructive hover:bg-destructive/90"
+                  disabled={cancelling}
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    "Có, hủy đơn hàng"
+                  )}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -398,35 +438,33 @@ export default function CustomerOrdersPage() {
     }
   };
 
-  const handleCancelOrder = async () => {
+  const handleCancelOrder = async (reason: string) => {
     if (!selectedOrder || cancelling) return;
 
     try {
       setCancelling(true);
-      let response;
-      
-      if (selectedOrder.trang_thai === "ChuaThanhToan") {
-        response = await hoaDonService.huyDonHangChuaThanhToan(selectedOrder.id_hoa_don);
-      } else if (selectedOrder.trang_thai === "DangChoXuLy") {
-        response = await hoaDonService.huyDonHangChuaThanhToan(selectedOrder.id_hoa_don);
-      }
+      // Sử dụng API huyDonHangKhachHang thay vì huyDonHangChuaThanhToan
+      const response = await hoaDonService.huyDonHangKhachHang(selectedOrder.id_hoa_don, reason);
 
       if (response) {
+        toast.success(response.message || "Đã hủy đơn hàng thành công");
+        
+        // Tải lại thông tin đơn hàng để cập nhật trạng thái
+        const updatedOrder = await hoaDonService.getHoaDonByIdCuaKhachHang(selectedOrder.id_hoa_don);
+        
         // Cập nhật danh sách đơn hàng
         setOrders(orders.map(order => 
-          order.id_hoa_don === response.hoa_don.id_hoa_don 
-            ? response.hoa_don 
+          order.id_hoa_don === selectedOrder.id_hoa_don 
+            ? updatedOrder 
             : order
         ));
         
         // Cập nhật đơn hàng đang xem
-        setSelectedOrder(response.hoa_don);
-        
-        toast.success("Đã hủy đơn hàng thành công");
+        setSelectedOrder(updatedOrder);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error cancelling order:", error);
-      toast.error("Không thể hủy đơn hàng. Vui lòng thử lại sau.");
+      toast.error(error.response?.data?.message || "Không thể hủy đơn hàng. Vui lòng thử lại sau.");
     } finally {
       setCancelling(false);
     }
@@ -897,21 +935,41 @@ export default function CustomerOrdersPage() {
                         isVNPay={selectedOrder.ten_phuong_thuc_thanh_toan.toLowerCase().includes('vnpay')}
                         orderId={selectedOrder.id_hoa_don}
                         onOrderCancel={handleCancelOrder}
+                        cancelling={cancelling}
                       />
                     )}
-                    {selectedOrder && (selectedOrder.trang_thai === "DaHuy" || selectedOrder.trang_thai === "HetHang") && (
+                    {selectedOrder && (selectedOrder.trang_thai === "DaHuy") && (
                       <div className="flex items-center gap-4 p-4 rounded-lg border border-destructive/20 bg-destructive/10">
                         <div className="h-8 w-8 rounded-full bg-destructive/20 flex items-center justify-center">
                           <XCircle className="h-4 w-4 text-destructive" />
                         </div>
                         <div>
                           <p className="font-medium text-destructive">
-                            {selectedOrder.trang_thai === "DaHuy" ? "Đơn hàng đã bị hủy" : "Đơn hàng hết hàng"}
+                            Đơn hàng đã bị hủy
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {selectedOrder.trang_thai === "DaHuy" 
-                              ? "Đơn hàng này đã bị hủy và không thể tiếp tục xử lý" 
-                              : "Một số sản phẩm trong đơn hàng hiện đã hết hàng"}
+                            Đơn hàng này đã bị hủy và không thể tiếp tục xử lý
+                          </p>
+                          {selectedOrder.ly_do_huy_don_hang && (
+                            <div className="mt-3 p-3 bg-slate-100 rounded-md">
+                              <p className="text-xs font-medium text-slate-500 mb-1">Lý do hủy:</p>
+                              <p className="text-sm">{selectedOrder.ly_do_huy_don_hang}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {selectedOrder && (selectedOrder.trang_thai === "HetHang") && (
+                      <div className="flex items-center gap-4 p-4 rounded-lg border border-destructive/20 bg-destructive/10">
+                        <div className="h-8 w-8 rounded-full bg-destructive/20 flex items-center justify-center">
+                          <XCircle className="h-4 w-4 text-destructive" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-destructive">
+                            Đơn hàng hết hàng
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Một số sản phẩm trong đơn hàng hiện đã hết hàng
                           </p>
                         </div>
                       </div>

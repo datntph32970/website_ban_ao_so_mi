@@ -7,12 +7,16 @@ import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import { gioHangService } from "@/services/gio-hang.service";
 import { toast } from "react-hot-toast";
+import { useStore } from "@/contexts/store-context";
+import { getImageUrl } from "@/lib/utils";
+import Image from "next/image";
 
 interface CustomerLayoutProps {
   children: ReactNode;
 }
 
 export function CustomerLayout({ children }: CustomerLayoutProps) {
+  const { storeInfo, loading: loadingStore } = useStore();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isCustomer, setIsCustomer] = useState(false);
@@ -70,8 +74,18 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
           <div className="flex h-16 items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-2">
-              <ShoppingBag className="h-6 w-6 text-blue-600" />
-              <span className="text-xl font-bold">FIFTY STORE</span>
+              {storeInfo?.hinh_anh_url ? (
+                <Image
+                  src={getImageUrl(storeInfo.hinh_anh_url)}
+                  alt="Logo"
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 object-contain"
+                />
+              ) : (
+                <ShoppingBag className="h-6 w-6 text-blue-600" />
+              )}
+              <span className="text-xl font-bold">{storeInfo?.ten_cua_hang || "FIFTY STORE"}</span>
             </Link>
 
             {/* Navigation */}
@@ -188,9 +202,9 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-lg font-bold mb-4">Về FIFTY STORE</h3>
+              <h3 className="text-lg font-bold mb-4">Về {storeInfo?.ten_cua_hang || "FIFTY STORE"}</h3>
               <p className="text-slate-400 text-sm">
-                Chuyên cung cấp các sản phẩm áo sơ mi chính hãng với chất lượng tốt nhất cho khách hàng.
+                {storeInfo?.mo_ta || "Chuyên cung cấp các sản phẩm áo sơ mi chính hãng với chất lượng tốt nhất cho khách hàng."}
               </p>
             </div>
             {/* <div>
@@ -236,24 +250,24 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             <div>
               <h3 className="text-lg font-bold mb-4">Thông tin liên hệ</h3>
               <ul className="space-y-2">
-              <li className="text-slate-400 text-sm">  
-                <a 
-                  href="https://www.facebook.com/profile.php?id=61576264940151"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  FIFTY STORE
-                </a> 
+                <li className="text-slate-400 text-sm">
+                  <a
+                    href={storeInfo?.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {storeInfo?.ten_cua_hang || "FIFTY STORE"}
+                  </a>
                 </li>
                 <li className="text-slate-400 text-sm">
-                  Hotline: 1900 xxxx
+                  Hotline: {storeInfo?.sdt || "1900 xxxx"}
                 </li>
                 <li className="text-slate-400 text-sm">
-                  Email: support@fiftystore.com
-                </li>                
+                  Email: {storeInfo?.email || "support@fiftystore.com"}
+                </li>
                 <li className="text-slate-400 text-sm">
-                  Địa chỉ: Trịnh Văn Bô, Xuân Phương, Nam Từ Liêm, Hà Nội
+                  Địa chỉ: {storeInfo?.dia_chi || "Trịnh Văn Bô, Xuân Phương, Nam Từ Liêm, Hà Nội"}
                 </li>
               </ul>
             </div>
@@ -271,7 +285,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
     </div>
           </div>
           <div className="border-t border-slate-800 mt-8 pt-8 text-center text-slate-400 text-sm">
-            © 2025 FIFTY STORE. All rights reserved.
+            © 2025 {storeInfo?.ten_cua_hang || "FIFTY STORE"}. All rights reserved.
           </div>
         </div>
       </footer>

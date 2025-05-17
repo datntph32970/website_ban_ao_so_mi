@@ -147,4 +147,47 @@ export const hoaDonService = {
         const response = await api.put(`/HoaDon/huy-don-hang-chua-thanh-toan/${id_hoa_don}`);
         return response.data;
     },
+
+    // Trạng thái đơn hàng
+    xacNhanDonHang: async (id_hoa_don: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/xac-nhan-don-hang/${id_hoa_don}`);
+        return response.data;
+    },
+
+    danhDauHetHang: async (id_hoa_don: string, ghi_chu: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/danh-dau-het-hang/${id_hoa_don}`, { ghi_chu });
+        return response.data;
+    },
+
+    capNhatTrangThaiGiaoHang: async (id_hoa_don: string, trang_thai: 'DangChuanBi' | 'DangGiaoHang' | 'DaHoanThanh'): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/cap-nhat-trang-thai-giao-hang/${id_hoa_don}`, { trang_thai });
+        return response.data;
+    },
+
+    huyDonHangAdmin: async (id_hoa_don: string, ly_do: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/huy-don-hang-admin/${id_hoa_don}`, { ly_do });
+        return response.data;
+    },
+
+    huyDonHangKhachHang: async (id_hoa_don: string, ly_do: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/huy-don-hang-khach-hang/${id_hoa_don}`, { ly_do });
+        return response.data;
+    },
+
+    hoanTienVNPay: async (id_hoa_don: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.post(`/HoaDon/hoan-tien-vnpay/${id_hoa_don}`);
+        return response.data;
+    }
 }

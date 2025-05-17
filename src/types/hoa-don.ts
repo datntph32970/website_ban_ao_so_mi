@@ -10,6 +10,7 @@ export interface HoaDonAdminDTO {
     ghi_chu?: string;
     loai_hoa_don: string;
     tong_tien_don_hang: number;
+    ly_do_huy_don_hang?: string;
     so_tien_khuyen_mai: number;
     tong_tien_phai_thanh_toan: number;
     trang_thai: string;

@@ -19,6 +19,9 @@ import { authService } from "@/services/auth.service";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
+import { useStore } from "@/contexts/store-context";
+import { getImageUrl } from "@/lib/utils";
+import Image from "next/image";
 
 const menuItems = [
   { name: "Thống kê", href: "/admin/dashboard", icon: LayoutDashboard, roles: ['Admin', 'NhanVien'] },
@@ -38,6 +41,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [userRole, setUserRole] = useState<string>('');
+  const { storeInfo } = useStore();
 
   useEffect(() => {
     // Get user role from cookie
@@ -63,8 +67,18 @@ export function Sidebar() {
   return (
     <div className="h-screen w-64 bg-slate-900 text-white p-5 fixed left-0 top-0">
       <div className="flex items-center mb-10 mt-3">
-        <ShoppingBag className="h-8 w-8 mr-2 text-blue-400" />
-        <h1 className="text-xl font-bold"> FIFTY STORE</h1>
+        {storeInfo?.hinh_anh_url ? (
+          <Image
+            src={getImageUrl(storeInfo.hinh_anh_url)}
+            alt="Logo"
+            width={32}
+            height={32}
+            className="h-8 w-8 object-contain mr-2"
+          />
+        ) : (
+          <ShoppingBag className="h-8 w-8 mr-2 text-blue-400" />
+        )}
+        <h1 className="text-xl font-bold">{storeInfo?.ten_cua_hang || "FIFTY STORE"}</h1>
       </div>
 
       <nav className="space-y-2">
