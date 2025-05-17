@@ -14,9 +14,54 @@ import {
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
+
+interface TaiKhoanNhanVien {
+  id_tai_khoan: string;
+  ma_tai_khoan: string;
+  ten_dang_nhap: string;
+  trang_thai: string;
+  da_doi_mat_khau: boolean;
+  chuc_vu: string;
+}
+
+interface NhanVien {
+  id_nhan_vien: string;
+  ma_nhan_vien: string;
+  ten_nhan_vien: string;
+  email: string;
+  so_dien_thoai: string;
+  taiKhoanNhanVien: TaiKhoanNhanVien;
+}
 
 export function Header() {
   const router = useRouter();
+  const [nhanVien, setNhanVien] = useState<NhanVien | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNhanVienInfo = async () => {
+      try {
+        console.log('Fetching employee info...');
+        setIsLoading(true);
+        const response = await authService.getNhanVienDangDangNhap();
+        console.log('API Response:', response);
+        
+        if (Array.isArray(response) && response.length > 0) {
+          console.log('Setting employee data:', response[0]);
+          setNhanVien(response[0]);
+        } else {
+          console.log('Empty data');
+        }
+      } catch (error) {
+        console.error('Error fetching employee info:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNhanVienInfo();
+  }, []);
 
   const handleLogout = () => {
     try {
@@ -25,6 +70,18 @@ export function Header() {
       router.push('/auth/login');
     } catch (error) {
       toast.error('Có lỗi xảy ra khi đăng xuất');
+    }
+  };
+
+  // Format chức vụ để hiển thị
+  const formatChucVu = (chucVu: string) => {
+    switch (chucVu) {
+      case 'Admin':
+        return 'Quản trị viên';
+      case 'NhanVien':
+        return 'Nhân viên';
+      default:
+        return chucVu;
     }
   };
 
@@ -42,15 +99,13 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-       
-
         <div className="flex items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar>
-                  <AvatarImage src="/avatars/admin.png" alt="Admin" />
-                  <AvatarFallback>AD</AvatarFallback>
+                  <AvatarImage src="/avatars/admin.png" alt={nhanVien?.ten_nhan_vien || 'User'} />
+                  <AvatarFallback>{nhanVien?.ten_nhan_vien?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -69,8 +124,13 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
           <div>
-            <p className="text-sm font-medium">Admin</p>
-            <p className="text-xs text-slate-500">Quản trị viên</p>
+            <p className="text-sm font-medium">
+              {isLoading ? 'Đang tải...' : nhanVien?.ten_nhan_vien || 'Chưa đăng nhập'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {isLoading ? 'Đang tải...' : 
+                nhanVien ? formatChucVu(nhanVien.taiKhoanNhanVien.chuc_vu) : 'Chưa xác định'}
+            </p>
           </div>
         </div>
       </div>

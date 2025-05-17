@@ -2,6 +2,40 @@ import { api } from '@/lib/api';
 import { LoginCredentials, RegisterCredentials, AuthResponse, DoiMatKhau, User } from '@/types/auth';
 import Cookies from 'js-cookie';
 
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+  timestamp: string;
+}
+
+interface TaiKhoanNhanVien {
+  id_tai_khoan: string;
+  ma_tai_khoan: string;
+  ten_dang_nhap: string;
+  trang_thai: string;
+  da_doi_mat_khau: boolean;
+  chuc_vu: string;
+}
+
+interface NhanVienDangDangNhap {
+  id_nhan_vien: string;
+  id_tai_khoan: string;
+  ma_nhan_vien: string;
+  ten_nhan_vien: string;
+  email: string;
+  so_dien_thoai: string;
+  ngay_sinh: string;
+  dia_chi: string;
+  cccd: string;
+  gioi_tinh: string;
+  trang_thai: string;
+  id_nguoi_tao: string;
+  ngay_tao: string;
+  taiKhoanNhanVien: TaiKhoanNhanVien;
+  nguoiTao: TaiKhoanNhanVien;
+}
+
 export const authService = {
   // Đăng nhập
   login: async (credentials: LoginCredentials) => {
@@ -59,5 +93,10 @@ export const authService = {
   changePassword: async (credentials: DoiMatKhau) => {
     const response = await api.post<{ message: string }>('/Auth/doi-mat-khau', credentials);
     return response.data;
-  }
+  },
+
+  // Lấy thông tin nhân viên đang đăng nhập
+  getNhanVienDangDangNhap: async () => {
+        const response = await api.get<NhanVienDangDangNhap[]>('/NhanVien/get-nhan-vien-dang-dang-nhap');    return response.data;
+  },
 }; 
