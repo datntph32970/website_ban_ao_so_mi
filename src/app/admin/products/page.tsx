@@ -383,7 +383,9 @@ export default function ProductsPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Quản lý sản phẩm</h1>
-            <p className="text-slate-500">Quản lý danh sách sản phẩm</p>
+
+            <p className="text-slate-500">Quản lý danh sách sản phẩm </p>
+
           </div>
           <div className="flex gap-2">
             {selectedProducts.length > 0 && (
