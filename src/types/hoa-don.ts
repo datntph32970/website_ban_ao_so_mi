@@ -6,6 +6,7 @@ export interface HoaDonAdminDTO {
     ten_nguoi_xu_ly: string;
     sdt_khach_hang?: string;
     dia_chi_nhan_hang?: string;
+    phi_van_chuyen?: number;
     ghi_chu?: string;
     loai_hoa_don: string;
     tong_tien_don_hang: number;
@@ -14,7 +15,7 @@ export interface HoaDonAdminDTO {
     trang_thai: string;
     so_tien_khach_tra: number;
     so_tien_thua_tra_khach: number;
-    phuong_thuc_thanh_toan: string;
+    ten_phuong_thuc_thanh_toan: string;
     id_phuong_thuc_thanh_toan: string;
     ngay_tao: string;
     ten_nguoi_tao: string;
@@ -79,6 +80,7 @@ export interface SanPhamChiTiet_HoaDonChiTietAdminDTO {
     id_san_pham_chi_tiet: string;
     ma_san_pham_chi_tiet: string;
     ten_san_pham: string;
+    url_anh_san_pham_chi_tiet: string;
     ten_mau_sac: string;
     ten_kich_co: string;
 }
