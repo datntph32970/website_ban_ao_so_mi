@@ -219,6 +219,7 @@ export default function CartPage() {
 
     try {
       setIsCheckingOut(true);
+      
       // 1. Tạo hóa đơn online với phí vận chuyển
       const response = await hoaDonService.taoHoaDonOnline(shippingFee);
       

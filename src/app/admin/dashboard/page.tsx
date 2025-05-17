@@ -596,7 +596,7 @@ export default function DashboardPage() {
                       >
                         {product.ten_san_pham}
                       </Link>
-                      <p className="text-sm text-slate-500">Đã bán: {product.so_luong_ban} đôi</p>
+                      <p className="text-sm text-slate-500">Đã bán: {product.so_luong_ban} </p>
                   </div>
                   <div className="text-right">
                       {product.thong_tin_chi_tiet ? (

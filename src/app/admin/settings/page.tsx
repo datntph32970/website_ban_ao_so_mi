@@ -269,7 +269,7 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Thông tin cửa hàng</CardTitle>
-                <CardDescription>Cập nhật thông tin cơ bản về cửa hàng bán giày của bạn</CardDescription>
+                <CardDescription>Cập nhật thông tin cơ bản về cửa hàng của bạn</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
               {/* Name and Website */}
