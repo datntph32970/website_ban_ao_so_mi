@@ -227,7 +227,7 @@ export default function CartPage() {
       router.push(`/checkout?order_id=${response.hoa_don.id_hoa_don}`);
     } catch (error: any) {
       console.error('Error creating order:', error);
-      toast.error(error.response?.data?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại sau.');
+      toast.error(error.response?.data || 'Không thể tạo đơn hàng. Vui lòng thử lại sau.');
     } finally {
       setIsCheckingOut(false);
     }
