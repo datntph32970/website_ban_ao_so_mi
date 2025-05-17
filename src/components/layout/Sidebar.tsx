@@ -24,7 +24,7 @@ const menuItems = [
   { name: "Thống kê", href: "/admin/dashboard", icon: LayoutDashboard, roles: ['Admin', 'NhanVien'] },
   { name: "Bán hàng tại quầy", href: "/admin/pos", icon: ShoppingCart, roles: ['Admin', 'NhanVien'] },
   { name: "Sản phẩm", href: "/admin/products", icon: ShoppingBag, roles: ['Admin', 'NhanVien'] },
-  { name: "Thuộc tính sản phẩm", href: "/admin/products/attributes", icon: Tags, roles: ['Admin'] },
+  { name: "Thuộc tính sản phẩm", href: "/admin/products/attributes", icon: Tags, roles: ['Admin', 'NhanVien'] },
   { name: "Nhân viên", href: "/admin/employees", icon: Users, roles: ['Admin'] },
   { name: "Khách hàng", href: "/admin/customers", icon: UserCircle, roles: ['Admin', 'NhanVien'] },
   { name: "Đơn hàng", href: "/admin/orders", icon: Package, roles: ['Admin', 'NhanVien'] },
