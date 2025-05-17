@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { gioHangService } from "@/services/gio-hang.service";
 import { khachHangService } from "@/services/khach-hang.service";
 import { ghnService } from "@/services/ghn-service";
+import { hoaDonService } from "@/services/hoa-don.service";
 import { GioHangChiTiet, GioHangResponse } from "@/types/gio-hang";
 import { DiaChiDTO } from "@/types/khach-hang";
 import { formatCurrency, getImageUrl } from "@/lib/utils";
@@ -16,6 +18,7 @@ import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function CartPage() {
+  const router = useRouter();
   const [cartData, setCartData] = useState<GioHangResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -23,6 +26,7 @@ export default function CartPage() {
   const [defaultAddress, setDefaultAddress] = useState<DiaChiDTO | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   useEffect(() => {
     loadCartItems();
@@ -201,6 +205,33 @@ export default function CartPage() {
     .reduce((total, item) => total + (item.gia_sau_giam || item.gia_ban) * item.so_luong, 0) || 0;
 
   const finalTotal = selectedTotal + shippingFee;
+
+  const handleCheckout = async () => {
+    if (selectedItems.size === 0) {
+      toast.error('Vui lòng chọn ít nhất một sản phẩm');
+      return;
+    }
+
+    if (!defaultAddress) {
+      toast.error('Vui lòng thêm địa chỉ giao hàng');
+      return;
+    }
+
+    try {
+      setIsCheckingOut(true);
+      // 1. Tạo hóa đơn online với phí vận chuyển
+      const response = await hoaDonService.taoHoaDonOnline(shippingFee);
+      
+      toast.success(response.message);
+      // 2. Chuyển hướng đến trang thanh toán với ID hóa đơn
+      router.push(`/checkout?order_id=${response.hoa_don.id_hoa_don}`);
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      toast.error(error.response?.data?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại sau.');
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -410,16 +441,21 @@ export default function CartPage() {
                   </div>
                 )}
 
-                <Link href="/checkout" className="block mt-2">
-                  <Button 
-                    className="w-full gap-2" 
-                    size="lg" 
-                    disabled={isUpdating || selectedItems.size === 0 || !defaultAddress}
-                  >
-                    Thanh toán ({selectedItems.size} sản phẩm)
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={handleCheckout}
+                  disabled={selectedItems.size === 0 || isCheckingOut || isCalculatingFee}
+                >
+                  {isCheckingOut ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    "Thanh toán"
+                  )}
+                </Button>
               </div>
 
               {selectedItems.size > 0 && (

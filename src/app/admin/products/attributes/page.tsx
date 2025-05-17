@@ -292,14 +292,14 @@ export default function AttributesPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Quản lý thuộc tính sản phẩm</h1>
-            <p className="text-slate-500">Quản lý các thuộc tính cho sản phẩm giày</p>
+            <p className="text-slate-500">Quản lý các thuộc tính cho sản phẩm </p>
           </div>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Danh sách thuộc tính</CardTitle>
-            <CardDescription>Quản lý các loại thuộc tính cho sản phẩm giày</CardDescription>
+            <CardDescription>Quản lý các loại thuộc tính cho sản phẩm </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="ThuongHieu" value={activeTab} onValueChange={(value) => {

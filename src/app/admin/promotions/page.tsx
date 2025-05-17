@@ -1161,7 +1161,7 @@ export default function PromotionsPage() {
                         className="group cursor-pointer hover:bg-slate-50 transition-colors"
                         onClick={() => handleRowClick(promotion)}
                       >
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedPromotions.includes(String(promotion.id_khuyen_mai))}
                             onCheckedChange={(checked) => {

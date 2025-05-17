@@ -341,7 +341,7 @@ export default function EmployeesPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">Quản lý nhân viên</h1>
-          <p className="text-slate-500">Quản lý danh sách nhân viên cửa hàng bán giày</p>
+          <p className="text-slate-500">Quản lý danh sách nhân viên cửa hàng </p>
         </div>
         <Button 
           className="flex items-center gap-2"

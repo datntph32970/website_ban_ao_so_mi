@@ -73,7 +73,7 @@ export default function PaymentMethodsPage() {
       toast.error("Vui lòng nhập tên phương thức thanh toán");
       return;
     }
-    if (!form.ma_phuong_thuc_thanh_toan) {
+    if (!editing && !form.ma_phuong_thuc_thanh_toan) {
       toast.error("Vui lòng nhập mã phương thức thanh toán");
       return;
     }
@@ -88,7 +88,11 @@ export default function PaymentMethodsPage() {
           toast.error("Không xác định được ID phương thức thanh toán");
           return;
         }
-        await phuongThucThanhToanService.capNhatPhuongThucThanhToan(id, form as any);
+        const updateData = {
+          ten_phuong_thuc_thanh_toan: form.ten_phuong_thuc_thanh_toan,
+          mo_ta: form.mo_ta
+        };
+        await phuongThucThanhToanService.capNhatPhuongThucThanhToan(id, updateData);
         toast.success("Cập nhật thành công");
       } else {
         await phuongThucThanhToanService.themPhuongThucThanhToan(form as any);
@@ -291,7 +295,11 @@ export default function PaymentMethodsPage() {
                 onChange={e => setForm(f => ({ ...f, ma_phuong_thuc_thanh_toan: e.target.value.toUpperCase() }))}
                 placeholder="Nhập mã phương thức"
                 maxLength={10}
+                disabled={!!editing}
               />
+              {editing && (
+                <p className="text-sm text-slate-500 mt-1">Không thể thay đổi mã phương thức khi cập nhật</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Tên phương thức <span className="text-red-500">*</span></label>
