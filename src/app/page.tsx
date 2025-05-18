@@ -13,6 +13,9 @@ import { thongKeService } from "@/services/thong-ke.service";
 import { sanPhamService } from "@/services/san-pham.service";
 import { SanPham } from "@/types/san-pham";
 import { SanPhamChiTiet } from "@/types/san-pham-chi-tiet";
+import { QuickAddToCartDialog } from "./(customer)/components/QuickAddToCartDialog";
+import { ShoppingCart, Loader2 } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 // Hàm tính giá sau giảm giá
 const calculateDiscountedPrice = (price: number, discount: any) => {
@@ -85,6 +88,9 @@ export default function HomePage() {
   const router = useRouter();
   const [featuredProducts, setFeaturedProducts] = useState<SanPhamBanChay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<SanPham | null>(null);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isLoadingQuickAdd, setIsLoadingQuickAdd] = useState(false);
 
   useEffect(() => {
     const userRole = Cookies.get('userRole');
@@ -151,6 +157,20 @@ export default function HomePage() {
     loadProducts();
   }, []);
 
+  const handleQuickAdd = async (product: SanPhamBanChay) => {
+    try {
+      setIsLoadingQuickAdd(true);
+      const fullProduct = await sanPhamService.getChiTietSanPham(product.id_san_pham);
+      setSelectedProduct(fullProduct);
+      setIsQuickAddOpen(true);
+    } catch (error) {
+      console.error('Error loading product details:', error);
+      toast.error('Không thể tải thông tin sản phẩm');
+    } finally {
+      setIsLoadingQuickAdd(false);
+    }
+  };
+
   return (
     <CustomerLayout>
       <div className="min-h-screen">
@@ -191,8 +211,8 @@ export default function HomePage() {
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {featuredProducts.map((product) => (
-                  <Card key={product.id_san_pham} className="group">
-                    <Link href={`/products/${product.id_san_pham}`}>
+                <Card key={product.id_san_pham} className="group relative">
+                  <Link href={`/products/${product.id_san_pham}`}>
                     <div className="aspect-square relative overflow-hidden">
                       <Image
                           src={getImageUrl(product.thong_tin_chi_tiet?.url_anh_mac_dinh)}
@@ -240,10 +260,41 @@ export default function HomePage() {
                         </div>
                     </div>
                   </Link>
+                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="icon"
+                      className="rounded-full"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuickAdd(product);
+                      }}
+                      disabled={isLoadingQuickAdd}
+                    >
+                      {isLoadingQuickAdd ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShoppingCart className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </Card>
               ))}
             </div>
             )}
+            
+            {/* Quick Add Dialog */}
+            {selectedProduct && (
+              <QuickAddToCartDialog
+                isOpen={isQuickAddOpen}
+                onClose={() => {
+                  setIsQuickAddOpen(false);
+                  setSelectedProduct(null);
+                }}
+                product={selectedProduct}
+              />
+            )}
+
             <div className="text-center mt-12">
               <Button size="lg" variant="outline" asChild>
                 <Link href="/products">Xem tất cả sản phẩm</Link>

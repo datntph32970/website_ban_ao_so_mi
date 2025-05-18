@@ -27,6 +27,8 @@ import { SanPham } from "@/types/san-pham";
 import { ThamSoPhanTrangSanPhamDTO, PhanTrangSanPhamDTO } from "@/types/san-pham";
 import { DanhMuc } from "@/types/danh-muc";
 import { ThuongHieu } from "@/types/thuong-hieu";
+import { QuickAddToCartDialog } from "../components/QuickAddToCartDialog";
+import { ShoppingCart } from "lucide-react";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<SanPham[]>([]);
@@ -39,6 +41,8 @@ export default function ProductsPage() {
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedProduct, setSelectedProduct] = useState<SanPham | null>(null);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const productsPerPage = 12;
 
   useEffect(() => {
@@ -77,7 +81,25 @@ export default function ProductsPage() {
       };
 
       const response: PhanTrangSanPhamDTO = await sanPhamService.getDanhSachSanPhamHoatDong(params);
-      setProducts(response.danh_sach);
+      
+      // Lấy thông tin chi tiết cho từng sản phẩm
+      const productsWithDetails = await Promise.all(
+        response.danh_sach.map(async (product) => {
+          try {
+            const chiTiet = await sanPhamService.getChiTietSanPham(product.id_san_pham);
+            return {
+              ...product,
+              sanPhamChiTiets: chiTiet.sanPhamChiTiets?.filter(spct => spct.trang_thai === 'HoatDong'),
+              url_anh_mac_dinh: chiTiet.url_anh_mac_dinh
+            };
+          } catch (error) {
+            console.error(`Error fetching details for product ${product.id_san_pham}:`, error);
+            return product;
+          }
+        })
+      );
+
+      setProducts(productsWithDetails);
       setTotalPages(response.tong_so_trang);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -233,7 +255,7 @@ export default function ProductsPage() {
                   const totalSold = product.sanPhamChiTiets?.reduce((sum, spct) => sum + (spct.so_luong_da_ban || 0), 0) || 0;
 
                   return (
-                    <Card key={product.id_san_pham} className="group">
+                    <Card key={product.id_san_pham} className="group relative">
                       <Link href={`/products/${product.id_san_pham}`}>
                         <div className="aspect-square relative overflow-hidden">
                           <Image
@@ -279,10 +301,36 @@ export default function ProductsPage() {
                           </div>
                         </div>
                       </Link>
+                      <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="icon"
+                          className="rounded-full"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedProduct(product);
+                            setIsQuickAddOpen(true);
+                          }}
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </Card>
                   );
                 })}
               </div>
+
+              {/* Quick Add Dialog */}
+              {selectedProduct && (
+                <QuickAddToCartDialog
+                  isOpen={isQuickAddOpen}
+                  onClose={() => {
+                    setIsQuickAddOpen(false);
+                    setSelectedProduct(null);
+                  }}
+                  product={selectedProduct}
+                />
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
