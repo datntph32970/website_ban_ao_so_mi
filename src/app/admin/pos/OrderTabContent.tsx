@@ -164,6 +164,8 @@ export default function OrderTabContent({
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
 
+  const [debouncedDiscountCode, setDebouncedDiscountCode] = useState<string | null>(null);
+
   React.useEffect(() => {
     setCurrentImageIndex(0);
     setSelectedColor(null);
@@ -507,6 +509,88 @@ export default function OrderTabContent({
 
     updateCustomerCash();
   }, [customerCashDebounced, order.currentOrderId]);
+
+  // Effect để debounce mã khuyến mãi
+  useEffect(() => {
+    if (order.discountCode !== undefined) {
+      const timer = setTimeout(() => {
+        setDebouncedDiscountCode(order.discountCode);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [order.discountCode]);
+
+  // Effect để tự động áp dụng mã khuyến mãi khi người dùng nhập
+  useEffect(() => {
+    const applyDiscountCode = async () => {
+      if (debouncedDiscountCode !== null) {
+        try {
+          const promotions = await khuyenMaiService.getActivePromotions({ search: debouncedDiscountCode });
+          const promotion = promotions.find(p => p.ma_khuyen_mai === debouncedDiscountCode);
+          
+          if (promotion) {
+            // Tính toán giá trị giảm giá
+            let discountAmount = 0;
+            if (promotion.kieu_khuyen_mai === 'PhanTram') {
+              const maxDiscount = promotion.gia_tri_giam_toi_da || Infinity;
+              discountAmount = Math.min(
+                (cartTotal * promotion.gia_tri_giam / 100),
+                maxDiscount
+              );
+            } else {
+              discountAmount = Math.min(promotion.gia_tri_giam, cartTotal);
+            }
+
+            // Cập nhật state với thông tin khuyến mãi
+            onOrderChange({
+              ...order,
+              khuyenMai: {
+                id_khuyen_mai: promotion.id_khuyen_mai,
+                ten_khuyen_mai: promotion.ten_khuyen_mai,
+                ma_khuyen_mai: promotion.ma_khuyen_mai,
+                loai_khuyen_mai: promotion.kieu_khuyen_mai,
+                gia_tri_khuyen_mai: promotion.gia_tri_giam,
+                gia_tri_giam_toi_da: promotion.gia_tri_giam_toi_da
+              },
+              so_tien_khuyen_mai: discountAmount,
+              discountAmount: discountAmount,
+              tong_tien_phai_thanh_toan: Math.max(0, cartTotal - discountAmount)
+            });
+
+            // Gọi API để cập nhật server
+            await onApplyDiscountCode(promotion.id_khuyen_mai);
+
+            // Hiển thị thông báo thành công
+            toast.success(
+              `Đã áp dụng mã "${promotion.ma_khuyen_mai}"${
+                promotion.kieu_khuyen_mai === 'PhanTram'
+                  ? ` - Giảm ${promotion.gia_tri_giam}%`
+                  : ` - Giảm ${formatCurrency(promotion.gia_tri_giam)}`
+              }`
+            );
+          } else if (debouncedDiscountCode !== '') {
+            // Nếu không tìm thấy mã và input không trống
+            toast.error('Mã khuyến mãi không hợp lệ hoặc đã hết hạn');
+            // Reset khuyến mãi
+            onOrderChange({
+              ...order,
+              khuyenMai: undefined,
+              so_tien_khuyen_mai: 0,
+              discountAmount: 0,
+              tong_tien_phai_thanh_toan: cartTotal
+            });
+            onApplyDiscountCode('');
+          }
+        } catch (error) {
+          console.error('Error applying discount code:', error);
+          toast.error('Không thể áp dụng mã khuyến mãi');
+        }
+      }
+    };
+
+    applyDiscountCode();
+  }, [debouncedDiscountCode, cartTotal]);
 
   return (
     <div>
@@ -1198,7 +1282,7 @@ export default function OrderTabContent({
                   // Tìm phương thức thanh toán được chọn
                   const selectedMethod = paymentMethods.find(m => m.id_phuong_thuc_thanh_toan === order.paymentMethodID);
                   
-                  if (selectedMethod?.id_phuong_thuc_thanh_toan === invoice.phuong_thuc_thanh_toan) {
+                  if (selectedMethod?.id_phuong_thuc_thanh_toan === invoice.ten_phuong_thuc_thanh_toan) {
                     // Nếu là thanh toán tiền mặt, mở dialog nhập tiền
                     setIsConfirmPaymentOpen(true);
                   } else {
