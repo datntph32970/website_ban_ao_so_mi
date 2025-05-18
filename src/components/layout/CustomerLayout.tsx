@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { ShoppingBag, User, ShoppingCart, Search, LogOut, Facebook } from "lucide-react";
+import { ShoppingBag, User, ShoppingCart, Search, LogOut, Facebook, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Cookies from "js-cookie";
@@ -67,7 +67,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-white">
         <div className="container mx-auto px-4">
@@ -196,6 +196,17 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
 
       {/* Main Content */}
       <main>{children}</main>
+
+      {/* Messenger Chat Button */}
+      <a
+        href="https://m.me/574756225731907"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 bg-blue-600 text-white rounded-full p-3 shadow-lg hover:bg-blue-700 transition-colors z-50 flex items-center gap-2"
+      >
+        <MessageCircle className="h-6 w-6" />
+        <span className="text-sm font-medium">Chat với chúng tôi</span>
+      </a>
 
       {/* Footer */}
       <footer className="bg-slate-900 text-white">
