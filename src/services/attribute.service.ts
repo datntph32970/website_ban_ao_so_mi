@@ -89,5 +89,23 @@ export const attributeService = {
   getActiveBrands: async () => {
     const response = await api.get<ThuongHieu[]>('/ThuongHieu/active');
     return response.data;
+  },
+
+  // Lấy danh sách xuất xứ đang hoạt động
+  getActiveOrigins: async () => {
+    const response = await api.get<XuatXu[]>('/XuatXu/active');
+    return response.data;
+  },
+
+  // Lấy danh sách kiểu dáng đang hoạt động 
+  getActiveStyles: async () => {
+    const response = await api.get<KieuDang[]>('/KieuDang/active');
+    return response.data;
+  },
+
+  // Lấy danh sách chất liệu đang hoạt động
+  getActiveMaterials: async () => {
+    const response = await api.get<ChatLieu[]>('/ChatLieu/active');
+    return response.data;
   }
 }; 

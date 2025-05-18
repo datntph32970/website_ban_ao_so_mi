@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -27,8 +29,12 @@ import { SanPham } from "@/types/san-pham";
 import { ThamSoPhanTrangSanPhamDTO, PhanTrangSanPhamDTO } from "@/types/san-pham";
 import { DanhMuc } from "@/types/danh-muc";
 import { ThuongHieu } from "@/types/thuong-hieu";
+import { KieuDang } from "@/types/kieu-dang";
+import { ChatLieu } from "@/types/chat-lieu";
+import { XuatXu } from "@/types/xuat-xu";
 import { QuickAddToCartDialog } from "../components/QuickAddToCartDialog";
-import { ShoppingCart } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { RefreshCw, Search, X as XIcon, ShoppingCart } from "lucide-react";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<SanPham[]>([]);
@@ -44,6 +50,15 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<SanPham | null>(null);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const productsPerPage = 12;
+  const [selectedStyleIds, setSelectedStyleIds] = useState<string[]>([]);
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
+  const [selectedOriginIds, setSelectedOriginIds] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000000]);
+  const [maxProductPrice, setMaxProductPrice] = useState(5000000);
+  const [styles, setStyles] = useState<KieuDang[]>([]);
+  const [materials, setMaterials] = useState<ChatLieu[]>([]);
+  const [origins, setOrigins] = useState<XuatXu[]>([]);
+  const [debouncedPriceRange, setDebouncedPriceRange] = useState<[number, number]>([0, 5000000]);
 
   useEffect(() => {
     loadFilters();
@@ -51,22 +66,45 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadProducts();
-  }, [searchTerm, sortBy, selectedCategories, selectedBrands, currentPage]);
+  }, [
+    searchTerm, 
+    sortBy, 
+    selectedCategories, 
+    selectedBrands, 
+    selectedStyleIds,
+    selectedMaterialIds,
+    selectedOriginIds,
+    debouncedPriceRange,
+    currentPage
+  ]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedPriceRange(priceRange);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [priceRange]);
 
   const loadFilters = async () => {
     try {
-      const [categoriesData, brandsData] = await Promise.all([
+      const [categoriesData, brandsData, stylesData, materialsData, originsData] = await Promise.all([
         attributeService.getActiveCategories(),
         attributeService.getActiveBrands(),
+        attributeService.getActiveStyles(),
+        attributeService.getActiveMaterials(),
+        attributeService.getActiveOrigins(),
       ]);
       setCategories(categoriesData);
       setBrands(brandsData);
+      setStyles(stylesData);
+      setMaterials(materialsData);
+      setOrigins(originsData);
     } catch (error) {
       console.error("Error loading filters:", error);
     }
   };
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       setIsLoading(true);
       const [sortField, sortOrder] = sortBy.split('-');
@@ -78,10 +116,24 @@ export default function ProductsPage() {
         sap_xep_tang: sortOrder === 'asc',
         id_danh_muc: selectedCategories,
         id_thuong_hieu: selectedBrands,
+        id_kieu_dang: selectedStyleIds,
+        id_chat_lieu: selectedMaterialIds,
+        id_xuat_xu: selectedOriginIds,
+        gia_tu: debouncedPriceRange[0],
+        gia_den: debouncedPriceRange[1] < maxProductPrice ? debouncedPriceRange[1] : maxProductPrice,
       };
 
       const response: PhanTrangSanPhamDTO = await sanPhamService.getDanhSachSanPhamHoatDong(params);
       
+      // Cập nhật giá lớn nhất từ response API
+      if (response.gia_lon_nhat) {
+        setMaxProductPrice(response.gia_lon_nhat);
+        // Nếu giá trị hiện tại của price range lớn hơn giá lớn nhất mới, cập nhật lại
+        if (priceRange[1] > response.gia_lon_nhat) {
+          setPriceRange([priceRange[0], response.gia_lon_nhat]);
+        }
+      }
+
       // Lấy thông tin chi tiết cho từng sản phẩm
       const productsWithDetails = await Promise.all(
         response.danh_sach.map(async (product) => {
@@ -106,7 +158,19 @@ export default function ProductsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [
+    currentPage,
+    searchTerm,
+    sortBy,
+    selectedCategories,
+    selectedBrands,
+    selectedStyleIds,
+    selectedMaterialIds,
+    selectedOriginIds,
+    debouncedPriceRange,
+    maxProductPrice,
+    productsPerPage
+  ]);
 
   // Hàm tính giá sau giảm giá
   const calculateDiscountedPrice = (price: number, discount: any) => {
@@ -119,6 +183,44 @@ export default function ProductsPage() {
     }
     
     return price;
+  };
+
+  // Update the checkbox handlers
+  const handleStyleChange = (styleId: string, checked: boolean) => {
+    setSelectedStyleIds(prev =>
+      checked
+        ? [...prev, styleId]
+        : prev.filter(id => id !== styleId)
+    );
+    setCurrentPage(1);
+  };
+
+  const handleMaterialChange = (materialId: string, checked: boolean) => {
+    setSelectedMaterialIds(prev =>
+      checked
+        ? [...prev, materialId]
+        : prev.filter(id => id !== materialId)
+    );
+    setCurrentPage(1);
+  };
+
+  const handleOriginChange = (originId: string, checked: boolean) => {
+    setSelectedOriginIds(prev =>
+      checked
+        ? [...prev, originId]
+        : prev.filter(id => id !== originId)
+    );
+    setCurrentPage(1);
+  };
+
+  const resetFilters = () => {
+    setSelectedCategories([]);
+    setSelectedBrands([]);
+    setSelectedStyleIds([]);
+    setSelectedMaterialIds([]);
+    setSelectedOriginIds([]);
+    setPriceRange([0, maxProductPrice]);
+    setCurrentPage(1);
   };
 
   return (
@@ -179,6 +281,7 @@ export default function ProductsPage() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+
             <AccordionItem value="brands">
               <AccordionTrigger>Thương hiệu</AccordionTrigger>
               <AccordionContent>
@@ -208,20 +311,154 @@ export default function ProductsPage() {
                 </div>
               </AccordionContent>
             </AccordionItem>
+
+            <AccordionItem value="styles">
+              <AccordionTrigger>Kiểu dáng</AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  {styles.map((style) => (
+                    <div key={style.id_kieu_dang} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`style-${style.id_kieu_dang}`}
+                        checked={selectedStyleIds.includes(String(style.id_kieu_dang))}
+                        onCheckedChange={(checked) => handleStyleChange(String(style.id_kieu_dang), checked as boolean)}
+                      />
+                      <label
+                        htmlFor={`style-${style.id_kieu_dang}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {style.ten_kieu_dang}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="materials">
+              <AccordionTrigger>Chất liệu</AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  {materials.map((material) => (
+                    <div key={material.id_chat_lieu} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`material-${material.id_chat_lieu}`}
+                        checked={selectedMaterialIds.includes(String(material.id_chat_lieu))}
+                        onCheckedChange={(checked) => handleMaterialChange(String(material.id_chat_lieu), checked as boolean)}
+                      />
+                      <label
+                        htmlFor={`material-${material.id_chat_lieu}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {material.ten_chat_lieu}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="origins">
+              <AccordionTrigger>Xuất xứ</AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  {origins.map((origin) => (
+                    <div key={origin.id_xuat_xu} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`origin-${origin.id_xuat_xu}`}
+                        checked={selectedOriginIds.includes(String(origin.id_xuat_xu))}
+                        onCheckedChange={(checked) => handleOriginChange(String(origin.id_xuat_xu), checked as boolean)}
+                      />
+                      <label
+                        htmlFor={`origin-${origin.id_xuat_xu}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {origin.ten_xuat_xu}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="price">
+              <AccordionTrigger>Giá</AccordionTrigger>
+              <AccordionContent>
+                <div className="px-2 pt-4">
+                  <Slider
+                    min={0}
+                    max={maxProductPrice}
+                    step={10000}
+                    value={priceRange}
+                    onValueChange={val => setPriceRange([val[0], val[1]])}
+                    className="mb-4"
+                  />
+                  <div className="flex justify-between text-sm text-slate-500">
+                    <span>{formatCurrency(priceRange[0])}</span>
+                    <span>{formatCurrency(priceRange[1])}</span>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
 
-          {(selectedCategories.length > 0 || selectedBrands.length > 0) && (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setSelectedCategories([]);
-                setSelectedBrands([]);
-                setCurrentPage(1);
-              }}
-            >
-              Xóa bộ lọc
-            </Button>
+          {/* Active filters */}
+          {(selectedCategories.length > 0 || selectedBrands.length > 0 || 
+            selectedStyleIds.length > 0 || selectedMaterialIds.length > 0 || 
+            selectedOriginIds.length > 0 || priceRange[0] > 0 || priceRange[1] < maxProductPrice) && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {selectedCategories.length > 0 && (
+                  <Badge className="gap-1 bg-slate-100 text-slate-700">
+                    Danh mục: {selectedCategories.map(id => 
+                      categories.find(c => String(c.id_danh_muc) === id)?.ten_danh_muc
+                    ).join(", ")}
+                  </Badge>
+                )}
+                {selectedBrands.length > 0 && (
+                  <Badge className="gap-1 bg-slate-100 text-slate-700">
+                    Thương hiệu: {selectedBrands.map(id => 
+                      brands.find(b => String(b.id_thuong_hieu) === id)?.ten_thuong_hieu
+                    ).join(", ")}
+                  </Badge>
+                )}
+                {selectedStyleIds.length > 0 && (
+                  <Badge className="gap-1 bg-slate-100 text-slate-700">
+                    Kiểu dáng: {selectedStyleIds.map(id => 
+                      styles.find(s => String(s.id_kieu_dang) === id)?.ten_kieu_dang
+                    ).join(", ")}
+                  </Badge>
+                )}
+                {selectedMaterialIds.length > 0 && (
+                  <Badge className="gap-1 bg-slate-100 text-slate-700">
+                    Chất liệu: {selectedMaterialIds.map(id => 
+                      materials.find(m => String(m.id_chat_lieu) === id)?.ten_chat_lieu
+                    ).join(", ")}
+                  </Badge>
+                )}
+                {selectedOriginIds.length > 0 && (
+                  <Badge className="gap-1 bg-slate-100 text-slate-700">
+                    Xuất xứ: {selectedOriginIds.map(id => 
+                      origins.find(o => String(o.id_xuat_xu) === id)?.ten_xuat_xu
+                    ).join(", ")}
+                  </Badge>
+                )}
+                {(priceRange[0] > 0 || priceRange[1] < maxProductPrice) && (
+                  <Badge className="gap-1 bg-slate-100 text-slate-700">
+                    Giá: {formatCurrency(priceRange[0])} - {formatCurrency(priceRange[1])}
+                  </Badge>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetFilters}
+                className="w-full gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Đặt lại bộ lọc
+              </Button>
+            </div>
           )}
         </div>
 
