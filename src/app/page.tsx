@@ -158,6 +158,7 @@ export default function HomePage() {
         <section className="relative h-[600px] bg-slate-900 text-white">
           <div className="container mx-auto px-4 h-full flex items-center">
             <div className="max-w-2xl">
+              
               <h1 className="text-5xl font-bold mb-6">
                 Khám phá bộ sưu tập áo sơ mi nam mới nhất
               </h1>
