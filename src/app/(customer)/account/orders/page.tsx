@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -53,6 +54,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -150,6 +152,96 @@ const orderStatuses: OrderStatuses = {
   }
 };
 
+// Tách thành component riêng để dễ quản lý
+const CancelOrderDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  status,
+  isLoading
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  status: string;
+  isLoading: boolean;
+}) => {
+  const [reason, setReason] = useState("");
+
+  // Reset reason when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setReason("");
+    }
+  }, [isOpen]);
+
+  const handleConfirm = () => {
+    if (!reason.trim()) {
+      toast.error("Vui lòng nhập lý do hủy đơn hàng");
+      return;
+    }
+    onConfirm(reason);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Xác nhận hủy đơn hàng</DialogTitle>
+          <DialogDescription>
+            {status === "ChuaThanhToan" 
+              ? "Bạn có chắc chắn muốn hủy đơn hàng này? Đơn hàng sẽ không thể khôi phục sau khi hủy."
+              : "Bạn có chắc chắn muốn hủy đơn hàng đang chờ xử lý này? Đơn hàng sẽ không thể khôi phục sau khi hủy."}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="mt-4 mb-4 space-y-2">
+          <label htmlFor="cancellation-reason" className="text-sm font-medium text-foreground">
+            Lý do hủy đơn*
+          </label>
+          <Textarea
+            id="cancellation-reason"
+            className="min-h-[120px] resize-none"
+            placeholder="Vui lòng cho chúng tôi biết lý do bạn muốn hủy đơn hàng này..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            disabled={isLoading}
+            required
+            autoFocus
+          />
+          <p className="text-xs text-muted-foreground">
+            Vui lòng cung cấp lý do hủy đơn để chúng tôi có thể cải thiện dịch vụ tốt hơn.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Không, giữ lại
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Đang xử lý...
+              </>
+            ) : (
+              "Có, hủy đơn hàng"
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // Component hiển thị timeline trạng thái đơn hàng
 const OrderTimeline = ({ 
   currentStatus,
@@ -167,7 +259,7 @@ const OrderTimeline = ({
   cancelling?: boolean;
 }) => {
   const router = useRouter();
-  const [cancellationReason, setCancellationReason] = useState("");
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const handlePayment = () => {
     router.push(`/checkout?order_id=${orderId}`);
@@ -293,70 +385,26 @@ const OrderTimeline = ({
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full">
-                <XCircle className="h-4 w-4 mr-2" />
-                Hủy đơn hàng
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Xác nhận hủy đơn hàng</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {currentStatus === "ChuaThanhToan" 
-                    ? "Bạn có chắc chắn muốn hủy đơn hàng này? Đơn hàng sẽ không thể khôi phục sau khi hủy."
-                    : "Bạn có chắc chắn muốn hủy đơn hàng đang chờ xử lý này? Đơn hàng sẽ không thể khôi phục sau khi hủy."}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              
-              <div className="mt-4 mb-4">
-                <label htmlFor="cancellation-reason" className="text-sm font-medium block mb-2">
-                  Lý do hủy đơn*
-                </label>
-                <textarea
-                  id="cancellation-reason"
-                  className="w-full p-2 border rounded-md h-20 focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Vui lòng nhập lý do hủy đơn hàng"
-                  value={cancellationReason}
-                  onChange={(e) => setCancellationReason(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  disabled={cancelling}
-                  required
-                />
-              </div>
-              
-              <AlertDialogFooter>
-                <AlertDialogCancel 
-                  onClick={() => setCancellationReason("")}
-                  disabled={cancelling}
-                >
-                  Không, giữ lại
-                </AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={() => {
-                    if (!cancellationReason.trim()) {
-                      toast.error("Vui lòng nhập lý do hủy đơn hàng");
-                      return;
-                    }
-                    onOrderCancel(cancellationReason);
-                    setCancellationReason("");
-                  }}
-                  className="bg-destructive hover:bg-destructive/90"
-                  disabled={cancelling}
-                >
-                  {cancelling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Đang xử lý...
-                    </>
-                  ) : (
-                    "Có, hủy đơn hàng"
-                  )}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          
+          <Button 
+            variant="destructive" 
+            className="w-full"
+            onClick={() => setShowCancelDialog(true)}
+          >
+            <XCircle className="h-4 w-4 mr-2" />
+            Hủy đơn hàng
+          </Button>
+
+          <CancelOrderDialog
+            isOpen={showCancelDialog}
+            onClose={() => setShowCancelDialog(false)}
+            onConfirm={(reason) => {
+              onOrderCancel(reason);
+              setShowCancelDialog(false);
+            }}
+            status={currentStatus}
+            isLoading={cancelling}
+          />
         </div>
       )}
     </div>
@@ -376,6 +424,18 @@ export default function CustomerOrdersPage() {
   const [cancelling, setCancelling] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+  const cancelReasonRef = useRef<HTMLTextAreaElement>(null);
+
+  // Add effect to focus textarea when dialog opens
+  useEffect(() => {
+    if (isAlertDialogOpen && cancelReasonRef.current) {
+      // Slight delay to ensure dialog is fully rendered
+      setTimeout(() => {
+        cancelReasonRef.current?.focus();
+      }, 100);
+    }
+  }, [isAlertDialogOpen]);
 
   // Hàm tải danh sách đơn hàng
   const loadOrders = async () => {
