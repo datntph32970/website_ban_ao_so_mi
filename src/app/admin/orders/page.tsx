@@ -15,8 +15,11 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { 
   Eye, 
@@ -41,7 +44,9 @@ import {
   ShoppingBag,
   Info,
   Filter,
-  X
+  X,
+  CheckCircle,
+  ArrowRight
 } from "lucide-react";
 import { hoaDonService } from "@/services/hoa-don.service";
 import { HoaDonAdminDTO } from "@/types/hoa-don";
@@ -63,6 +68,19 @@ import {
 } from "@/components/ui/select";
 import InvoicePDF from '@/components/invoice/InvoicePDF';
 import { InvoicePDFProps } from '@/components/invoice/InvoicePDF';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // Trạng thái đơn hàng
 const orderStatus = {
@@ -133,6 +151,12 @@ const orderStatus = {
     color: "bg-red-100 text-red-800",
     icon: <ArrowLeftRight className="h-4 w-4 mr-1" />,
     type: "Online"
+  },
+  DaXacNhan: {
+    label: "Đã xác nhận",
+    color: "bg-green-100 text-green-800",
+    icon: <CheckCircle2 className="h-4 w-4 mr-1" />,
+    type: "Online"
   }
 };
 
@@ -189,6 +213,15 @@ const OrderListPage = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [invoiceData, setInvoiceData] = useState<InvoicePDFProps['invoiceData'] | null>(null);
+  const [outOfStockReason, setOutOfStockReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [isOutOfStockDialogOpen, setIsOutOfStockDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isMarkingOutOfStock, setIsMarkingOutOfStock] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -211,9 +244,9 @@ const OrderListPage = () => {
         tong_so_trang: response.tong_so_trang,
         tong_so_phan_tu: response.tong_so_phan_tu
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching orders:', error);
-      toast.error('Không thể tải danh sách hóa đơn');
+      toast.error(error.response?.data || 'Không thể tải danh sách hóa đơn');
     } finally {
       setLoading(false);
     }
@@ -237,9 +270,9 @@ const OrderListPage = () => {
           trang_thai: method.trang_thai
         }));
         setPaymentMethods(mappedResponse);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching payment methods:', error);
-        toast.error('Không thể tải danh sách phương thức thanh toán');
+        toast.error(error.response?.data || 'Không thể tải danh sách phương thức thanh toán');
       }
     };
     fetchPaymentMethods();
@@ -284,9 +317,9 @@ const OrderListPage = () => {
       const orderDetail = await hoaDonService.getHoaDonById(order.id_hoa_don);
       setSelectedOrder(orderDetail);
     setIsViewOrderOpen(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching order details:', error);
-      toast.error('Không thể tải thông tin chi tiết hóa đơn');
+      toast.error(error.response?.data || 'Không thể tải thông tin chi tiết hóa đơn');
     }
   };
 
@@ -300,6 +333,7 @@ const OrderListPage = () => {
   const handlePrintInvoice = async () => {
     if (!selectedOrder) return;
     try {
+        setIsPrinting(true);
         console.log('Printing invoice for order:', selectedOrder.id_hoa_don);
         const response = await hoaDonService.inHoaDon(selectedOrder.id_hoa_don);
         console.log('Print response:', response);
@@ -332,9 +366,11 @@ const OrderListPage = () => {
         } else {
             toast.error('Không thể tải thông tin hóa đơn');
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error fetching invoice data:', error);
-        toast.error('Có lỗi xảy ra khi tải thông tin hóa đơn');
+        toast.error(error.response?.data || 'Có lỗi xảy ra khi tải thông tin hóa đơn');
+    } finally {
+        setIsPrinting(false);
     }
   };
 
@@ -715,6 +751,15 @@ const OrderListPage = () => {
                           <span className="font-medium">Ghi chú:</span> {selectedOrder.ghi_chu}
                         </p>
                       )}
+                      {selectedOrder.trang_thai === "DaHuy" && selectedOrder.ly_do_huy_don_hang && (
+                        <div className="mt-2 p-3 bg-red-50 rounded-lg border border-red-200">
+                          <p className="text-red-600 flex items-center gap-2 font-medium mb-1">
+                            <XCircle className="h-4 w-4" />
+                            Lý do hủy đơn:
+                          </p>
+                          <p className="text-red-600 pl-6">{selectedOrder.ly_do_huy_don_hang}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -835,13 +880,370 @@ const OrderListPage = () => {
             </div>
 
             <div className="flex justify-end gap-2 mt-6 flex-shrink-0 border-t pt-4">
-              <Button variant="outline" onClick={() => setIsViewOrderOpen(false)}>Đóng</Button>
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-                onClick={handlePrintInvoice}
+                variant="outline" 
+                onClick={() => setIsViewOrderOpen(false)}
+                className="bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
               >
-                <Printer className="h-4 w-4" />
-                In hóa đơn
+                Đóng
+              </Button>
+              
+              {selectedOrder && selectedOrder.trang_thai === "DangChoXuLy" && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      className="bg-blue-500/80 hover:bg-blue-500 text-white transition-colors"
+                      disabled={isConfirming}
+                    >
+                      {isConfirming ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Đang xác nhận...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Xác nhận đơn
+                        </>
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-blue-600">
+                        <CheckCircle className="h-5 w-5" />
+                        Xác nhận đơn hàng
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bạn có chắc chắn muốn xác nhận đơn hàng này? Sau khi xác nhận, đơn hàng sẽ được chuyển sang trạng thái chuẩn bị.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="hover:bg-slate-100" disabled={isConfirming}>Hủy</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-blue-500/80 hover:bg-blue-500 text-white"
+                        onClick={async () => {
+                          try {
+                            setIsConfirming(true);
+                            await hoaDonService.xacNhanDonHang(selectedOrder.id_hoa_don);
+                            toast.success("Đã xác nhận đơn hàng thành công");
+                            const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                            setSelectedOrder(updatedOrder);
+                            fetchOrders();
+                          } catch (error: any) {
+                            console.error("Error confirming order:", error);
+                            toast.error(error.response?.data || "Không thể xác nhận đơn hàng");
+                          } finally {
+                            setIsConfirming(false);
+                          }
+                        }}
+                        disabled={isConfirming}
+                      >
+                        {isConfirming ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xác nhận...
+                          </>
+                        ) : (
+                          "Xác nhận"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+
+              {selectedOrder && selectedOrder.trang_thai === "DangChoXuLy" && (
+                <Dialog open={isOutOfStockDialogOpen} onOpenChange={setIsOutOfStockDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                      onClick={() => setIsOutOfStockDialogOpen(true)}
+                      disabled={isMarkingOutOfStock}
+                    >
+                      {isMarkingOutOfStock ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Hết hàng
+                        </>
+                      )}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 text-red-600">
+                        <XCircle className="h-5 w-5" />
+                        Đánh dấu đơn hàng hết hàng
+                      </DialogTitle>
+                      <DialogDescription>
+                        Bạn có chắc chắn muốn đánh dấu đơn hàng này là hết hàng? Hành động này không thể hoàn tác.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="my-6">
+                      <Label htmlFor="outOfStockReason" className="text-sm font-medium block mb-2">
+                        Ghi chú về tình trạng hết hàng*
+                      </Label>
+                      <div className="relative">
+                        <Textarea
+                          id="outOfStockReason"
+                          className="min-h-[120px] resize-none pr-4 focus-visible:ring-slate-400"
+                          placeholder="Vui lòng nhập ghi chú về tình trạng hết hàng"
+                          value={outOfStockReason}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setOutOfStockReason(e.target.value)}
+                        />
+                        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                          {outOfStockReason.length}/500
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setOutOfStockReason("");
+                          setIsOutOfStockDialogOpen(false);
+                        }}
+                        className="hover:bg-slate-100"
+                        disabled={isMarkingOutOfStock}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="bg-red-500/80 hover:bg-red-500"
+                        onClick={async () => {
+                          if (!outOfStockReason.trim()) {
+                            toast.error("Vui lòng nhập ghi chú về tình trạng hết hàng");
+                            return;
+                          }
+                          try {
+                            setIsMarkingOutOfStock(true);
+                            await hoaDonService.danhDauHetHang(selectedOrder.id_hoa_don, outOfStockReason);
+                            toast.success("Đã đánh dấu đơn hàng hết hàng");
+                            setOutOfStockReason("");
+                            setIsOutOfStockDialogOpen(false);
+                            const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                            setSelectedOrder(updatedOrder);
+                            fetchOrders();
+                          } catch (error: any) {
+                            console.error("Error marking order as out of stock:", error);
+                            toast.error(error.response?.data|| "Không thể đánh dấu đơn hàng hết hàng");
+                          } finally {
+                            setIsMarkingOutOfStock(false);
+                          }
+                        }}
+                        disabled={isMarkingOutOfStock}
+                      >
+                        {isMarkingOutOfStock ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          "Xác nhận hết hàng"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+
+              {selectedOrder && ["DaXacNhan", "DangChuanBi", "DangGiaoHang"].includes(selectedOrder.trang_thai) && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      className="bg-green-500/80 hover:bg-green-500 text-white transition-colors"
+                      disabled={isUpdatingStatus}
+                    >
+                      {isUpdatingStatus ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Đang cập nhật...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRight className="h-4 w-4 mr-2" />
+                          {selectedOrder.trang_thai === "DaXacNhan" && "Bắt đầu chuẩn bị"}
+                          {selectedOrder.trang_thai === "DangChuanBi" && "Bắt đầu giao hàng"}
+                          {selectedOrder.trang_thai === "DangGiaoHang" && "Hoàn thành đơn"}
+                        </>
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+                        <ArrowRight className="h-5 w-5" />
+                        {selectedOrder.trang_thai === "DaXacNhan" && "Bắt đầu chuẩn bị đơn hàng"}
+                        {selectedOrder.trang_thai === "DangChuanBi" && "Bắt đầu giao hàng"}
+                        {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận hoàn thành đơn hàng"}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {selectedOrder.trang_thai === "DaXacNhan" && "Xác nhận bắt đầu chuẩn bị đơn hàng này?"}
+                        {selectedOrder.trang_thai === "DangChuanBi" && "Xác nhận bắt đầu giao hàng cho đơn hàng này?"}
+                        {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận đơn hàng đã được giao thành công?"}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="hover:bg-slate-100" disabled={isUpdatingStatus}>Hủy</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-green-500/80 hover:bg-green-500 text-white"
+                        onClick={async () => {
+                          try {
+                            setIsUpdatingStatus(true);
+                            const nextStatus = 
+                              selectedOrder.trang_thai === "DaXacNhan" ? "DangChuanBi" :
+                              selectedOrder.trang_thai === "DangChuanBi" ? "DangGiaoHang" : "DaHoanThanh";
+                            
+                            await hoaDonService.capNhatTrangThaiGiaoHang(selectedOrder.id_hoa_don, nextStatus);
+                            toast.success("Đã cập nhật trạng thái đơn hàng");
+                            const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                            setSelectedOrder(updatedOrder);
+                            fetchOrders();
+                          } catch (error: any) {
+                            console.error("Error updating order status:", error);
+                            toast.error(error.response?.data || "Không thể cập nhật trạng thái đơn hàng");
+                          } finally {
+                            setIsUpdatingStatus(false);
+                          }
+                        }}
+                        disabled={isUpdatingStatus}
+                      >
+                        {isUpdatingStatus ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang cập nhật...
+                          </>
+                        ) : (
+                          "Xác nhận"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+
+              {selectedOrder && selectedOrder.trang_thai === "DangChoXuLy" && (
+                <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                      onClick={() => setIsCancelDialogOpen(true)}
+                      disabled={isCancelling}
+                    >
+                      {isCancelling ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Đang hủy...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Hủy đơn
+                        </>
+                      )}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 text-red-600">
+                        <XCircle className="h-5 w-5" />
+                        Hủy đơn hàng
+                      </DialogTitle>
+                      <DialogDescription>
+                        Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="my-6">
+                      <Label htmlFor="cancelReason" className="text-sm font-medium block mb-2">
+                        Lý do hủy đơn*
+                      </Label>
+                      <div className="relative">
+                        <Textarea
+                          id="cancelReason"
+                          className="min-h-[120px] resize-none pr-4 focus-visible:ring-slate-400"
+                          placeholder="Vui lòng nhập lý do hủy đơn hàng"
+                          value={cancelReason}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
+                        />
+                        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                          {cancelReason.length}/500
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCancelReason("");
+                          setIsCancelDialogOpen(false);
+                        }}
+                        className="hover:bg-slate-100"
+                        disabled={isCancelling}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="bg-red-500/80 hover:bg-red-500"
+                        onClick={async () => {
+                          if (!cancelReason.trim()) {
+                            toast.error("Vui lòng nhập lý do hủy đơn hàng");
+                            return;
+                          }
+                          try {
+                            setIsCancelling(true);
+                            await hoaDonService.huyDonHangAdmin(selectedOrder.id_hoa_don, cancelReason);
+                            toast.success("Đã hủy đơn hàng thành công");
+                            setCancelReason("");
+                            setIsCancelDialogOpen(false);
+                            const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                            setSelectedOrder(updatedOrder);
+                            fetchOrders();
+                          } catch (error: any) {
+                            console.error("Error cancelling order:", error);
+                            toast.error(error.response?.data || "Không thể hủy đơn hàng");
+                          } finally {
+                            setIsCancelling(false);
+                          }
+                        }}
+                        disabled={isCancelling}
+                      >
+                        {isCancelling ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang hủy...
+                          </>
+                        ) : (
+                          "Xác nhận hủy"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+
+              <Button 
+                className="bg-blue-500/80 hover:bg-blue-500 text-white transition-colors flex items-center gap-2"
+                onClick={handlePrintInvoice}
+                disabled={isPrinting}
+              >
+                {isPrinting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Đang tải...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="h-4 w-4" />
+                    In hóa đơn
+                  </>
+                )}
               </Button>
             </div>
           </DialogContent>
@@ -852,9 +1254,39 @@ const OrderListPage = () => {
       <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <DialogContent className="max-w-4xl h-[90vh]">
           <DialogHeader>
-            <DialogTitle>In hóa đơn</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5 text-blue-600" />
+              In hóa đơn
+            </DialogTitle>
           </DialogHeader>
           {invoiceData && <InvoicePDF invoiceData={invoiceData} />}
+          <DialogFooter className="mt-6 flex items-center justify-end gap-2 border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsPrintDialogOpen(false)}
+              className="bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+              disabled={isPrinting}
+            >
+              Đóng
+            </Button>
+            <Button
+              onClick={() => window.print()}
+              className="bg-blue-500/80 hover:bg-blue-500 text-white transition-colors flex items-center gap-2"
+              disabled={isPrinting}
+            >
+              {isPrinting ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Đang tải...
+                </>
+              ) : (
+                <>
+                  <Printer className="h-4 w-4" />
+                  In ngay
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
