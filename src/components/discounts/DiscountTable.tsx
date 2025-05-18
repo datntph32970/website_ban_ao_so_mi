@@ -145,7 +145,7 @@ export function DiscountTable({
                 onClick={() => onSort('ten_giam_gia')}
               >
                 <div className="flex items-center gap-2">
-                  Thông tin giảm giá
+                  Thông tin tên khuyến mại
                   {sortBy === 'ten_giam_gia' ? (
                     ascending ? (
                       <ArrowUp className="h-4 w-4 text-blue-500" />
@@ -425,7 +425,7 @@ export function DiscountTable({
                 </TabsTrigger>
                 <TabsTrigger value="products" className="flex items-center gap-2">
                   <ShoppingBag className="h-4 w-4" />
-                  Sản phẩm
+                  Sản phẩm đang áp dụng
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="details" className="space-y-4 mt-4">

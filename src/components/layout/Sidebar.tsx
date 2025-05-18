@@ -31,8 +31,8 @@ const menuItems = [
   { name: "Nhân viên", href: "/admin/employees", icon: Users, roles: ['Admin'] },
   { name: "Khách hàng", href: "/admin/customers", icon: UserCircle, roles: ['Admin', 'NhanVien'] },
   { name: "Đơn hàng", href: "/admin/orders", icon: Package, roles: ['Admin', 'NhanVien'] },
-  { name: "Khuyến mãi", href: "/admin/promotions", icon: Percent, roles: ['Admin', 'NhanVien'] },
-  { name: "Giảm giá", href: "/admin/discounts", icon: Tags, roles: ['Admin', 'NhanVien'] },
+  { name: "Khuyến mãi hóa đơn", href: "/admin/promotions", icon: Percent, roles: ['Admin', 'NhanVien'] },
+  { name: "Khuyến mại sản phẩm", href: "/admin/discounts", icon: Tags, roles: ['Admin', 'NhanVien'] },
   { name: "Phương thức thanh toán", href: "/admin/payment-methods", icon: CreditCard, roles: ['Admin'] },
   { name: "Cài đặt", href: "/admin/settings", icon: Settings, roles: ['Admin'] },
 ];

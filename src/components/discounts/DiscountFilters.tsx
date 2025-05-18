@@ -143,13 +143,13 @@ export function DiscountFilters({
 
             {/* Discount Type Filter - Takes 2 columns */}
             <div className="lg:col-span-2 space-y-2">
-              <label className="text-sm font-medium">Loại giảm giá</label>
+              <label className="text-sm font-medium">Loại khuyến mại</label>
               <Select
                 value={filterConfig.discountType}
                 onValueChange={(value) => handleFilterChange('discountType', value)}
               >
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Chọn loại giảm giá" />
+                  <SelectValue placeholder="Chọn loại khuyến mại" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>

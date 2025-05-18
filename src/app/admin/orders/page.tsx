@@ -797,6 +797,9 @@ const OrderListPage = () => {
                                 <p className="text-xs text-slate-500">
                                   {ct.sanPhamChiTiet.ten_mau_sac} - {ct.sanPhamChiTiet.ten_kich_co}
                                 </p>
+                                <p className="text-xs text-slate-400">
+                                  Mã SPCT: {ct.sanPhamChiTiet.ma_san_pham_chi_tiet}
+                                </p>
                               </div>
                             </div>
                           </TableCell>
@@ -842,6 +845,15 @@ const OrderListPage = () => {
                   </span>
                   <span>{formatCurrency(selectedOrder.tong_tien_don_hang)}</span>
                 </div>
+                {selectedOrder.phi_van_chuyen && selectedOrder.phi_van_chuyen > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-slate-400" />
+                      Phí vận chuyển:
+                    </span>
+                    <span>{formatCurrency(selectedOrder.phi_van_chuyen)}</span>
+                  </div>
+                )}
                 {selectedOrder.so_tien_khuyen_mai > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span className="flex items-center gap-2">
@@ -849,7 +861,7 @@ const OrderListPage = () => {
                       Giảm giá:
                     </span>
                     <span>-{formatCurrency(selectedOrder.so_tien_khuyen_mai)}</span>
-              </div>
+                  </div>
                 )}
                 <div className="flex justify-between font-bold text-lg border-t pt-3">
                   <span className="flex items-center gap-2">

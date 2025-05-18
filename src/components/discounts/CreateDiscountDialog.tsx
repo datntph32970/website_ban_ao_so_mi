@@ -134,7 +134,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
     try {
       await giamGiaService.create(formData);
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
-      toast.success("Thêm giảm giá thành công!");
+      toast.success("Thêm khuyến mại thành công!");
       onOpenChange(false);
       // Reset form
       setFormData({
@@ -150,8 +150,8 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
       });
       setErrors({});
     } catch (error: any) {
-      console.error("Lỗi khi thêm giảm giá:", error);
-      toast.error(error.response.data || "Có lỗi xảy ra khi thêm giảm giá!")
+      console.error("Lỗi khi thêm khuyến mại:", error);
+      toast.error(error.response.data || "Có lỗi xảy ra khi thêm khuyến mại!")
     } finally {
       setIsLoading(false);
     }
@@ -161,21 +161,21 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Thêm giảm giá mới</DialogTitle>
+          <DialogTitle>Thêm khuyến mại mới</DialogTitle>
           <DialogDescription>
-            Điền thông tin giảm giá mới vào form bên dưới.
+            Thêm chương trình khuyến mại mới cho sản phẩm
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="ma_giam_gia">Mã giảm giá</Label>
+              <Label htmlFor="ma_giam_gia">Mã khuyến mại</Label>
               <Input
                 id="ma_giam_gia"
                 value={formData.ma_giam_gia}
                 onChange={(e) => setFormData({ ...formData, ma_giam_gia: e.target.value.toUpperCase() })}
-                placeholder="Nhập mã giảm giá (không bắt buộc)"
+                placeholder="Nhập mã khuyến mại (không bắt buộc)"
               />
               {errors.ma_giam_gia && (
                 <p className="text-sm text-red-500">{errors.ma_giam_gia}</p>
@@ -183,7 +183,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ten_giam_gia">Tên giảm giá <span className="text-red-500">*</span></Label>
+              <Label htmlFor="ten_giam_gia">Tên khuyến mại <span className="text-red-500">*</span></Label>
               <Input
                 id="ten_giam_gia"
                 value={formData.ten_giam_gia}
@@ -196,13 +196,13 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kieu_giam_gia">Loại giảm giá <span className="text-red-500">*</span></Label>
+              <Label htmlFor="kieu_giam_gia">Loại khuyến mại <span className="text-red-500">*</span></Label>
               <Select
                 value={formData.kieu_giam_gia}
                 onValueChange={(value) => setFormData({ ...formData, kieu_giam_gia: value as "PhanTram" | "SoTien" })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại giảm giá" />
+                  <SelectValue placeholder="Chọn loại khuyến mại" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PhanTram">Phần trăm</SelectItem>
@@ -227,7 +227,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="gia_tri_giam">Giá trị giảm <span className="text-red-500">*</span></Label>
+              <Label htmlFor="gia_tri_giam">Giá trị khuyến mại <span className="text-red-500">*</span></Label>
               <Input
                 id="gia_tri_giam"
                 type="number"
@@ -308,7 +308,7 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
               Hủy
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Đang thêm..." : "Thêm giảm giá"}
+              {isLoading ? "Đang thêm..." : "Thêm khuyến mại"}
             </Button>
           </DialogFooter>
         </form>

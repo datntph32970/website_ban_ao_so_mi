@@ -21,7 +21,7 @@ import {
 import { SanPhamGiamGiaDTO } from "@/services/giam-gia.service";
 import { giamGiaService } from "@/services/giam-gia.service";
 import { getImageUrl } from "@/lib/utils";
-import { AddProductDialog } from "./AddProductDialog";
+import { AddProductsDialog } from "./AddProductsDialog";
 import {
   Card,
   CardContent,
@@ -123,8 +123,11 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
     if (!discount) return;
     setLoading(true);
     try {
-      const products = await giamGiaService.getSanPhamDangGiamGia(discount.id_giam_gia);
-      setAvailableProducts(products);
+      const products = await giamGiaService.getDSSanPhamCuaGiamGia(discount.id_giam_gia, {
+        trang_hien_tai: 1,
+        so_phan_tu_tren_trang: 100
+      });
+      setAvailableProducts(products.danh_sach as unknown as SanPhamGiamGiaDTO[]);
     } catch (error) {
       toast.error("Không thể tải danh sách sản phẩm");
     } finally {
@@ -187,16 +190,16 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
       await giamGiaService.xoaGiamGiaKhoiSanPhamChiTiet({ san_pham_chi_tiet_ids: selectedProducts });
       await fetchAvailableProducts();
       setSelectedProducts([]);
-      toast.success("Đã xóa giảm giá khỏi các sản phẩm đã chọn");
+      toast.success("Đã xóa khuyến mại khỏi các sản phẩm đã chọn");
     } catch (error) {
-      toast.error("Không thể xóa giảm giá khỏi sản phẩm");
+      toast.error("Không thể xóa khuyến mại khỏi sản phẩm");
     }
   };
 
   const handleCopyCode = () => {
     if (discount?.ma_giam_gia) {
       navigator.clipboard.writeText(discount.ma_giam_gia);
-      toast.success('Đã sao chép mã giảm giá');
+      toast.success('Đã sao chép mã khuyến mại');
     }
   };
 
@@ -208,7 +211,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center justify-between">
-              <span>Chi tiết giảm giá</span>
+              <span>Chi tiết khuyến mại</span>
               <div className="flex items-center gap-2">
                 <TooltipProvider>
                   <Tooltip>
@@ -222,7 +225,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Sao chép mã giảm giá</p>
+                      <p>Sao chép mã khuyến mại</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -255,11 +258,11 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-4">
                           <div>
-                            <h3 className="text-sm font-medium text-slate-500">Tên giảm giá</h3>
+                            <h3 className="text-sm font-medium text-slate-500">Tên khuyến mại</h3>
                             <p className="text-lg font-medium">{discount.ten_giam_gia}</p>
                           </div>
                           <div>
-                            <h3 className="text-sm font-medium text-slate-500">Mã giảm giá</h3>
+                            <h3 className="text-sm font-medium text-slate-500">Mã khuyến mại</h3>
                             <div className="flex items-center gap-2">
                               <code className="px-2 py-1 bg-slate-100 rounded text-sm">
                                 {discount.ma_giam_gia}
@@ -675,14 +678,11 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
         </DialogContent>
       </Dialog>
 
-      <AddProductDialog
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
-        promotion={discount}
-        onAddProducts={handleAddProducts}
-        availableProducts={availableProducts}
-        loading={loading}
-        onRefresh={fetchAvailableProducts}
+      <AddProductsDialog
+        discountId={discount?.id_giam_gia || ""}
+        open={isAddProductOpen}
+        onOpenChange={setIsAddProductOpen}
+        onSuccess={fetchAvailableProducts}
       />
     </>
   );

@@ -11,8 +11,8 @@ export function DiscountHeader({ selectedCount, onBulkDelete, onAddNew }: Discou
   return (
     <div className="flex justify-between items-center">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Quản lý giảm giá</h1>
-        <p className="text-slate-500">Quản lý các chương trình giảm giá cho sản phẩm</p>
+        <h1 className="text-3xl font-bold mb-2">Quản lý khuyến mại cho sản phẩm</h1>
+        <p className="text-slate-500">Quản lý các chương trình khuyến mại cho sản phẩm</p>
       </div>
       <div className="flex gap-2">
         {selectedCount > 0 && (
@@ -27,7 +27,7 @@ export function DiscountHeader({ selectedCount, onBulkDelete, onAddNew }: Discou
         )}
         <Button className="gap-2" onClick={onAddNew}>
           <Plus className="h-4 w-4" />
-          <span>Thêm giảm giá</span>
+          <span>Thêm khuyến mại</span>
         </Button>
       </div>
     </div>

@@ -35,7 +35,7 @@ export function ManageProductsDialog({
             const response = await giamGiaService.getSanPhamCoTheGiamGia({
                 timkiem: searchTerm,
             });
-            setProducts(response);
+            setProducts(response.danh_sach);
         } catch (error) {
             toast.error('Không thể tải danh sách sản phẩm');
         }

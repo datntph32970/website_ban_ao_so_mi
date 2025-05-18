@@ -48,6 +48,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreateDialog } from "@/components/promotions/CreateDialog";
 import { useDebounce } from "@/hooks/useDebounce";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface FormData {
   id_khuyen_mai?: string;
@@ -214,10 +220,10 @@ const AddEditDialog = ({
       <DialogContent className="sm:max-w-[800px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
-            {isEdit ? "Cập nhật khuyến mãi" : "Thêm khuyến mãi mới"}
+            {isEdit ? "Cập nhật khuyến mại" : "Thêm khuyến mại mới"}
           </DialogTitle>
           <DialogDescription className="text-center text-slate-500">
-            {isEdit ? "Cập nhật thông tin khuyến mãi" : "Nhập thông tin khuyến mãi mới"}
+            {isEdit ? "Cập nhật thông tin khuyến mại" : "Nhập thông tin khuyến mại mới"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -617,16 +623,23 @@ const DetailDialog = ({
     }
   };
 
+  const handleCopyCode = () => {
+    if (promotion) {
+      navigator.clipboard.writeText(promotion.ma_khuyen_mai);
+      toast.success("Đã sao chép mã khuyến mại");
+    }
+  };
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center">
-            Chi tiết khuyến mãi
+            Chi tiết khuyến mại
           </DialogTitle>
           <DialogDescription className="text-center text-slate-500">
-            Thông tin chi tiết về khuyến mãi
+            Thông tin chi tiết về khuyến mại
           </DialogDescription>
         </DialogHeader>
 
@@ -668,17 +681,22 @@ const DetailDialog = ({
                     <code className="px-3 py-1.5 bg-white border border-slate-200 rounded-md text-sm font-medium">
                       {promotion.ma_khuyen_mai}
                     </code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-slate-200"
-                      onClick={() => {
-                        navigator.clipboard.writeText(promotion.ma_khuyen_mai);
-                        toast.success("Đã sao chép mã khuyến mãi");
-                      }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleCopyCode}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Sao chép mã khuyến mại</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -1022,8 +1040,8 @@ export default function PromotionsPage() {
       <div className="flex flex-col gap-6 mb-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Quản lý khuyến mãi</h1>
-            <p className="text-slate-500">Quản lý các chương trình khuyến mãi cho sản phẩm</p>
+            <h1 className="text-3xl font-bold mb-2">Quản lý khuyến mại cho hóa đơn</h1>
+            <p className="text-slate-500">Quản lý các chương trình khuyến mại áp dụng cho hóa đơn</p>
           </div>
           <div className="flex gap-2">
             {selectedPromotions.length > 0 && (
@@ -1041,7 +1059,7 @@ export default function PromotionsPage() {
               onClick={() => setIsAddDialogOpen(true)}
             >
             <Plus className="h-4 w-4" />
-            <span>Thêm khuyến mãi</span>
+            <span>Thêm khuyến mại</span>
           </Button>
           </div>
         </div>
@@ -1051,7 +1069,7 @@ export default function PromotionsPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
               className="pl-10 pr-10"
-              placeholder="Tìm kiếm theo tên hoặc mã khuyến mãi..."
+              placeholder="Tìm kiếm theo tên hoặc mã khuyến mại..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -1079,7 +1097,7 @@ export default function PromotionsPage() {
             </Select>
             <Select value={filterConfig.discountType} onValueChange={(value) => setFilterConfig(prev => ({ ...prev, discountType: value }))}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Loại giảm giá" />
+                <SelectValue placeholder="Loại khuyến mại" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả loại</SelectItem>
@@ -1329,14 +1347,14 @@ export default function PromotionsPage() {
       <Dialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Xác nhận xóa khuyến mãi</DialogTitle>
+            <DialogTitle>Xác nhận xóa khuyến mại</DialogTitle>
             <DialogDescription>
-              Bạn có chắc chắn muốn xóa {selectedPromotions.length} khuyến mãi đã chọn? Hành động này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa {selectedPromotions.length} khuyến mại đã chọn? Hành động này không thể hoàn tác.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsBulkDeleteDialogOpen(false)}>Hủy</Button>
-            <Button variant="destructive" onClick={handleBulkDelete}>Xóa khuyến mãi</Button>
+            <Button variant="destructive" onClick={handleBulkDelete}>Xóa khuyến mại</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

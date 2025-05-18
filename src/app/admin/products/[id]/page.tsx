@@ -302,7 +302,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   // Calculate total stock and average price
   const totalStock = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.so_luong || 0), 0) : 0;
-  const averagePrice = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.gia_ban || 0), 0) / product.sanPhamChiTiets.length : 0;
+  const averagePrice = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => {
+    const discountedPrice = variant.giamGia 
+      ? variant.giamGia.kieu_giam_gia === 'PhanTram'
+        ? variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100)
+        : variant.gia_ban - variant.giamGia.gia_tri_giam
+      : variant.gia_ban;
+    return sum + discountedPrice;
+  }, 0) / product.sanPhamChiTiets.length : 0;
   const totalSold = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.so_luong_da_ban || 0), 0) : 0;
 
   // Get unique colors
@@ -381,21 +388,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-10 w-10">
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-10 w-10"
+                      onClick={() => {
+                        navigator.clipboard.writeText(product.ma_san_pham);
+                        toast.success('Đã sao chép mã sản phẩm');
+                      }}
+                    >
                       <Copy className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Sao chép mã sản phẩm</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-10 w-10">
-                      <Share2 className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Chia sẻ sản phẩm</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <Button variant="outline" className="h-10" onClick={() => router.push(`/admin/products/${productId}/edit`)}>
