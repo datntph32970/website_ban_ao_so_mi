@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { giamGiaService } from "@/services/giam-gia.service";
-import { ThamSoPhanTrangSanPhamDTO, PhanTrangSanPhamDTO, SanPham } from "@/types/san-pham";
+import { ThamSoPhanTrangSanPhamDTO, PhanTrangSanPhamAdminDTO, SanPhamAdminDTO, SanPhamChiTietAdminDTO } from "@/types/san-pham";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { formatCurrency, getImageUrl } from "@/lib/utils";
 import {
   Select,
@@ -28,7 +27,6 @@ import { attributeService } from "@/services/attribute.service";
 import { DanhMuc } from "@/types/danh-muc";
 import { ThuongHieu } from "@/types/thuong-hieu";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sanPhamService } from "@/services/san-pham.service";
 import React from "react";
 import {
   Dialog,
@@ -41,15 +39,35 @@ import {
 import { toast } from "react-hot-toast";
 import { AddProductsDialog } from "./AddProductsDialog";
 import Link from "next/link";
+import Image from "next/image";
+import { giamGiaService } from "@/services/giam-gia.service";
+import { cn } from "@/lib/utils";
+
 
 interface DiscountProductsProps {
   discountId: string;
-  onAddProducts?: () => void;
+  fetchProducts: (params: ThamSoPhanTrangSanPhamDTO) => Promise<PhanTrangSanPhamAdminDTO>;
+  onSuccess?: () => void;
 }
 
-export function DiscountProducts({ discountId, onAddProducts }: DiscountProductsProps) {
+// Add useDebounce hook
+function useDebounce<T>(value: T, delay?: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay || 500);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+export function DiscountProducts({ discountId, fetchProducts, onSuccess }: DiscountProductsProps) {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
@@ -83,99 +101,75 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
     queryFn: () => attributeService.getAttributes('ThuongHieu')
   });
 
-  const { data: productsData, isLoading } = useQuery({
-    queryKey: ['discount-products', discountId, pageConfig],
-    queryFn: () => giamGiaService.getDSSanPhamCuaGiamGia(discountId, pageConfig),
+  // Query để lấy danh sách sản phẩm sử dụng hàm fetchProducts được truyền vào
+  const { data: productsData, isLoading } = useQuery<PhanTrangSanPhamAdminDTO>({
+    queryKey: ['products', discountId, pageConfig],
+    queryFn: () => fetchProducts(pageConfig),
   });
 
-  // Query để lấy chi tiết sản phẩm khi mở rộng
-  const { data: expandedProductDetail, isLoading: isLoadingDetail } = useQuery({
-    queryKey: ['product-detail', expandedProductId, discountId],
-    queryFn: () => {
-      if (!expandedProductId) return null;
-      console.log('Fetching product detail for:', expandedProductId); // Debug log
-      return giamGiaService.getSanPhamChiTietDangGiamGia(discountId, expandedProductId);
-    },
-    enabled: !!expandedProductId && !!discountId,
-  });
+  // Add a memoized function to get expanded product details from local data
+  const expandedProductDetail = useMemo(() => {
+    if (!expandedProductId || !productsData?.danh_sach) return null;
+    return productsData.danh_sach.find(p => p.id_san_pham === expandedProductId) || null;
+  }, [expandedProductId, productsData?.danh_sach]);
 
   // Effect để cập nhật trạng thái checkbox sản phẩm dựa trên trạng thái checkbox sản phẩm chi tiết
   useEffect(() => {
     if (!productsData?.danh_sach) return;
 
     const newSelectedProducts = productsData.danh_sach
-      .filter(product => {
-        // Nếu sản phẩm đang được mở rộng, sử dụng dữ liệu từ expandedProductDetail
+      .filter((product: SanPhamAdminDTO) => {
         if (expandedProductId === product.id_san_pham && expandedProductDetail) {
           const productVariants = expandedProductDetail.sanPhamChiTiets || [];
           return productVariants.length > 0 && 
-            productVariants.every(variant => selectedVariants.includes(variant.id_san_pham_chi_tiet));
+            productVariants.every((variant: SanPhamChiTietAdminDTO) => selectedVariants.includes(variant.id_san_pham_chi_tiet));
         }
-        // Nếu không, sử dụng dữ liệu từ productsData
         const productVariants = product.sanPhamChiTiets || [];
         return productVariants.length > 0 && 
-          productVariants.every(variant => selectedVariants.includes(variant.id_san_pham_chi_tiet));
+          productVariants.every((variant: SanPhamChiTietAdminDTO) => selectedVariants.includes(variant.id_san_pham_chi_tiet));
       })
-      .map(product => product.id_san_pham);
+      .map((product: SanPhamAdminDTO) => product.id_san_pham);
 
     setSelectedProducts(newSelectedProducts);
   }, [selectedVariants, productsData, expandedProductId, expandedProductDetail]);
 
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
+  // Lọc sản phẩm theo từ khóa tìm kiếm
+  const filteredProducts = useMemo(() => {
+    return productsData?.danh_sach.filter(product => 
+      product.ten_san_pham.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.ma_san_pham.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [];
+  }, [productsData, searchTerm]);
+
+  // Tính toán phân trang
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + pageSize);
+
+  // Update useEffect to watch debouncedSearchTerm
+  useEffect(() => {
     setPageConfig(prev => ({
       ...prev,
-      trang_hien_tai: 1,
-      tim_kiem: value
+      tim_kiem: debouncedSearchTerm,
+      trang_hien_tai: 1
     }));
+  }, [debouncedSearchTerm]);
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
   };
 
   const handleClearSearch = () => {
     setSearchTerm("");
-    setPageConfig(prev => ({
-      ...prev,
-      trang_hien_tai: 1,
-      tim_kiem: ""
-    }));
-  };
-
-  const handleCategoryChange = (value: string) => {
-    setPageConfig(prev => ({
-      ...prev,
-      trang_hien_tai: 1,
-      id_danh_muc: value === "all" ? [] : [value]
-    }));
-  };
-
-  const handleBrandChange = (value: string) => {
-    setPageConfig(prev => ({
-      ...prev,
-      trang_hien_tai: 1,
-      id_thuong_hieu: value === "all" ? [] : [value]
-    }));
   };
 
   const handlePageChange = (newPage: number) => {
-    setPageConfig(prev => ({
-      ...prev,
-      trang_hien_tai: newPage
-    }));
+    setCurrentPage(newPage);
   };
 
   const handlePageSizeChange = (newSize: number) => {
-    setPageConfig(prev => ({
-      ...prev,
-      trang_hien_tai: 1,
-      so_phan_tu_tren_trang: newSize
-    }));
-  };
-
-  const handleSort = (column: string) => {
-    setPageConfig(prev => ({
-      ...prev,
-      sap_xep_theo: column,
-      sap_xep_tang: prev.sap_xep_theo === column ? !prev.sap_xep_tang : true
-    }));
+    setPageSize(newSize);
+    setCurrentPage(1);
   };
 
   const handleProductClick = (productId: string) => {
@@ -189,11 +183,10 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allProductIds = productsData?.danh_sach.map(p => p.id_san_pham) || [];
+      const allProductIds = productsData?.danh_sach?.map((p: SanPhamAdminDTO) => p.id_san_pham) || [];
       setSelectedProducts(allProductIds);
-      // Select all variants of all products
-      const allVariantIds = productsData?.danh_sach.flatMap(p => 
-        p.sanPhamChiTiets?.map(v => v.id_san_pham_chi_tiet) || []
+      const allVariantIds = productsData?.danh_sach?.flatMap((p: SanPhamAdminDTO) => 
+        p.sanPhamChiTiets?.map((v: SanPhamChiTietAdminDTO) => v.id_san_pham_chi_tiet) || []
       ) || [];
       setSelectedVariants(allVariantIds);
     } else {
@@ -202,15 +195,14 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
     }
   };
 
-  const handleSelectProduct = (product: SanPham, checked: boolean) => {
+  const handleSelectProduct = (product: SanPhamAdminDTO, checked: boolean) => {
     if (checked) {
       setSelectedProducts(prev => [...prev, product.id_san_pham]);
-      // Select all variants of this product from expandedProductDetail if available
       const productDetail = expandedProductId === product.id_san_pham ? expandedProductDetail : product;
-      const variantIds = productDetail?.sanPhamChiTiets?.map(v => v.id_san_pham_chi_tiet) || [];
+      const variantIds = productDetail?.sanPhamChiTiets?.map((v: SanPhamChiTietAdminDTO) => v.id_san_pham_chi_tiet) || [];
       setSelectedVariants(prev => {
         const newVariants = [...prev];
-        variantIds.forEach(id => {
+        variantIds.forEach((id: string) => {
           if (!newVariants.includes(id)) {
             newVariants.push(id);
           }
@@ -219,21 +211,19 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
       });
     } else {
       setSelectedProducts(prev => prev.filter(id => id !== product.id_san_pham));
-      // Unselect all variants of this product from expandedProductDetail if available
       const productDetail = expandedProductId === product.id_san_pham ? expandedProductDetail : product;
-      const variantIds = productDetail?.sanPhamChiTiets?.map(v => v.id_san_pham_chi_tiet) || [];
+      const variantIds = productDetail?.sanPhamChiTiets?.map((v: SanPhamChiTietAdminDTO) => v.id_san_pham_chi_tiet) || [];
       setSelectedVariants(prev => prev.filter(id => !variantIds.includes(id)));
     }
   };
 
-  const handleSelectAllVariants = (product: SanPham, checked: boolean) => {
-    // Use expandedProductDetail if available
+  const handleSelectAllVariants = (product: SanPhamAdminDTO, checked: boolean) => {
     const productDetail = expandedProductId === product.id_san_pham ? expandedProductDetail : product;
     if (checked) {
-      const variantIds = productDetail?.sanPhamChiTiets?.map(v => v.id_san_pham_chi_tiet) || [];
+      const variantIds = productDetail?.sanPhamChiTiets?.map((v: SanPhamChiTietAdminDTO) => v.id_san_pham_chi_tiet) || [];
       setSelectedVariants(prev => [...prev, ...variantIds]);
     } else {
-      const variantIds = productDetail?.sanPhamChiTiets?.map(v => v.id_san_pham_chi_tiet) || [];
+      const variantIds = productDetail?.sanPhamChiTiets?.map((v: SanPhamChiTietAdminDTO) => v.id_san_pham_chi_tiet) || [];
       setSelectedVariants(prev => prev.filter(id => !variantIds.includes(id)));
     }
   };
@@ -254,7 +244,9 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
   const handleDeleteSelected = async () => {
     try {
       setIsDeleting(true);
+      
       await giamGiaService.xoaGiamGiaKhoiSanPhamChiTiet({
+        id_giam_gia: discountId,
         san_pham_chi_tiet_ids: selectedVariants
       });
       
@@ -269,7 +261,7 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
       toast.success(`Đã gỡ giảm giá khỏi ${selectedVariants.length} biến thể sản phẩm thành công!`);
       
       // Refetch data
-      await queryClient.invalidateQueries({ queryKey: ['discount-products', discountId] });
+      await queryClient.invalidateQueries({ queryKey: ['products', discountId, pageConfig] });
       if (expandedProductId) {
         await queryClient.invalidateQueries({ 
           queryKey: ['product-detail', expandedProductId, discountId] 
@@ -287,148 +279,260 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
     setIsAddDialogOpen(true);
   };
 
-  const renderProductDetails = (product: SanPham) => {
-    if (isLoadingDetail) {
-      return (
-        <div className="p-4 flex justify-center items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        </div>
-      );
-    }
+  const handleSort = (field: string) => {
+    setPageConfig(prev => ({
+      ...prev,
+      sap_xep_theo: field,
+      sap_xep_tang: prev.sap_xep_theo === field ? !prev.sap_xep_tang : true
+    }));
+  };
 
-    // Sử dụng dữ liệu chi tiết từ API nếu có
-    const productDetail = expandedProductDetail || product;
-    const productVariants = productDetail.sanPhamChiTiets || [];
+  const handleCategoryChange = (value: string) => {
+    setPageConfig(prev => ({
+      ...prev,
+      id_danh_muc: value === "all" ? [] : [value],
+      trang_hien_tai: 1
+    }));
+  };
+
+  const handleBrandChange = (value: string) => {
+    setPageConfig(prev => ({
+      ...prev,
+      id_thuong_hieu: value === "all" ? [] : [value],
+      trang_hien_tai: 1
+    }));
+  };
+
+  const renderProductRow = (product: SanPhamAdminDTO, index: number) => {
+    const isExpanded = expandedProductId === product.id_san_pham;
+    const isSelected = selectedProducts.includes(product.id_san_pham);
+    const productVariants = product.sanPhamChiTiets || [];
+    const allVariantsSelected = productVariants.length > 0 && 
+      productVariants.every((variant: SanPhamChiTietAdminDTO) => selectedVariants.includes(variant.id_san_pham_chi_tiet));
 
     return (
-      <div className="p-4 space-y-6">
-        {/* Thông tin sản phẩm */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Thông tin sản phẩm</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="space-y-2">
-              <p><span className="font-medium">Mã sản phẩm:</span> {productDetail.ma_san_pham}</p>
-              <p><span className="font-medium">Tên sản phẩm:</span> {productDetail.ten_san_pham}</p>
-              <p><span className="font-medium">Mô tả:</span> {productDetail.mo_ta}</p>
-            </div>
-            <div className="space-y-2">
-              <p><span className="font-medium">Thương hiệu:</span> {productDetail.thuongHieu?.ten_thuong_hieu}</p>
-              <p><span className="font-medium">Danh mục:</span> {productDetail.danhMuc?.ten_danh_muc}</p>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Trạng thái:</span>
-                <Badge className={productDetail.trang_thai === 'HoatDong' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                  {productDetail.trang_thai === 'HoatDong' ? "Đang bán" : "Ngừng bán"}
-                </Badge>
+      <React.Fragment key={product.id_san_pham}>
+        <TableRow 
+          key={product.id_san_pham}
+          className={cn(
+            "cursor-pointer transition-all duration-200",
+            expandedProductId === product.id_san_pham 
+              ? "bg-blue-50/80 hover:bg-blue-50 shadow-sm" 
+              : "hover:bg-slate-50"
+          )}
+          onClick={() => handleProductClick(product.id_san_pham)}
+        >
+          <TableCell onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={selectedProducts.includes(product.id_san_pham)}
+              onCheckedChange={(checked) => handleSelectProduct(product, !!checked)}
+            />
+          </TableCell>
+          <TableCell>
+            <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs">
+              {product.ma_san_pham}
+            </code>
+          </TableCell>
+          <TableCell>
+            {product.url_anh_mac_dinh && (
+              <div className="relative w-16 h-16 rounded-lg overflow-hidden">
+                <Image
+                  src={getImageUrl(product.url_anh_mac_dinh)}
+                  alt={product.ten_san_pham}
+                  fill
+                  className="object-cover"
+                />
               </div>
+            )}
+          </TableCell>
+          <TableCell>
+            <div className="space-y-1">
+              <p className="font-medium">{product.ten_san_pham}</p>
+              <p className="text-sm text-slate-500">{product.ma_san_pham}</p>
+              <p className="text-sm text-slate-500 line-clamp-2">{product.mo_ta}</p>
             </div>
-          </div>
-        </div>
+          </TableCell>
+          <TableCell>
+            <Badge className="bg-slate-100 text-slate-800">{product.thuongHieu?.ten_thuong_hieu}</Badge>
+          </TableCell>
+          <TableCell>
+            <Badge className="bg-slate-100 text-slate-800">{product.danhMuc?.ten_danh_muc}</Badge>
+          </TableCell>
+          <TableCell>
+            <Badge className={product.trang_thai === "HoatDong" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-800"}>
+              {product.trang_thai === "HoatDong" ? "Đang hoạt động" : "Ngừng hoạt động"}
+            </Badge>
+          </TableCell>
+          <TableCell className="text-right">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0"
+            >
+              {expandedProductId === product.id_san_pham ? "Thu gọn" : "Xem chi tiết"}
+            </Button>
+          </TableCell>
+        </TableRow>
+        {isExpanded && (
+          <TableRow>
+            <TableCell colSpan={8}>
+              <div className="p-4 space-y-4 bg-blue-50/50 rounded-lg border border-blue-100 shadow-inner">
+                {/* Additional Product Details */}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-slate-500">Kiểu dáng</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{product.kieuDang?.ten_kieu_dang}</span>
+                        <span className="text-xs text-slate-400">({product.kieuDang?.ma_kieu_dang})</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Chất liệu</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{product.chatLieu?.ten_chat_lieu}</span>
+                        <span className="text-xs text-slate-400">({product.chatLieu?.ma_chat_lieu})</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Xuất xứ</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{product.xuatXu?.ten_xuat_xu}</span>
+                        <span className="text-xs text-slate-400">({product.xuatXu?.ma_xuat_xu})</span>
+                      </div>
+                    </div>
+                  </div>
 
-        {/* Danh sách sản phẩm chi tiết */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Danh sách biến thể sản phẩm</h3>
-          </div>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]"></TableHead>
-                  <TableHead className="w-[50px]">Ảnh</TableHead>
-                  <TableHead>Tên sản phẩm</TableHead>
-                  <TableHead>Mã</TableHead>
-                  <TableHead className="text-right w-[100px]">Số lượng</TableHead>
-                  <TableHead className="text-right w-[120px]">Giá nhập</TableHead>
-                  <TableHead className="text-right w-[150px]">Giá bán</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {productVariants.map((variant) => {
-                  const firstImage = variant.hinhAnhSanPhamChiTiets?.[0]?.hinh_anh_urls;
-                  const discountedPrice = variant.giamGia 
-                    ? variant.giamGia.kieu_giam_gia === 'PhanTram'
-                      ? variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100)
-                      : variant.gia_ban - variant.giamGia.gia_tri_giam
-                    : null;
-
-                  return (
-                    <TableRow key={variant.id_san_pham_chi_tiet} 
-                      className="cursor-pointer hover:bg-slate-50 transition-colors duration-200"
-                      onClick={() => handleSelectVariant(variant.id_san_pham_chi_tiet, !selectedVariants.includes(variant.id_san_pham_chi_tiet))}
-                    >
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedVariants.includes(variant.id_san_pham_chi_tiet)}
-                          onCheckedChange={(checked) => handleSelectVariant(variant.id_san_pham_chi_tiet, checked as boolean)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="w-12 h-12 relative">
-                          <img
-                            src={getImageUrl(firstImage)}
-                            alt={variant.ma_san_pham_chi_tiet}
-                            className="w-full h-full object-cover rounded"
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <Link 
-                            href={`/products/${productDetail.id_san_pham}`}
-                            className="font-medium line-clamp-1 hover:text-blue-600 transition-colors duration-200"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {productDetail.ten_san_pham}
-                          </Link>
-                          <div className="flex items-center gap-1.5">
-                            <Badge className="text-xs border">
-                              {variant.mauSac?.ten_mau_sac}
-                            </Badge>
-                            <Badge className="text-xs border">
-                              {variant.kichCo?.ten_kich_co}
-                            </Badge>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-medium">
-                          {variant.ma_san_pham_chi_tiet}
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-right">{variant.so_luong}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(variant.gia_nhap)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="space-y-0.5">
-                          {discountedPrice ? (
-                            <>
-                              <p className="text-sm line-through text-slate-500">
-                                {formatCurrency(variant.gia_ban)}
-                              </p>
-                              <p className="font-medium text-red-600">
-                                {formatCurrency(discountedPrice)}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                Giảm: {variant.giamGia?.kieu_giam_gia === 'PhanTram' 
-                                  ? `${variant.giamGia?.gia_tri_giam}%` 
-                                  : formatCurrency(variant.giamGia?.gia_tri_giam || 0)
-                                }
-                              </p>
-                            </>
-                          ) : (
-                            <p className="font-medium">
-                              {formatCurrency(variant.gia_ban)}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </div>
+                  {/* Variants Table */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-slate-900">Chi tiết biến thể</h4>
+                    </div>
+                    <div className="rounded-lg border border-blue-100 overflow-hidden bg-white">
+                      <Table>
+                        <TableHeader className="bg-blue-50/50">
+                          <TableRow>
+                            <TableHead className="w-[50px]">Chọn</TableHead>
+                            <TableHead>Mã</TableHead>
+                            <TableHead>Hình ảnh</TableHead>
+                            <TableHead>Màu sắc</TableHead>
+                            <TableHead>Kích cỡ</TableHead>
+                            <TableHead className="text-right">Số lượng</TableHead>
+                            <TableHead className="text-right">Đã bán</TableHead>
+                            <TableHead className="text-right">Giá bán</TableHead>
+                            <TableHead>Giảm giá</TableHead>
+                            <TableHead>Trạng thái</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(product.sanPhamChiTiets || []).map((variant, index) => {
+                            const firstImage = variant.hinhAnhSanPhamChiTiets?.[0]?.hinh_anh_urls;
+                            return (
+                              <TableRow 
+                                key={variant.id_san_pham_chi_tiet}
+                                className={cn(
+                                  "transition-colors duration-200",
+                                  selectedVariants.includes(variant.id_san_pham_chi_tiet)
+                                    ? "bg-blue-50/50"
+                                    : "hover:bg-slate-50"
+                                )}
+                              >
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedVariants.includes(variant.id_san_pham_chi_tiet)}
+                                    onCheckedChange={(checked) => handleSelectVariant(variant.id_san_pham_chi_tiet, !!checked)}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs">
+                                    {variant.ma_san_pham_chi_tiet}
+                                  </code>
+                                </TableCell>
+                                <TableCell>
+                                  {firstImage && (
+                                    <div className="relative w-10 h-10 rounded overflow-hidden">
+                                      <Image
+                                        src={getImageUrl(firstImage)}
+                                        alt={variant.ma_san_pham_chi_tiet}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span>{variant.mauSac.ten_mau_sac}</span>
+                                    <span className="text-xs text-slate-400">{variant.mauSac.ma_mau_sac}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span>{variant.kichCo.ten_kich_co}</span>
+                                    <span className="text-xs text-slate-400">{variant.kichCo.ma_kich_co}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">{variant.so_luong}</TableCell>
+                                <TableCell className="text-right">{variant.so_luong_da_ban}</TableCell>
+                                <TableCell className="text-right font-medium">
+                                  <div className="space-y-1">
+                                    {variant.giamGias && variant.giamGias.length > 0 && variant.giamGias.some(g => g.id_giam_gia === discountId) ? (
+                                      <>
+                                        <div className="text-slate-500 line-through">
+                                          {formatCurrency(variant.gia_ban)}
+                                        </div>
+                                        <div className="text-red-600">
+                                          {formatCurrency(
+                                            variant.giamGias.find(g => g.id_giam_gia === discountId)?.kieu_giam_gia === 'PhanTram'
+                                              ? variant.gia_ban - (variant.gia_ban * (variant.giamGias.find(g => g.id_giam_gia === discountId)?.gia_tri_giam || 0) / 100)
+                                              : variant.giamGias.find(g => g.id_giam_gia === discountId)?.kieu_giam_gia === 'SoTien'
+                                                ? variant.gia_ban - (variant.giamGias.find(g => g.id_giam_gia === discountId)?.gia_tri_giam || 0)
+                                                : variant.gia_ban
+                                          )}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      formatCurrency(variant.gia_ban)
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {variant.giamGias && variant.giamGias.length > 0 && variant.giamGias.some(g => g.id_giam_gia === discountId) ? (
+                                    <div className="space-y-1">
+                                      <Badge className={variant.giamGias.find(g => g.id_giam_gia === discountId)?.kieu_giam_gia === 'PhanTram' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
+                                        {variant.giamGias.find(g => g.id_giam_gia === discountId)?.kieu_giam_gia === 'PhanTram' 
+                                          ? `${variant.giamGias.find(g => g.id_giam_gia === discountId)?.gia_tri_giam}%`
+                                          : formatCurrency(variant.giamGias.find(g => g.id_giam_gia === discountId)?.gia_tri_giam || 0)
+                                        }
+                                      </Badge>
+                                      <div className="text-xs text-slate-500">
+                                        {format(new Date(variant.giamGias.find(g => g.id_giam_gia === discountId)?.thoi_gian_bat_dau || ''), "dd/MM/yyyy", { locale: vi })} 
+                                        {" - "}
+                                        {format(new Date(variant.giamGias.find(g => g.id_giam_gia === discountId)?.thoi_gian_ket_thuc || ''), "dd/MM/yyyy", { locale: vi })}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-500 text-sm">Không có</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className={variant.trang_thai === "HoatDong" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-800"}>
+                                    {variant.trang_thai === "HoatDong" ? "Hoạt động" : "Ngừng hoạt động"}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
+      </React.Fragment>
     );
   };
 
@@ -440,10 +544,8 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
     );
   }
 
-  const totalPages = productsData?.tong_so_trang || 1;
-
   const totalSelectedVariants = selectedVariants.length;
-  const totalVariants = productsData?.danh_sach.reduce((acc, product) => 
+  const totalVariants = productsData?.danh_sach.reduce((acc: number, product: SanPhamAdminDTO) => 
     acc + (product.sanPhamChiTiets?.length || 0), 0
   ) || 0;
 
@@ -526,7 +628,7 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
               onClick={() => setIsDeleteDialogOpen(true)}
             >
               <X className="h-4 w-4 mr-2" />
-              Xóa ({selectedVariants.length})
+              Gỡ giảm giá ({selectedVariants.length})
             </Button>
           )}
         </div>
@@ -543,18 +645,13 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead className="w-[50px]">STT</TableHead>
+                <TableHead className="w-[50px]">Mã</TableHead>
+                <TableHead className="w-[80px]">Hình ảnh</TableHead>
                 <TableHead 
                   className="w-[300px] cursor-pointer hover:bg-slate-100"
                   onClick={() => handleSort("ten_san_pham")}
                 >
                   Thông tin sản phẩm
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer hover:bg-slate-100"
-                  onClick={() => handleSort("ma_san_pham")}
-                >
-                  Mã sản phẩm
                 </TableHead>
                 <TableHead>Thương hiệu</TableHead>
                 <TableHead>Danh mục</TableHead>
@@ -564,74 +661,14 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
             <TableBody>
               {!productsData?.danh_sach.length ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10">
+                  <TableCell colSpan={8} className="text-center py-10">
                     <div className="flex flex-col items-center gap-2 text-slate-500">
                       <p>Không tìm thấy sản phẩm nào</p>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                productsData.danh_sach.map((product, idx) => (
-                  <React.Fragment key={product.id_san_pham}>
-                    <TableRow 
-                      className="cursor-pointer hover:bg-slate-50"
-                      onClick={() => handleProductClick(product.id_san_pham)}
-                    >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selectedProducts.includes(product.id_san_pham)}
-                          onCheckedChange={(checked) => handleSelectProduct(product, checked as boolean)}
-                        />
-                      </TableCell>
-                      <TableCell>{(pageConfig.trang_hien_tai! - 1) * pageConfig.so_phan_tu_tren_trang! + idx + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={getImageUrl(product.url_anh_mac_dinh)}
-                            alt={product.ten_san_pham}
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                          <div className="space-y-1">
-                            <Link 
-                              href={`/products/${product.id_san_pham}`}
-                              className="font-medium hover:text-blue-600 transition-colors duration-200"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {product.ten_san_pham}
-                            </Link>
-                            <p className="text-sm text-slate-500 line-clamp-2">{product.mo_ta}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-medium">
-                          {product.ma_san_pham}
-                        </code>
-                      </TableCell>
-                      <TableCell>{product.thuongHieu?.ten_thuong_hieu}</TableCell>
-                      <TableCell>{product.danhMuc?.ten_danh_muc}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge className={product.trang_thai === 'HoatDong' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                            {product.trang_thai === 'HoatDong' ? "Đang bán" : "Ngừng bán"}
-                          </Badge>
-                          {expandedProductId === product.id_san_pham ? (
-                            <ChevronUp className="h-4 w-4 text-slate-500" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-500" />
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {expandedProductId === product.id_san_pham && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="p-0">
-                          {renderProductDetails(product)}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
+                productsData.danh_sach.map((product, index) => renderProductRow(product, index))
               )}
             </TableBody>
           </Table>
@@ -720,8 +757,9 @@ export function DiscountProducts({ discountId, onAddProducts }: DiscountProducts
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['discount-products', discountId] });
+          queryClient.invalidateQueries({ queryKey: ['products', discountId, pageConfig] });
         }}
+        fetchProducts={giamGiaService.getSanPhamCoTheGiamGia}
       />
     </div>
   );

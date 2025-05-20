@@ -28,7 +28,7 @@ interface ColorTabsProps {
   setPreviewImageUrl: (url: string) => void;
   handleToggleSizeForColor: (colorId: string, sizeId: string) => void;
   discounts: GiamGia[];
-  variantValues: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string; images: File[] }>>;
+  variantValues: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: File[] }>>;
   handleVariantValueChange: (colorId: string, sizeId: string, field: 'stock' | 'importPrice' | 'price' | 'discount', value: any) => void;
   onDeleteColor: (colorId: string) => void;
   onDeleteSize: (colorId: string, sizeId: string) => void;
@@ -196,13 +196,17 @@ export default function ColorTabs({
               <div className="space-y-4">
                 {selectedSizes.filter(sizeId => !!sizeId).map(sizeId => {
                   const key = `${colorId}_${sizeId}`;
-                  const values = variantValues[colorId]?.[sizeId] || { stock: 0, importPrice: 0, price: 0, discount: 'none' };
+                  const values = variantValues[colorId]?.[sizeId] || { stock: 0, importPrice: 0, price: 0, discount: [], images: [] };
+                  const safeValues = {
+                    ...values,
+                    discount: Array.isArray(values.discount) ? values.discount : (values.discount ? [values.discount] : [])
+                  };
                   return (
                     <VariantDetailForm
                       key={key}
                       color={color}
                       size={sizes.find(s => String(s.id_kich_co) === sizeId)}
-                      values={values}
+                      values={safeValues}
                       errors={{
                         stock: errors[`${colorId}_${sizeId}_stock`],
                         importPrice: errors[`${colorId}_${sizeId}_importPrice`],

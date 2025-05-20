@@ -116,6 +116,12 @@ const orderStatus = {
     icon: <Package className="h-4 w-4 mr-1" />,
     type: "Online"
   },
+  DaNhanHang: {
+    label: "Đã nhận hàng",
+    color: "bg-green-100 text-green-800",
+    icon: <CheckCircle2 className="h-4 w-4 mr-1" />,
+    type: "Online"
+  },
   HetHang: {
     label: "Hết hàng",
     color: "bg-red-100 text-red-800",
@@ -966,11 +972,10 @@ const OrderListPage = () => {
               )}
 
               {selectedOrder && selectedOrder.trang_thai === "DangChoXuLy" && (
-                <Dialog open={isOutOfStockDialogOpen} onOpenChange={setIsOutOfStockDialogOpen}>
-                  <DialogTrigger asChild>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
                     <Button 
                       className="bg-red-500/80 hover:bg-red-500 text-white transition-colors"
-                      onClick={() => setIsOutOfStockDialogOpen(true)}
                       disabled={isMarkingOutOfStock}
                     >
                       {isMarkingOutOfStock ? (
@@ -985,60 +990,26 @@ const OrderListPage = () => {
                         </>
                       )}
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 text-red-600">
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-red-600">
                         <XCircle className="h-5 w-5" />
                         Đánh dấu đơn hàng hết hàng
-                      </DialogTitle>
-                      <DialogDescription>
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
                         Bạn có chắc chắn muốn đánh dấu đơn hàng này là hết hàng? Hành động này không thể hoàn tác.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="my-6">
-                      <Label htmlFor="outOfStockReason" className="text-sm font-medium block mb-2">
-                        Ghi chú về tình trạng hết hàng*
-                      </Label>
-                      <div className="relative">
-                        <Textarea
-                          id="outOfStockReason"
-                          className="min-h-[120px] resize-none pr-4 focus-visible:ring-slate-400"
-                          placeholder="Vui lòng nhập ghi chú về tình trạng hết hàng"
-                          value={outOfStockReason}
-                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setOutOfStockReason(e.target.value)}
-                        />
-                        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-                          {outOfStockReason.length}/500
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setOutOfStockReason("");
-                          setIsOutOfStockDialogOpen(false);
-                        }}
-                        className="hover:bg-slate-100"
-                        disabled={isMarkingOutOfStock}
-                      >
-                        Hủy
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        className="bg-red-500/80 hover:bg-red-500"
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="hover:bg-slate-100" disabled={isMarkingOutOfStock}>Hủy</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-red-500/80 hover:bg-red-500 text-white"
                         onClick={async () => {
-                          if (!outOfStockReason.trim()) {
-                            toast.error("Vui lòng nhập ghi chú về tình trạng hết hàng");
-                            return;
-                          }
                           try {
                             setIsMarkingOutOfStock(true);
-                            await hoaDonService.danhDauHetHang(selectedOrder.id_hoa_don, outOfStockReason);
+                            await hoaDonService.danhDauHetHang(selectedOrder.id_hoa_don);
                             toast.success("Đã đánh dấu đơn hàng hết hàng");
-                            setOutOfStockReason("");
-                            setIsOutOfStockDialogOpen(false);
                             const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
                             setSelectedOrder(updatedOrder);
                             fetchOrders();
@@ -1059,13 +1030,13 @@ const OrderListPage = () => {
                         ) : (
                           "Xác nhận hết hàng"
                         )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
 
-              {selectedOrder && ["DaXacNhan", "DangChuanBi", "DangGiaoHang"].includes(selectedOrder.trang_thai) && (
+{selectedOrder && ["DaXacNhan", "DangChuanBi", "DangGiaoHang", "DaNhanHang"].includes(selectedOrder.trang_thai) && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button 
@@ -1082,7 +1053,8 @@ const OrderListPage = () => {
                           <ArrowRight className="h-4 w-4 mr-2" />
                           {selectedOrder.trang_thai === "DaXacNhan" && "Bắt đầu chuẩn bị"}
                           {selectedOrder.trang_thai === "DangChuanBi" && "Bắt đầu giao hàng"}
-                          {selectedOrder.trang_thai === "DangGiaoHang" && "Hoàn thành đơn"}
+                          {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận đã nhận hàng"}
+                          {selectedOrder.trang_thai === "DaNhanHang" && "Hoàn thành đơn"}
                         </>
                       )}
                     </Button>
@@ -1093,12 +1065,14 @@ const OrderListPage = () => {
                         <ArrowRight className="h-5 w-5" />
                         {selectedOrder.trang_thai === "DaXacNhan" && "Bắt đầu chuẩn bị đơn hàng"}
                         {selectedOrder.trang_thai === "DangChuanBi" && "Bắt đầu giao hàng"}
-                        {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận hoàn thành đơn hàng"}
+                        {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận đã nhận hàng"}
+                        {selectedOrder.trang_thai === "DaNhanHang" && "Xác nhận hoàn thành đơn hàng"}
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         {selectedOrder.trang_thai === "DaXacNhan" && "Xác nhận bắt đầu chuẩn bị đơn hàng này?"}
                         {selectedOrder.trang_thai === "DangChuanBi" && "Xác nhận bắt đầu giao hàng cho đơn hàng này?"}
-                        {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận đơn hàng đã được giao thành công?"}
+                        {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận khách hàng đã nhận được hàng?"}
+                        {selectedOrder.trang_thai === "DaNhanHang" && "Xác nhận hoàn thành đơn hàng này?"}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -1110,7 +1084,8 @@ const OrderListPage = () => {
                             setIsUpdatingStatus(true);
                             const nextStatus = 
                               selectedOrder.trang_thai === "DaXacNhan" ? "DangChuanBi" :
-                              selectedOrder.trang_thai === "DangChuanBi" ? "DangGiaoHang" : "DaHoanThanh";
+                              selectedOrder.trang_thai === "DangChuanBi" ? "DangGiaoHang" :
+                              selectedOrder.trang_thai === "DangGiaoHang" ? "DaNhanHang" : "DaHoanThanh";
                             
                             await hoaDonService.capNhatTrangThaiGiaoHang(selectedOrder.id_hoa_don, nextStatus);
                             toast.success("Đã cập nhật trạng thái đơn hàng");
@@ -1240,6 +1215,171 @@ const OrderListPage = () => {
                 </Dialog>
               )}
 
+              {selectedOrder && selectedOrder.trang_thai === "HetHang" && (
+                <>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        className="bg-green-500/80 hover:bg-green-500 text-white transition-colors"
+                        disabled={isConfirming}
+                      >
+                        {isConfirming ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xác nhận...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Xác nhận đơn
+                          </>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+                          <CheckCircle className="h-5 w-5" />
+                          Xác nhận đơn hàng
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Bạn có chắc chắn muốn xác nhận đơn hàng này? Sau khi xác nhận, đơn hàng sẽ được chuyển sang trạng thái chuẩn bị.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="hover:bg-slate-100" disabled={isConfirming}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-green-500/80 hover:bg-green-500 text-white"
+                          onClick={async () => {
+                            try {
+                              setIsConfirming(true);
+                              await hoaDonService.xacNhanDonHang(selectedOrder.id_hoa_don);
+                              toast.success("Đã xác nhận đơn hàng thành công");
+                              const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                              setSelectedOrder(updatedOrder);
+                              fetchOrders();
+                            } catch (error: any) {
+                              console.error("Error confirming order:", error);
+                              toast.error(error.response?.data || "Không thể xác nhận đơn hàng");
+                            } finally {
+                              setIsConfirming(false);
+                            }
+                          }}
+                          disabled={isConfirming}
+                        >
+                          {isConfirming ? (
+                            <>
+                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Đang xác nhận...
+                            </>
+                          ) : (
+                            "Xác nhận"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        className="bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                        onClick={() => setIsCancelDialogOpen(true)}
+                        disabled={isCancelling}
+                      >
+                        {isCancelling ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang hủy...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Hủy đơn
+                          </>
+                        )}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                          <XCircle className="h-5 w-5" />
+                          Hủy đơn hàng
+                        </DialogTitle>
+                        <DialogDescription>
+                          Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="my-6">
+                        <Label htmlFor="cancelReason" className="text-sm font-medium block mb-2">
+                          Lý do hủy đơn*
+                        </Label>
+                        <div className="relative">
+                          <Textarea
+                            id="cancelReason"
+                            className="min-h-[120px] resize-none pr-4 focus-visible:ring-slate-400"
+                            placeholder="Vui lòng nhập lý do hủy đơn hàng"
+                            value={cancelReason}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCancelReason(e.target.value)}
+                          />
+                          <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                            {cancelReason.length}/500
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setCancelReason("");
+                            setIsCancelDialogOpen(false);
+                          }}
+                          className="hover:bg-slate-100"
+                          disabled={isCancelling}
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="bg-red-500/80 hover:bg-red-500"
+                          onClick={async () => {
+                            if (!cancelReason.trim()) {
+                              toast.error("Vui lòng nhập lý do hủy đơn hàng");
+                              return;
+                            }
+                            try {
+                              setIsCancelling(true);
+                              await hoaDonService.huyDonHangAdmin(selectedOrder.id_hoa_don, cancelReason);
+                              toast.success("Đã hủy đơn hàng thành công");
+                              setCancelReason("");
+                              setIsCancelDialogOpen(false);
+                              const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                              setSelectedOrder(updatedOrder);
+                              fetchOrders();
+                            } catch (error: any) {
+                              console.error("Error cancelling order:", error);
+                              toast.error(error.response?.data || "Không thể hủy đơn hàng");
+                            } finally {
+                              setIsCancelling(false);
+                            }
+                          }}
+                          disabled={isCancelling}
+                        >
+                          {isCancelling ? (
+                            <>
+                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Đang hủy...
+                            </>
+                          ) : (
+                            "Xác nhận hủy"
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+
               <Button 
                 className="bg-blue-500/80 hover:bg-blue-500 text-white transition-colors flex items-center gap-2"
                 onClick={handlePrintInvoice}
@@ -1301,6 +1441,8 @@ const OrderListPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      
 
       <style jsx global>{`
         .custom-scrollbar {

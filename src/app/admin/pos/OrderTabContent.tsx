@@ -81,6 +81,7 @@ interface OrderTabContentProps {
   };
   onPageChange: (page: number) => void;
   onPaymentSuccess: () => void; // Thêm prop mới
+  isCartUpdating?: boolean; // Thêm prop mới
 }
 
 export default function OrderTabContent({
@@ -104,7 +105,8 @@ export default function OrderTabContent({
   maxPrice,
   pagination,
   onPageChange,
-  onPaymentSuccess
+  onPaymentSuccess,
+  isCartUpdating
 }: OrderTabContentProps) {
   const router = useRouter();
   const updateOrderField = (field: string, value: any) => {
@@ -405,48 +407,43 @@ export default function OrderTabContent({
 
   // Function to handle updating cart item quantity
   const handleUpdateQuantity = (item: any, newQuantity: number) => {
-    // Cập nhật state ngay lập tức
+    // Optimistic update: update cart immediately
     const updatedCart = order.cart.map((cartItem: any) =>
-      cartItem.id === item.id 
-        ? { 
-            ...cartItem, 
+      cartItem.id === item.id
+        ? {
+            ...cartItem,
             quantity: newQuantity,
-            total: cartItem.price * newQuantity 
-          } 
+            total: cartItem.price * newQuantity
+          }
         : cartItem
     );
-    
     onOrderChange({
       ...order,
       cart: updatedCart
     });
-
-    // Sau đó gọi API để cập nhật server
+    // Then call parent to sync with server
     onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, newQuantity);
   };
 
   // Function to handle adding to cart
   const handleAddToCart = async (variant: any) => {
-    // Tạo item mới cho giỏ hàng
+    // Optimistic update: add item to cart immediately
     const newItem = {
-      id: Date.now().toString(), // Tạm thời dùng timestamp làm id
+      id: Date.now().toString(),
       id_san_pham_chi_tiet: variant.id_san_pham_chi_tiet,
       name: order.selectedProduct?.name,
-      price: getDiscountedPrice(variant), // Giá sau giảm
-      originalPrice: variant.gia_ban,     // Giá gốc
+      price: getDiscountedPrice(variant),
+      originalPrice: variant.gia_ban,
       quantity: 1,
-      total: getDiscountedPrice(variant), // Tổng tiền ban đầu = giá sau giảm * 1
+      total: getDiscountedPrice(variant),
       color: variant.color,
       size: variant.size
     };
-
-    // Cập nhật state ngay lập tức
     onOrderChange({
       ...order,
       cart: [...(order.cart || []), newItem]
     });
-
-    // Sau đó gọi API để cập nhật server
+    // Then call parent to sync with server
     await onAddToCart(variant);
   };
 
@@ -666,7 +663,7 @@ export default function OrderTabContent({
                             </div>
                           </>
                         ) : (
-                          <span className="text-sm font-bold text-slate-700">
+                          <span className="text-sm font-bold text-blue-600">
                             {product.minPrice === product.maxPrice
                               ? formatCurrency(product.minPrice ?? 0)
                               : `${formatCurrency(product.minPrice ?? 0)} - ${formatCurrency(product.maxPrice ?? 0)}`}
@@ -836,6 +833,12 @@ export default function OrderTabContent({
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Spinner overlay khi đang cập nhật cart */}
+              {isCartUpdating && (
+                <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-50">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                </div>
+              )}
               <div className="space-y-4">
                 {(!order.hoaDonChiTiets?.length && !order.cart?.length) ? (
                   <div className="text-center py-6 text-slate-500">
@@ -860,7 +863,7 @@ export default function OrderTabContent({
                                 </span>
                               </>
                             ) : (
-                              <span className="text-sm font-bold text-slate-700">
+                              <span className="text-sm font-bold text-blue-600">
                                 {formatCurrency(item.don_gia)}
                               </span>
                             )}
@@ -917,7 +920,7 @@ export default function OrderTabContent({
                                 </span>
                               </>
                             ) : (
-                              <span className="text-sm font-bold text-slate-700">
+                              <span className="text-sm font-bold text-blue-600">
                                 {formatCurrency(item.price)}
                               </span>
                             )}
@@ -1477,11 +1480,9 @@ export default function OrderTabContent({
                                         ? 'text-orange-600' 
                                         : 'text-red-600'
                                   }`}>
-                                    {variant.stock > 10 
-                                      ? 'Còn nhiều' 
-                                      : variant.stock > 0 
-                                        ? `${variant.stock} còn lại` 
-                                        : 'Hết hàng'}
+                                    {variant.stock > 0
+                                      ? `${variant.stock} còn lại`
+                                      : 'Hết hàng'}
                                   </span>
                                 )}
                               </div>
@@ -1507,7 +1508,7 @@ export default function OrderTabContent({
                           const discountedPrice = getDiscountedPrice(selectedVariant);
                           return (
                             <div>
-                              <span className="text-2xl font-bold text-green-600">
+                              <span className={`text-2xl font-bold ${selectedVariant.giamGia ? 'text-green-600' : 'text-blue-600'}`}>
                                 {formatCurrency(discountedPrice)}
                               </span>
                               {selectedVariant.giamGia && (
@@ -1520,26 +1521,32 @@ export default function OrderTabContent({
                         }
 
                         // Nếu chưa chọn variant, hiển thị khoảng giá
-                        return order.selectedProduct?.discountInfo ? (
-                          <div>
-                            <span className="text-2xl font-bold text-green-600">
+                        const hasDiscount = order.selectedProduct?.discountInfo && order.selectedProduct?.minPrice !== order.selectedProduct?.minOriginPrice;
+                        if (hasDiscount) {
+                          return (
+                            <div>
+                              <span className="text-2xl font-bold text-green-600">
+                                {formatCurrency(order.selectedProduct?.minPrice || 0)}
+                                {order.selectedProduct?.minPrice !== order.selectedProduct?.maxPrice &&
+                                  ` - ${formatCurrency(order.selectedProduct?.maxPrice || 0)}`}
+                              </span>
+                              <div className="text-sm text-slate-400 line-through">
+                                {formatCurrency(order.selectedProduct?.minOriginPrice || 0)}
+                                {order.selectedProduct?.minOriginPrice !== order.selectedProduct?.maxOriginPrice &&
+                                  ` - ${formatCurrency(order.selectedProduct?.maxOriginPrice || 0)}`}
+                              </div>
+                              <div className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded mt-1 ml-1">Đã giảm giá</div>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <span className="text-2xl font-bold text-blue-600">
                               {formatCurrency(order.selectedProduct?.minPrice || 0)}
-                              {order.selectedProduct?.minPrice !== order.selectedProduct?.maxPrice && 
+                              {order.selectedProduct?.minPrice !== order.selectedProduct?.maxPrice &&
                                 ` - ${formatCurrency(order.selectedProduct?.maxPrice || 0)}`}
                             </span>
-                            <div className="text-sm text-slate-400 line-through">
-                              {formatCurrency(order.selectedProduct?.minOriginPrice || 0)}
-                              {order.selectedProduct?.minOriginPrice !== order.selectedProduct?.maxOriginPrice && 
-                                ` - ${formatCurrency(order.selectedProduct?.maxOriginPrice || 0)}`}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-2xl font-bold text-blue-600">
-                            {formatCurrency(order.selectedProduct?.minPrice || 0)}
-                            {order.selectedProduct?.minPrice !== order.selectedProduct?.maxPrice && 
-                              ` - ${formatCurrency(order.selectedProduct?.maxPrice || 0)}`}
-                          </span>
-                        );
+                          );
+                        }
                       })()}
                       <span className="text-sm text-slate-500">/ sản phẩm</span>
                     </div>
@@ -1824,7 +1831,6 @@ export default function OrderTabContent({
 
                 try {
                   // Cập nhật phương thức thanh toán và số tiền khách đưa
-            debugger
 
                   const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
                   await hoaDonService.updateHoaDon({

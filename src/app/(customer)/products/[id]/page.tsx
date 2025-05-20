@@ -95,14 +95,28 @@ export default function ProductDetailPage() {
   };
 
   const calculateDiscountedPrice = (variant: SanPhamChiTiet) => {
-    if (!variant.giamGia) return variant.gia_ban;
-    
-    if (variant.giamGia.kieu_giam_gia === 'PhanTram') {
-      return variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100);
-    } else if (variant.giamGia.kieu_giam_gia === 'SoTien') {
-      return Math.max(0, variant.gia_ban - variant.giamGia.gia_tri_giam);
+    const now = new Date();
+    const activeDiscounts = (variant.giamGias || []).filter(g => {
+      const start = new Date(g.thoi_gian_bat_dau);
+      const end = new Date(g.thoi_gian_ket_thuc);
+      return start <= now && end >= now;
+    });
+    if (activeDiscounts.length === 0) return variant.gia_ban;
+    // Use the highest discount if multiple active
+    const highestDiscount = activeDiscounts.reduce((prev, current) => {
+      const prevValue = prev.kieu_giam_gia === 'PhanTram'
+        ? (variant.gia_ban * prev.gia_tri_giam / 100)
+        : prev.gia_tri_giam;
+      const currentValue = current.kieu_giam_gia === 'PhanTram'
+        ? (variant.gia_ban * current.gia_tri_giam / 100)
+        : current.gia_tri_giam;
+      return prevValue > currentValue ? prev : current;
+    });
+    if (highestDiscount.kieu_giam_gia === 'PhanTram') {
+      return variant.gia_ban * (1 - highestDiscount.gia_tri_giam / 100);
+    } else if (highestDiscount.kieu_giam_gia === 'SoTien') {
+      return Math.max(0, variant.gia_ban - highestDiscount.gia_tri_giam);
     }
-    
     return variant.gia_ban;
   };
 
@@ -143,6 +157,52 @@ export default function ProductDetailPage() {
       console.error('Error adding to cart:', error);
       toast.error(error.response?.data?.message || 'Không thể thêm vào giỏ hàng');
     }
+  };
+
+  // Helper to get discount label and nearest end time
+  const getDiscountInfo = (variant: SanPhamChiTiet) => {
+    const now = new Date();
+    const activeDiscounts = (variant.giamGias || []).filter(g => {
+      const start = new Date(g.thoi_gian_bat_dau);
+      const end = new Date(g.thoi_gian_ket_thuc);
+      return start <= now && end >= now;
+    });
+    if (activeDiscounts.length === 0) return { label: null, nearestEnd: null };
+    // Highest discount
+    const highestDiscount = activeDiscounts.reduce((prev, current) => {
+      const prevValue = prev.kieu_giam_gia === 'PhanTram'
+        ? (variant.gia_ban * prev.gia_tri_giam / 100)
+        : prev.gia_tri_giam;
+      const currentValue = current.kieu_giam_gia === 'PhanTram'
+        ? (variant.gia_ban * current.gia_tri_giam / 100)
+        : current.gia_tri_giam;
+      return prevValue > currentValue ? prev : current;
+    });
+    let label = '';
+    if (highestDiscount.kieu_giam_gia === 'PhanTram') {
+      label = `Giảm ${highestDiscount.gia_tri_giam}%`;
+    } else if (highestDiscount.kieu_giam_gia === 'SoTien') {
+      label = `Giảm ${formatCurrency(highestDiscount.gia_tri_giam)}`;
+    }
+    // Nearest end
+    const nearestEnd = activeDiscounts.reduce((nearest, discount) => {
+      const end = new Date(discount.thoi_gian_ket_thuc);
+      if (!nearest || end < nearest) return end;
+      return nearest;
+    }, null as Date | null);
+    return { label, nearestEnd };
+  };
+
+  const formatTimeLeft = (end: Date) => {
+    const now = new Date();
+    const diff = end.getTime() - now.getTime();
+    if (diff <= 0) return 'Đã kết thúc';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (days > 0) return `${days} ngày ${hours} giờ`;
+    if (hours > 0) return `${hours} giờ ${minutes} phút`;
+    return `${minutes} phút`;
   };
 
   if (isLoading) {
@@ -225,22 +285,42 @@ export default function ProductDetailPage() {
           {/* Price */}
           <div>
             {selectedVariant ? (
-              <>
-                {selectedVariant.giamGia ? (
-                  <div className="space-y-1">
-                    <p className="text-2xl font-bold text-blue-600">
-                      {formatCurrency(calculateDiscountedPrice(selectedVariant))}
-                    </p>
-                    <p className="text-lg text-slate-500 line-through">
-                      {formatCurrency(selectedVariant.gia_ban)}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(selectedVariant.gia_ban)}
-                  </p>
-                )}
-              </>
+              (selectedVariant.giamGias && selectedVariant.giamGias.length > 0 && selectedVariant.giamGias.some(g => {
+                const now = new Date();
+                const start = new Date(g.thoi_gian_bat_dau);
+                const end = new Date(g.thoi_gian_ket_thuc);
+                return start <= now && end >= now;
+              })) ? (
+                (() => {
+                  const { label, nearestEnd } = getDiscountInfo(selectedVariant);
+                  return (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {label && (
+                          <span className="bg-red-500 text-white px-2 py-0.5 rounded text-sm">
+                            {label}
+                          </span>
+                        )}
+                        {nearestEnd && (
+                          <span className="text-sm text-red-500">
+                            Kết thúc sau: {formatTimeLeft(nearestEnd)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {formatCurrency(calculateDiscountedPrice(selectedVariant))}
+                      </p>
+                      <p className="text-lg text-slate-500 line-through">
+                        {formatCurrency(selectedVariant.gia_ban)}
+                      </p>
+                    </div>
+                  );
+                })()
+              ) : (
+                <p className="text-2xl font-bold text-blue-600">
+                  {formatCurrency(selectedVariant.gia_ban)}
+                </p>
+              )
             ) : (
               <p className="text-lg text-slate-500">Vui lòng chọn phiên bản</p>
             )}

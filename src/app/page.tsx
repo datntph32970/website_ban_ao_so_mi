@@ -17,57 +17,35 @@ import { QuickAddToCartDialog } from "./(customer)/components/QuickAddToCartDial
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-// Hàm tính giá sau giảm giá
-const calculateDiscountedPrice = (price: number, discount: any) => {
-  if (!discount) return price;
-  
-  if (discount.kieu_giam_gia === 'PhanTram') {
-    return price * (1 - discount.gia_tri_giam / 100);
-  } else if (discount.kieu_giam_gia === 'SoTien') {
-    return Math.max(0, price - discount.gia_tri_giam);
-  }
-  
-  return price;
-};
+interface GiamGia {
+  id_giam_gia: string;
+  ma_giam_gia: string;
+  ten_giam_gia: string;
+  kieu_giam_gia: 'PhanTram' | 'SoTien';
+  gia_tri_giam: number;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+  trang_thai: string;
+}
 
-// Hàm lấy khoảng giá của sản phẩm
-const getPriceRange = (sanPhamChiTiets: SanPhamChiTiet[] | undefined) => {
-  if (!sanPhamChiTiets || sanPhamChiTiets.length === 0) {
-    return {
-      minPrice: 0,
-      maxPrice: 0,
-      hasDiscount: false,
-      minOriginalPrice: 0,
-      maxOriginalPrice: 0,
-    };
-  }
+interface SanPhamChiTietBanChay {
+  id_san_pham_chi_tiet: string;
+  ma_san_pham_chi_tiet: string;
+  gia_ban: number;
+  giamGias?: GiamGia[];
+}
 
-  let minPrice = Infinity;
-  let maxPrice = -Infinity;
-  let minOriginalPrice = Infinity;
-  let maxOriginalPrice = -Infinity;
-  let hasDiscount = false;
-
-  sanPhamChiTiets.forEach(spct => {
-    const originalPrice = spct.gia_ban;
-    const discountedPrice = calculateDiscountedPrice(spct.gia_ban, spct.giamGia);
-    
-    if (discountedPrice < originalPrice) hasDiscount = true;
-    
-    minPrice = Math.min(minPrice, discountedPrice);
-    maxPrice = Math.max(maxPrice, discountedPrice);
-    minOriginalPrice = Math.min(minOriginalPrice, originalPrice);
-    maxOriginalPrice = Math.max(maxOriginalPrice, originalPrice);
-  });
-
-  return {
-    minPrice: minPrice === Infinity ? 0 : minPrice,
-    maxPrice: maxPrice === -Infinity ? 0 : maxPrice,
-    hasDiscount,
-    minOriginalPrice: minOriginalPrice === Infinity ? 0 : minOriginalPrice,
-    maxOriginalPrice: maxOriginalPrice === -Infinity ? 0 : maxOriginalPrice,
-  };
-};
+interface ThongTinChiTiet {
+  url_anh_mac_dinh: string;
+  gia_ban_thap_nhat: number;
+  gia_ban_cao_nhat: number;
+  gia_sau_giam_thap_nhat: number;
+  gia_sau_giam_cao_nhat: number;
+  hasMultipleDiscounts: boolean;
+  singleDiscountLabel: string | null;
+  hasAnyDiscount: boolean;
+  nearestEnd: Date | null;
+}
 
 interface SanPhamBanChay {
   id_san_pham: string;
@@ -75,14 +53,126 @@ interface SanPhamBanChay {
   ten_san_pham: string;
   mo_ta: string;
   so_luong_ban: number;
-  thong_tin_chi_tiet?: {
-    url_anh_mac_dinh: string;
-    gia_ban_thap_nhat: number;
-    gia_ban_cao_nhat: number;
-    gia_sau_giam_thap_nhat: number;
-    gia_sau_giam_cao_nhat: number;
-  };
+  thong_tin_chi_tiet?: ThongTinChiTiet;
 }
+
+// Thêm các hàm xử lý giảm giá giống trang products
+const getDiscountInfo = (variants: SanPhamChiTietBanChay[]) => {
+  const now = new Date();
+  console.log('Current time:', now.toISOString());
+  
+  const discountedPrices: number[] = [];
+  const originalPrices: number[] = [];
+  const discountLabels: string[] = [];
+  let hasAnyDiscount = false;
+
+  variants.forEach(variant => {
+    let price = variant.gia_ban;
+    let label = '';
+    const activeDiscounts = variant.giamGias?.filter((g: GiamGia) => {
+      const start = new Date(g.thoi_gian_bat_dau);
+      const end = new Date(g.thoi_gian_ket_thuc);
+      console.log('Discount time range:', {
+        product: variant.ma_san_pham_chi_tiet,
+        discount: g.ma_giam_gia,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        isActive: start <= now && end >= now
+      });
+      return start <= now && end >= now;
+    }) || [];
+
+    if (activeDiscounts.length > 0) {
+      hasAnyDiscount = true;
+      // Use the highest discount if multiple active
+      const highestDiscount = activeDiscounts.reduce((prev: GiamGia, current: GiamGia) => {
+        const prevValue = prev.kieu_giam_gia === 'PhanTram' 
+          ? (variant.gia_ban * prev.gia_tri_giam / 100)
+          : prev.gia_tri_giam;
+        const currentValue = current.kieu_giam_gia === 'PhanTram'
+          ? (variant.gia_ban * current.gia_tri_giam / 100)
+          : current.gia_tri_giam;
+        return prevValue > currentValue ? prev : current;
+      });
+
+      if (highestDiscount.kieu_giam_gia === 'PhanTram') {
+        price = price * (1 - highestDiscount.gia_tri_giam / 100);
+        label = `Giảm ${highestDiscount.gia_tri_giam}%`;
+      } else if (highestDiscount.kieu_giam_gia === 'SoTien') {
+        price = price - highestDiscount.gia_tri_giam;
+        label = `Giảm ${formatCurrency(highestDiscount.gia_tri_giam)}`;
+      }
+    }
+    discountedPrices.push(price);
+    originalPrices.push(variant.gia_ban);
+    if (label) discountLabels.push(label);
+  });
+
+  // Loại bỏ trùng lặp
+  const uniqueLabels = Array.from(new Set(discountLabels));
+  const hasMultipleDiscounts = uniqueLabels.length > 1;
+  const singleDiscountLabel = uniqueLabels.length === 1 ? uniqueLabels[0] : null;
+
+  console.log('Discount info:', {
+    hasAnyDiscount,
+    hasMultipleDiscounts,
+    singleDiscountLabel,
+    uniqueLabels,
+    minDiscountedPrice: Math.min(...discountedPrices),
+    maxDiscountedPrice: Math.max(...discountedPrices),
+    minOriginalPrice: Math.min(...originalPrices),
+    maxOriginalPrice: Math.max(...originalPrices)
+  });
+
+  return {
+    minDiscountedPrice: Math.min(...discountedPrices),
+    maxDiscountedPrice: Math.max(...discountedPrices),
+    minOriginalPrice: Math.min(...originalPrices),
+    maxOriginalPrice: Math.max(...originalPrices),
+    hasMultipleDiscounts,
+    singleDiscountLabel,
+    hasAnyDiscount
+  };
+};
+
+const getNearestDiscountEndTime = (variants: SanPhamChiTietBanChay[]) => {
+  const now = new Date();
+  let nearestEnd: Date | null = null;
+  
+  variants.forEach(variant => {
+    const activeDiscounts = variant.giamGias?.filter((g: GiamGia) => {
+      const start = new Date(g.thoi_gian_bat_dau);
+      const end = new Date(g.thoi_gian_ket_thuc);
+      return start <= now && end >= now;
+    }) || [];
+
+    if (activeDiscounts.length > 0) {
+      activeDiscounts.forEach(discount => {
+        const end = new Date(discount.thoi_gian_ket_thuc);
+        if (!nearestEnd || end < nearestEnd) {
+          nearestEnd = end;
+        }
+      });
+    }
+  });
+
+  if (nearestEnd) {
+    console.log('Nearest end time:', (nearestEnd as Date).toISOString());
+  }
+  return nearestEnd;
+};
+
+const formatTimeLeft = (end: Date) => {
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  if (diff <= 0) return 'Đã kết thúc';
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `${days} ngày ${hours} giờ`;
+  if (hours > 0) return `${hours} giờ ${minutes} phút`;
+  return `${minutes} phút`;
+};
 
 export default function HomePage() {
   const router = useRouter();
@@ -119,24 +209,50 @@ export default function HomePage() {
             response.data.san_pham_ban_chay.map(async (product) => {
               try {
                 const chiTiet = await sanPhamService.getChiTietSanPham(product.id_san_pham);
-                const activeVariants = chiTiet.sanPhamChiTiets?.filter(spct => spct.trang_thai === 'HoatDong') || [];
-                
-                const pricesWithDiscount = activeVariants.map(spct => ({
-                  original: spct.gia_ban,
-                  discounted: calculateDiscountedPrice(spct.gia_ban, spct.giamGia)
-                }));
+                console.log('Product details:', {
+                  id: product.id_san_pham,
+                  name: product.ten_san_pham,
+                  chiTiet
+                });
 
-                const originalPrices = pricesWithDiscount.map(p => p.original);
-                const discountedPrices = pricesWithDiscount.map(p => p.discounted);
+                const chiTietAny = chiTiet as any;
+                let variants: any[] = [];
                 
+                // Lấy variants từ chi tiết sản phẩm
+                if (Array.isArray(chiTietAny.sanPhamChiTiets) && chiTietAny.sanPhamChiTiets.length > 0) {
+                  variants = chiTietAny.sanPhamChiTiets;
+                } else {
+                  // Fallback to min/max prices if no variants
+                  const minPrice = chiTietAny.gia_ban_thap_nhat || 0;
+                  const maxPrice = chiTietAny.gia_ban_cao_nhat || minPrice;
+                  variants = [{
+                    gia_ban: minPrice,
+                    giamGias: []
+                  }];
+                  if (maxPrice !== minPrice) {
+                    variants.push({
+                      gia_ban: maxPrice,
+                      giamGias: []
+                    });
+                  }
+                }
+
+                const { minDiscountedPrice, maxDiscountedPrice, minOriginalPrice, maxOriginalPrice, hasMultipleDiscounts, singleDiscountLabel, hasAnyDiscount } = getDiscountInfo(variants);
+                const nearestEnd = getNearestDiscountEndTime(variants);
+                const imageUrl = chiTietAny.url_anh_mac_dinh || "";
+
                 return {
                   ...product,
                   thong_tin_chi_tiet: {
-                    url_anh_mac_dinh: chiTiet.url_anh_mac_dinh,
-                    gia_ban_thap_nhat: Math.min(...originalPrices),
-                    gia_ban_cao_nhat: Math.max(...originalPrices),
-                    gia_sau_giam_thap_nhat: Math.min(...discountedPrices),
-                    gia_sau_giam_cao_nhat: Math.max(...discountedPrices)
+                    url_anh_mac_dinh: imageUrl,
+                    gia_ban_thap_nhat: minOriginalPrice,
+                    gia_ban_cao_nhat: maxOriginalPrice,
+                    gia_sau_giam_thap_nhat: minDiscountedPrice,
+                    gia_sau_giam_cao_nhat: maxDiscountedPrice,
+                    hasMultipleDiscounts,
+                    singleDiscountLabel,
+                    hasAnyDiscount,
+                    nearestEnd
                   }
                 };
               } catch (error) {
@@ -145,6 +261,7 @@ export default function HomePage() {
               }
             })
           );
+          console.log('Processed products:', productsWithDetails);
           setFeaturedProducts(productsWithDetails);
         }
       } catch (error) {
@@ -211,76 +328,109 @@ export default function HomePage() {
               </div>
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {featuredProducts.map((product) => (
-                <Card key={product.id_san_pham} className="group relative">
-                  <Link href={`/products/${product.id_san_pham}`}>
-                    <div className="aspect-square relative overflow-hidden">
-                      <Image
-                          src={getImageUrl(product.thong_tin_chi_tiet?.url_anh_mac_dinh)}
+              {featuredProducts.map((product: SanPhamBanChay) => {
+                const chiTiet = product.thong_tin_chi_tiet || {
+                  url_anh_mac_dinh: '',
+                  gia_ban_thap_nhat: 0,
+                  gia_ban_cao_nhat: 0,
+                  gia_sau_giam_thap_nhat: 0,
+                  gia_sau_giam_cao_nhat: 0,
+                  hasMultipleDiscounts: false,
+                  singleDiscountLabel: null,
+                  hasAnyDiscount: false,
+                  nearestEnd: null
+                };
+
+                const {
+                  url_anh_mac_dinh,
+                  gia_ban_thap_nhat,
+                  gia_ban_cao_nhat,
+                  gia_sau_giam_thap_nhat,
+                  gia_sau_giam_cao_nhat,
+                  hasMultipleDiscounts,
+                  singleDiscountLabel,
+                  hasAnyDiscount,
+                  nearestEnd
+                } = chiTiet;
+
+                return (
+                  <Card key={product.id_san_pham} className="group relative">
+                    <Link href={`/products/${product.id_san_pham}`}>
+                      <div className="aspect-square relative overflow-hidden">
+                        <Image
+                          src={getImageUrl(url_anh_mac_dinh)}
                           alt={product.ten_san_pham}
-                        fill
-                        className="object-cover transition-transform group-hover:scale-105"
-                      />
-                        {product.thong_tin_chi_tiet && 
-                          product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat < product.thong_tin_chi_tiet.gia_ban_thap_nhat && (
+                          fill
+                          className="object-cover transition-transform group-hover:scale-105"
+                        />
+                        {hasMultipleDiscounts && (
                           <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm">
-                            Giảm {Math.round((1 - product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat / product.thong_tin_chi_tiet.gia_ban_thap_nhat) * 100)}%
+                            Có nhiều mức giảm giá
                           </div>
                         )}
-                    </div>
-                    <div className="p-4">
+                        {!hasMultipleDiscounts && singleDiscountLabel && (
+                          <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm">
+                            {singleDiscountLabel}
+                          </div>
+                        )}
+                        {hasAnyDiscount && nearestEnd && (
+                          <div className="absolute left-0 right-0 bottom-0 w-full bg-red-600/70 text-white text-right py-2 px-3 font-medium rounded-b-lg text-sm">
+                            Kết thúc sau: {formatTimeLeft(nearestEnd)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
                         <h3 className="font-medium mb-2 group-hover:text-blue-600 line-clamp-2">
                           {product.ten_san_pham}
-                      </h3>
+                        </h3>
                         <div className="mb-2">
-                          {product.thong_tin_chi_tiet && (
-                            product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat < product.thong_tin_chi_tiet.gia_ban_thap_nhat ? (
-                              <>
-                                <p className="font-bold text-blue-600">
-                                  {product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat === product.thong_tin_chi_tiet.gia_sau_giam_cao_nhat
-                                    ? formatCurrency(product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat)
-                                    : `${formatCurrency(product.thong_tin_chi_tiet.gia_sau_giam_thap_nhat)} - ${formatCurrency(product.thong_tin_chi_tiet.gia_sau_giam_cao_nhat)}`}
-                                </p>
-                                <p className="text-sm text-slate-500 line-through">
-                                  {product.thong_tin_chi_tiet.gia_ban_thap_nhat === product.thong_tin_chi_tiet.gia_ban_cao_nhat
-                                    ? formatCurrency(product.thong_tin_chi_tiet.gia_ban_thap_nhat)
-                                    : `${formatCurrency(product.thong_tin_chi_tiet.gia_ban_thap_nhat)} - ${formatCurrency(product.thong_tin_chi_tiet.gia_ban_cao_nhat)}`}
-                                </p>
-                              </>
-                            ) : (
+                          {hasAnyDiscount ? (
+                            <>
                               <p className="font-bold text-blue-600">
-                                {product.thong_tin_chi_tiet.gia_ban_thap_nhat === product.thong_tin_chi_tiet.gia_ban_cao_nhat
-                                  ? formatCurrency(product.thong_tin_chi_tiet.gia_ban_thap_nhat)
-                                  : `${formatCurrency(product.thong_tin_chi_tiet.gia_ban_thap_nhat)} - ${formatCurrency(product.thong_tin_chi_tiet.gia_ban_cao_nhat)}`}
+                                {gia_sau_giam_thap_nhat === gia_sau_giam_cao_nhat
+                                  ? formatCurrency(gia_sau_giam_thap_nhat)
+                                  : `${formatCurrency(gia_sau_giam_thap_nhat)} - ${formatCurrency(gia_sau_giam_cao_nhat)}`}
                               </p>
-                            )
+                              <p className="text-sm text-slate-500 line-through">
+                                {gia_ban_thap_nhat === gia_ban_cao_nhat
+                                  ? formatCurrency(gia_ban_thap_nhat)
+                                  : `${formatCurrency(gia_ban_thap_nhat)} - ${formatCurrency(gia_ban_cao_nhat)}`}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="font-bold text-blue-600">
+                              {gia_ban_thap_nhat === gia_ban_cao_nhat
+                                ? formatCurrency(gia_ban_thap_nhat)
+                                : `${formatCurrency(gia_ban_thap_nhat)} - ${formatCurrency(gia_ban_cao_nhat)}`}
+                            </p>
                           )}
                         </div>
                         <div className="text-sm text-slate-500">
                           Đã bán: {product.so_luong_ban}
                         </div>
+                      </div>
+                    </Link>
+                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon"
+                        className="rounded-full"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleQuickAdd(product);
+                        }}
+                        disabled={isLoadingQuickAdd}
+                      >
+                        {isLoadingQuickAdd ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShoppingCart className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
-                  </Link>
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="icon"
-                      className="rounded-full"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleQuickAdd(product);
-                      }}
-                      disabled={isLoadingQuickAdd}
-                    >
-                      {isLoadingQuickAdd ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ShoppingCart className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
             )}
             

@@ -156,14 +156,14 @@ export const hoaDonService = {
         return response.data;
     },
 
-    danhDauHetHang: async (id_hoa_don: string, ghi_chu: string): Promise<{
+    danhDauHetHang: async (id_hoa_don: string): Promise<{
         message: string;
     }> => {
-        const response = await api.put(`/HoaDon/danh-dau-het-hang/${id_hoa_don}`, { ghi_chu });
+        const response = await api.put(`/HoaDon/danh-dau-het-hang/${id_hoa_don}`);
         return response.data;
     },
 
-    capNhatTrangThaiGiaoHang: async (id_hoa_don: string, trang_thai: 'DangChuanBi' | 'DangGiaoHang' | 'DaHoanThanh'): Promise<{
+    capNhatTrangThaiGiaoHang: async (id_hoa_don: string, trang_thai: 'DangChuanBi' | 'DangGiaoHang' | 'DaNhanHang' | 'DaHoanThanh'): Promise<{
         message: string;
     }> => {
         const response = await api.put(`/HoaDon/cap-nhat-trang-thai-giao-hang/${id_hoa_don}`, { trang_thai });

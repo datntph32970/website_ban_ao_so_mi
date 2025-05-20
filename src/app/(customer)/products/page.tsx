@@ -35,6 +35,20 @@ import { XuatXu } from "@/types/xuat-xu";
 import { QuickAddToCartDialog } from "../components/QuickAddToCartDialog";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Search, X as XIcon, ShoppingCart } from "lucide-react";
+import { format, differenceInMilliseconds, formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale";
+
+// Add interface for discount
+interface GiamGia {
+  id_giam_gia: string;
+  ma_giam_gia: string;
+  ten_giam_gia: string;
+  kieu_giam_gia: 'PhanTram' | 'SoTien';
+  gia_tri_giam: number;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+  trang_thai: string;
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<SanPham[]>([]);
@@ -172,19 +186,6 @@ export default function ProductsPage() {
     productsPerPage
   ]);
 
-  // Hàm tính giá sau giảm giá
-  const calculateDiscountedPrice = (price: number, discount: any) => {
-    if (!discount) return price;
-    
-    if (discount.kieu_giam_gia === 'PhanTram') {
-      return price * (1 - discount.gia_tri_giam / 100);
-    } else if (discount.kieu_giam_gia === 'SoTien') {
-      return Math.max(0, price - discount.gia_tri_giam);
-    }
-    
-    return price;
-  };
-
   // Update the checkbox handlers
   const handleStyleChange = (styleId: string, checked: boolean) => {
     setSelectedStyleIds(prev =>
@@ -221,6 +222,101 @@ export default function ProductsPage() {
     setSelectedOriginIds([]);
     setPriceRange([0, maxProductPrice]);
     setCurrentPage(1);
+  };
+
+  // Update getActiveDiscount function with proper typing
+  const getDiscountInfo = (variants: any[]) => {
+    const now = new Date();
+    const discountedPrices: number[] = [];
+    const originalPrices: number[] = [];
+    const discountLabels: string[] = [];
+    let hasAnyDiscount = false;
+
+    variants.forEach(variant => {
+      let price = variant.gia_ban;
+      let label = '';
+      const discount = variant.giamGias?.find((g: any) =>
+        new Date(g.thoi_gian_bat_dau) <= now && new Date(g.thoi_gian_ket_thuc) >= now
+      );
+      if (discount) {
+        hasAnyDiscount = true;
+        if (discount.kieu_giam_gia === 'PhanTram') {
+          price = price * (1 - discount.gia_tri_giam / 100);
+          label = `Giảm ${discount.gia_tri_giam}%`;
+        } else if (discount.kieu_giam_gia === 'SoTien') {
+          price = price - discount.gia_tri_giam;
+          label = `Giảm ${formatCurrency(discount.gia_tri_giam)}`;
+        }
+      }
+      discountedPrices.push(price);
+      originalPrices.push(variant.gia_ban);
+      if (label) discountLabels.push(label);
+    });
+
+    // Loại bỏ trùng lặp
+    const uniqueLabels = Array.from(new Set(discountLabels));
+    const hasMultipleDiscounts = uniqueLabels.length > 1;
+    const singleDiscountLabel = uniqueLabels.length === 1 ? uniqueLabels[0] : null;
+
+    return {
+      minDiscountedPrice: Math.min(...discountedPrices),
+      maxDiscountedPrice: Math.max(...discountedPrices),
+      minOriginalPrice: Math.min(...originalPrices),
+      maxOriginalPrice: Math.max(...originalPrices),
+      hasMultipleDiscounts,
+      singleDiscountLabel,
+      hasAnyDiscount
+    };
+  };
+
+  // Add this helper function after getActiveDiscount
+  const getTimeRemaining = (endDate: string): string => {
+    const now = new Date();
+    const end = new Date(endDate);
+    const diff = end.getTime() - now.getTime();
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) {
+      return `${days} ngày ${hours} giờ`;
+    } else if (hours > 0) {
+      return `${hours} giờ ${minutes} phút`;
+    } else {
+      return `${minutes} phút`;
+    }
+  };
+
+  // Sau getDiscountInfo, thêm hàm getNearestDiscountEndTime
+  const getNearestDiscountEndTime = (variants: any[]) => {
+    const now = new Date();
+    let nearestEnd: Date | null = null;
+    variants.forEach(variant => {
+      const discount = variant.giamGias?.find((g: any) =>
+        new Date(g.thoi_gian_bat_dau) <= now && new Date(g.thoi_gian_ket_thuc) >= now
+      );
+      if (discount) {
+        const end = new Date(discount.thoi_gian_ket_thuc);
+        if (!nearestEnd || end < nearestEnd) {
+          nearestEnd = end;
+        }
+      }
+    });
+    return nearestEnd;
+  };
+
+  // Hàm format thời gian còn lại
+  const formatTimeLeft = (end: Date) => {
+    const now = new Date();
+    const diff = end.getTime() - now.getTime();
+    if (diff <= 0) return 'Đã kết thúc';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (days > 0) return `${days} ngày ${hours} giờ`;
+    if (hours > 0) return `${hours} giờ ${minutes} phút`;
+    return `${minutes} phút`;
   };
 
   return (
@@ -480,16 +576,9 @@ export default function ProductsPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {products.map((product) => {
-                  const minPrice = Math.min(...(product.sanPhamChiTiets?.map(spct => spct.gia_ban) || [0]));
-                  const maxPrice = Math.max(...(product.sanPhamChiTiets?.map(spct => spct.gia_ban) || [0]));
-                  
-                  const minDiscountedPrice = Math.min(...(product.sanPhamChiTiets?.map(spct => 
-                    calculateDiscountedPrice(spct.gia_ban, spct.giamGia)) || [0]));
-                  const maxDiscountedPrice = Math.max(...(product.sanPhamChiTiets?.map(spct => 
-                    calculateDiscountedPrice(spct.gia_ban, spct.giamGia)) || [0]));
-                  
-                  const hasDiscount = minDiscountedPrice < minPrice;
+                  const { minDiscountedPrice, maxDiscountedPrice, minOriginalPrice, maxOriginalPrice, hasMultipleDiscounts, singleDiscountLabel, hasAnyDiscount } = getDiscountInfo(product.sanPhamChiTiets || []);
                   const totalSold = product.sanPhamChiTiets?.reduce((sum, spct) => sum + (spct.so_luong_da_ban || 0), 0) || 0;
+                  const nearestEnd = getNearestDiscountEndTime(product.sanPhamChiTiets || []);
 
                   return (
                     <Card key={product.id_san_pham} className="group relative">
@@ -501,9 +590,20 @@ export default function ProductsPage() {
                             fill
                             className="object-cover transition-transform group-hover:scale-105"
                           />
-                          {hasDiscount && (
+                          {hasMultipleDiscounts && (
                             <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm">
-                              Giảm {Math.round((1 - minDiscountedPrice / minPrice) * 100)}%
+                              Có nhiều mức giảm giá
+                            </div>
+                          )}
+                          {!hasMultipleDiscounts && singleDiscountLabel && (
+                            <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm">
+                              {singleDiscountLabel}
+                            </div>
+                          )}
+                          {/* Thời gian còn lại giảm giá */}
+                          {nearestEnd && (
+                            <div className="absolute left-0 right-0 bottom-0 w-full bg-red-600/70 text-white text-right py-2 px-3 font-medium rounded-b-lg text-sm">
+                              Kết thúc sau: {formatTimeLeft(nearestEnd)}
                             </div>
                           )}
                         </div>
@@ -512,7 +612,7 @@ export default function ProductsPage() {
                             {product.ten_san_pham}
                           </h3>
                           <div className="mb-2">
-                            {hasDiscount ? (
+                            {hasAnyDiscount ? (
                               <>
                                 <p className="font-bold text-blue-600">
                                   {minDiscountedPrice === maxDiscountedPrice
@@ -520,16 +620,16 @@ export default function ProductsPage() {
                                     : `${formatCurrency(minDiscountedPrice)} - ${formatCurrency(maxDiscountedPrice)}`}
                                 </p>
                                 <p className="text-sm text-slate-500 line-through">
-                                  {minPrice === maxPrice
-                                    ? formatCurrency(minPrice)
-                                    : `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`}
+                                  {minOriginalPrice === maxOriginalPrice
+                                    ? formatCurrency(minOriginalPrice)
+                                    : `${formatCurrency(minOriginalPrice)} - ${formatCurrency(maxOriginalPrice)}`}
                                 </p>
                               </>
                             ) : (
                               <p className="font-bold text-blue-600">
-                                {minPrice === maxPrice
-                                  ? formatCurrency(minPrice)
-                                  : `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`}
+                                {minOriginalPrice === maxOriginalPrice
+                                  ? formatCurrency(minOriginalPrice)
+                                  : `${formatCurrency(minOriginalPrice)} - ${formatCurrency(maxOriginalPrice)}`}
                               </p>
                             )}
                           </div>

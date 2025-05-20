@@ -30,9 +30,8 @@ import { SanPhamChiTiet } from "@/types/san-pham-chi-tiet";
 import { GiamGia } from "@/types/giam-gia";
 import { sanPhamService } from "@/services/san-pham.service";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
+import { format, differenceInMilliseconds, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
-import { mapSanPhamList } from '@/utils/san-pham.utils';
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -45,8 +44,56 @@ import { attributeService } from "@/services/attribute.service";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Slider } from "@/components/ui/slider";
 
+// Add interface for variant price calculation
+interface VariantPriceInfo {
+  effectivePrice: number;
+  originalPrice: number;
+  discount: any | null;
+}
 
-// Định nghĩa type cho item hiển thị danh sách sản phẩm
+// Add this helper function at the top level of the file, after the imports
+const getEffectivePriceAndDiscount = (variant: any): VariantPriceInfo => {
+  const now = new Date();
+  const activeDiscount = variant.giamGias?.find(
+    (discount: any) => 
+      new Date(discount.thoi_gian_bat_dau) <= now && 
+      new Date(discount.thoi_gian_ket_thuc) >= now
+  );
+
+  if (!activeDiscount) {
+    return {
+      effectivePrice: variant.gia_ban,
+      originalPrice: variant.gia_ban,
+      discount: null
+    };
+  }
+
+  const discountedPrice = activeDiscount.kieu_giam_gia === 'PhanTram'
+    ? variant.gia_ban * (1 - activeDiscount.gia_tri_giam / 100)
+    : variant.gia_ban - activeDiscount.gia_tri_giam;
+
+  return {
+    effectivePrice: discountedPrice,
+    originalPrice: variant.gia_ban,
+    discount: activeDiscount
+  };
+};
+
+// Add this helper function after getEffectivePriceAndDiscount
+const getDiscountTimeRemaining = (discount: any) => {
+  const now = new Date();
+  const endDate = new Date(discount.thoi_gian_ket_thuc);
+  const timeRemaining = differenceInMilliseconds(endDate, now);
+  
+  if (timeRemaining <= 0) return null;
+  
+  return formatDistanceToNow(endDate, { 
+    addSuffix: true,
+    locale: vi 
+  });
+};
+
+// Update the ProductListItem type to include new fields and make price fields required
 type ProductListItem = {
   id: string;
   code: string;
@@ -56,6 +103,9 @@ type ProductListItem = {
   price: number;
   minPrice: number;
   maxPrice: number;
+  minEffectivePrice: number;
+  maxEffectivePrice: number;
+  hasActiveDiscount: boolean;
   stock: number;
   sold: number;
   imageUrl: string;
@@ -63,10 +113,59 @@ type ProductListItem = {
   updated_at: string;
   promotionId?: string;
   discountInfo?: GiamGia | null;
-  minOriginPrice?: number;
-  maxOriginPrice?: number;
+  minOriginPrice: number;
+  maxOriginPrice: number;
   trang_thai: string;
 };
+
+// Remove the import of mapSanPhamList and define it here
+function mapSanPhamList(products: any[], API_BASE: string): ProductListItem[] {
+  return products.map(product => {
+    const variants = product.sanPhamChiTiets || [];
+    const variantPrices = variants.map(getEffectivePriceAndDiscount);
+    
+    // Initialize arrays with 0 if empty to avoid undefined values
+    const effectivePrices = variantPrices.map((p: VariantPriceInfo) => p.effectivePrice);
+    const originalPrices = variantPrices.map((p: VariantPriceInfo) => p.originalPrice);
+    
+    // Use 0 as default if arrays are empty
+    const minEffectivePrice = effectivePrices.length > 0 ? Math.min(...effectivePrices) : 0;
+    const maxEffectivePrice = effectivePrices.length > 0 ? Math.max(...effectivePrices) : 0;
+    const minOriginalPrice = originalPrices.length > 0 ? Math.min(...originalPrices) : 0;
+    const maxOriginalPrice = originalPrices.length > 0 ? Math.max(...originalPrices) : 0;
+    
+    // Find active discount
+    const activeDiscount = variantPrices.find((p: VariantPriceInfo) => p.discount !== null)?.discount;
+    const hasActiveDiscount = activeDiscount !== undefined;
+
+    const imageUrl = product.url_anh_mac_dinh 
+      ? `${API_BASE}${product.url_anh_mac_dinh}`.replace(/\/+/g, '/')
+      : '';
+
+    return {
+      id: product.id_san_pham,
+      code: product.ma_san_pham,
+      name: product.ten_san_pham,
+      brand: product.thuongHieu?.ten_thuong_hieu || '',
+      category: product.danhMuc?.ten_danh_muc || '',
+      price: minOriginalPrice,
+      minPrice: minOriginalPrice,
+      maxPrice: maxOriginalPrice,
+      minEffectivePrice,
+      maxEffectivePrice,
+      hasActiveDiscount,
+      stock: variants.reduce((sum: number, v: any) => sum + (v.so_luong || 0), 0),
+      sold: variants.reduce((sum: number, v: any) => sum + (v.so_luong_da_ban || 0), 0),
+      imageUrl,
+      created_at: product.ngay_tao,
+      updated_at: product.ngay_cap_nhat,
+      trang_thai: product.trang_thai,
+      minOriginPrice: minOriginalPrice,
+      maxOriginPrice: maxOriginalPrice,
+      discountInfo: activeDiscount || null
+    };
+  });
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<ProductListItem[]>([]);
@@ -698,25 +797,30 @@ export default function ProductsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-medium align-middle">
-                      {product.discountInfo ? (
+                      {product.hasActiveDiscount ? (
                         <div className="text-right">
                           <div className="text-sm text-green-600">
-                            {product.minPrice === product.maxPrice
-                              ? formatCurrency(product.minPrice ?? 0)
-                              : `${formatCurrency(product.minPrice ?? 0)} - ${formatCurrency(product.maxPrice ?? 0)}`}
-                            </div>
-                            <div className="text-xs text-slate-400 line-through">
+                            {product.minEffectivePrice === product.maxEffectivePrice
+                              ? formatCurrency(product.minEffectivePrice)
+                              : `${formatCurrency(product.minEffectivePrice)} - ${formatCurrency(product.maxEffectivePrice)}`}
+                          </div>
+                          <div className="text-xs text-slate-400 line-through">
                             {product.minOriginPrice === product.maxOriginPrice
-                              ? formatCurrency(product.minOriginPrice ?? 0)
-                              : `${formatCurrency(product.minOriginPrice ?? 0)} - ${formatCurrency(product.maxOriginPrice ?? 0)}`}
+                              ? formatCurrency(product.minOriginPrice)
+                              : `${formatCurrency(product.minOriginPrice)} - ${formatCurrency(product.maxOriginPrice)}`}
+                          </div>
+                          {product.discountInfo && (
+                            <div className="text-xs text-orange-600 mt-1">
+                              {getDiscountTimeRemaining(product.discountInfo)}
                             </div>
-                            </div>
-                        ) : (
+                          )}
+                        </div>
+                      ) : (
                         <div className="text-right">
                           <span className="text-sm text-slate-700">
                             {product.minPrice === product.maxPrice
-                              ? formatCurrency(product.minPrice ?? 0)
-                              : `${formatCurrency(product.minPrice ?? 0)} - ${formatCurrency(product.maxPrice ?? 0)}`}
+                              ? formatCurrency(product.minPrice)
+                              : `${formatCurrency(product.minPrice)} - ${formatCurrency(product.maxPrice)}`}
                           </span>
                         </div>
                       )}

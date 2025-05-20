@@ -2,12 +2,14 @@
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Package, Tag, Info, Image as ImageIcon, Edit, Trash2, Copy, Share2, Eye, EyeOff, AlertCircle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Search, ArrowUpDown, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Package, Tag, Info, Image as ImageIcon, Edit, Trash2, Copy, Share2, Eye, EyeOff, AlertCircle, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Search, ArrowUpDown, ShoppingCart, ArrowRight, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect, useCallback } from "react";
 import { SanPham } from "@/types/san-pham";
-import {  SanPhamChiTiet } from "@/types/san-pham-chi-tiet";
+import { SanPhamChiTiet } from "@/types/san-pham-chi-tiet";
+import { GiamGia } from "@/types/giam-gia";
 import { sanPhamService } from "@/services/san-pham.service";
+import { giamGiaService } from "@/services/giam-gia.service";
 import toast from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,64 @@ import {
 } from "@/components/ui/select";
 import Link from 'next/link';
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+
+interface ExtendedSanPhamChiTiet extends SanPhamChiTiet {
+  giamGias?: GiamGia[];
+}
+
+interface GiamGiaWithDates extends GiamGia {
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+}
+
+// Add useCountdown hook
+const useCountdown = (targetDate: string) => {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const now = new Date().getTime();
+    const target = new Date(targetDate).getTime();
+    return Math.max(0, target - now);
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const target = new Date(targetDate).getTime();
+      setTimeLeft(Math.max(0, target - now));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+  return { days, hours, minutes, seconds };
+};
+
+// Add CountdownDisplay component
+const CountdownDisplay = ({ date, type }: { date: string, type: 'start' | 'end' }) => {
+  const { days, hours, minutes, seconds } = useCountdown(date);
+  const isNearEnd = days === 0 && hours < 24;
+
+  return (
+    <div className={cn(
+      "text-xs inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium",
+      type === 'end' ? (
+        isNearEnd ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+      ) : "bg-blue-100 text-blue-700"
+    )}>
+      <span className="w-3 h-3 rounded-full animate-pulse bg-current opacity-75" />
+      {type === 'end' ? "Kết thúc sau: " : "Bắt đầu sau: "}
+      {days > 0 && `${days}d `}
+      {hours.toString().padStart(2, '0')}:
+      {minutes.toString().padStart(2, '0')}:
+      {seconds.toString().padStart(2, '0')}
+    </div>
+  );
+};
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -45,7 +105,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
   // All useState hooks
-  const [product, setProduct] = useState<SanPham | null>(null);
+  const [product, setProduct] = useState<(SanPham & { sanPhamChiTiets?: ExtendedSanPhamChiTiet[] }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState("general");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -58,7 +118,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<keyof SanPhamChiTiet | null>(null);
+  const [sortField, setSortField] = useState<keyof ExtendedSanPhamChiTiet | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [filterColor, setFilterColor] = useState<string | null>(null);
   const [filterSize, setFilterSize] = useState<string | null>(null);
@@ -68,6 +128,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [isUpdateStatusDialogOpen, setIsUpdateStatusDialogOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<'HoatDong' | 'KhongHoatDong'>('HoatDong');
+  const [selectedVariantForDiscounts, setSelectedVariantForDiscounts] = useState<ExtendedSanPhamChiTiet | null>(null);
+  const [isRemovingDiscount, setIsRemovingDiscount] = useState(false);
+  const [isConfirmRemoveOpen, setIsConfirmRemoveOpen] = useState(false);
+  const [discountToRemove, setDiscountToRemove] = useState<GiamGiaWithDates | null>(null);
 
   // All useRef hooks
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
@@ -163,6 +227,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       toast.error(error.response?.data || 'Không thể cập nhật trạng thái');
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  // Modify the handleRemoveDiscount function
+  const handleRemoveDiscount = (giamGia: GiamGiaWithDates) => {
+    setDiscountToRemove(giamGia);
+    setIsConfirmRemoveOpen(true);
+  };
+
+  const confirmRemoveDiscount = async () => {
+    if (!discountToRemove || !selectedVariantForDiscounts) return;
+
+    try {
+      setIsRemovingDiscount(true);
+      await giamGiaService.xoaGiamGiaKhoiSanPhamChiTiet({
+        id_giam_gia: discountToRemove.id_giam_gia,
+        san_pham_chi_tiet_ids: [selectedVariantForDiscounts.id_san_pham_chi_tiet]
+      });
+      
+      toast.success('Đã xóa giảm giá khỏi sản phẩm');
+      
+      // Refresh product data
+      const updatedProduct = await sanPhamService.getChiTietSanPham(productId);
+      setProduct(updatedProduct);
+      
+      // Close both dialogs
+      setIsConfirmRemoveOpen(false);
+      setDiscountToRemove(null);
+      setSelectedVariantForDiscounts(null);
+    } catch (error: any) {
+      console.error('Error removing discount:', error);
+      toast.error(error.response?.data || 'Không thể xóa giảm giá');
+    } finally {
+      setIsRemovingDiscount(false);
     }
   };
 
@@ -303,11 +401,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   // Calculate total stock and average price
   const totalStock = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.so_luong || 0), 0) : 0;
   const averagePrice = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => {
-    const discountedPrice = variant.giamGia 
-      ? variant.giamGia.kieu_giam_gia === 'PhanTram'
-        ? variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100)
-        : variant.gia_ban - variant.giamGia.gia_tri_giam
-      : variant.gia_ban;
+    const activeDiscount = variant.giamGias?.find(
+      (discount: GiamGia) => 
+        new Date(discount.thoi_gian_bat_dau) <= new Date() && 
+        new Date(discount.thoi_gian_ket_thuc) >= new Date()
+    );
+
+    if (!activeDiscount) return sum + variant.gia_ban;
+
+    const discountedPrice = activeDiscount.kieu_giam_gia === 'PhanTram'
+      ? variant.gia_ban * (1 - activeDiscount.gia_tri_giam / 100)
+      : variant.gia_ban - activeDiscount.gia_tri_giam;
+
     return sum + discountedPrice;
   }, 0) / product.sanPhamChiTiets.length : 0;
   const totalSold = product.sanPhamChiTiets ? product.sanPhamChiTiets.reduce((sum, variant) => sum + (variant.so_luong_da_ban || 0), 0) : 0;
@@ -368,6 +473,36 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     Array.from(new Set(product.sanPhamChiTiets.map(variant => String(variant.kichCo?.id_kich_co))))
       .map(sizeId => product.sanPhamChiTiets?.find(v => String(v.kichCo?.id_kich_co) === sizeId)?.kichCo)
       .filter(Boolean) : [];
+
+  const getPromotionStatus = (variant: ExtendedSanPhamChiTiet) => {
+    const now = new Date();
+    const activeDiscount = variant.giamGias?.find(
+      (discount: GiamGia) => 
+        new Date(discount.thoi_gian_bat_dau) <= now && 
+        new Date(discount.thoi_gian_ket_thuc) >= now
+    );
+
+    if (!activeDiscount) {
+      const upcomingDiscount = variant.giamGias?.find(
+        (discount: GiamGia) => new Date(discount.thoi_gian_bat_dau) > now
+      );
+      return upcomingDiscount 
+        ? { status: 'upcoming', label: 'Sắp áp dụng', color: 'bg-indigo-50 text-indigo-700 border-indigo-100' }
+        : { status: 'expired', label: 'Hết hiệu lực', color: 'bg-slate-100 text-slate-700 border-slate-200' };
+    }
+
+    const endDate = new Date(activeDiscount.thoi_gian_ket_thuc);
+    const timeLeft = endDate.getTime() - now.getTime();
+    const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+    
+    return {
+      status: 'active',
+      label: `Còn ${daysLeft} ngày`,
+      color: daysLeft <= 3 
+        ? 'bg-amber-50 text-amber-700 border-amber-100'
+        : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+    };
+  };
 
   return (
     <AdminLayout>
@@ -814,7 +949,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       )}
 
                       {/* Variants Table */}
-                      <div className="rounded-md border">
+                      <div className="rounded-md border overflow-auto" style={{
+                        scrollbarWidth: 'none',  /* Firefox */
+                        msOverflowStyle: 'none',  /* Internet Explorer 10+ */
+                      }}>
+                        <style jsx>{`
+                          div::-webkit-scrollbar {
+                            display: none;  /* Safari and Chrome */
+                          }
+                        `}</style>
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -840,17 +983,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                 </div>
                               </TableHead>
                               <TableHead>Màu sắc</TableHead>
-                              <TableHead 
-                                className="cursor-pointer hover:bg-slate-100"
-                                onClick={() => handleSort('kichCo')}
-                              >
-                                <div className="flex items-center gap-2">
-                                  Kích cỡ
-                                  {sortField === 'kichCo' && (
-                                    <ArrowUpDown className="h-4 w-4" />
-                                  )}
-                                </div>
-                              </TableHead>
+                              <TableHead>Kích cỡ</TableHead>
                               <TableHead 
                                 className="cursor-pointer hover:bg-slate-100"
                                 onClick={() => handleSort('so_luong')}
@@ -862,24 +995,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                   )}
                                 </div>
                               </TableHead>
+                              <TableHead>Đã bán</TableHead>
                               <TableHead 
                                 className="cursor-pointer hover:bg-slate-100"
-                                onClick={() => handleSort('so_luong_da_ban')}
+                                onClick={() => handleSort('gia_ban')}
                               >
                                 <div className="flex items-center gap-2">
-                                  Đã bán
-                                  {sortField === 'so_luong_da_ban' && (
-                                    <ArrowUpDown className="h-4 w-4" />
-                                  )}
-                                </div>
-                              </TableHead>
-                              <TableHead 
-                                className="cursor-pointer hover:bg-slate-100"
-                                onClick={() => handleSort('gia_nhap')}
-                              >
-                                <div className="flex items-center gap-2">
-                                  Giá nhập
-                                  {sortField === 'gia_nhap' && (
+                                  Giá bán
+                                  {sortField === 'gia_ban' && (
                                     <ArrowUpDown className="h-4 w-4" />
                                   )}
                                 </div>
@@ -933,47 +1056,135 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                                     {variant.so_luong_da_ban || 0}
                                   </span>
                                 </TableCell>
+                                <TableCell className="text-right font-medium">
+                                  {(() => {
+                                    const activeDiscount = variant.giamGias?.find(
+                                      (discount: GiamGia) => 
+                                        new Date(discount.thoi_gian_bat_dau) <= new Date() && 
+                                        new Date(discount.thoi_gian_ket_thuc) >= new Date()
+                                    );
+
+                                    if (!activeDiscount) {
+                                      return formatCurrency(variant.gia_ban);
+                                    }
+
+                                    const discountedPrice = activeDiscount.kieu_giam_gia === 'PhanTram'
+                                      ? variant.gia_ban * (1 - activeDiscount.gia_tri_giam / 100)
+                                      : variant.gia_ban - activeDiscount.gia_tri_giam;
+
+                                    return (
+                                      <div className="text-center transition-all duration-300 ease-in-out transform hover:scale-105">
+                                        <div className="text-sm font-bold text-green-600">
+                                          {formatCurrency(discountedPrice)}
+                                        </div>
+                                        <div className="text-sm text-slate-400 line-through mb-1">
+                                          {formatCurrency(variant.gia_ban)}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </TableCell>
                                 <TableCell>
-                                  {variant.giamGia ? (
-                                    <div className="text-center transition-all duration-300 ease-in-out transform hover:scale-105">
-                                      <div className="text-sm font-bold text-green-600">
-                                        {variant.giamGia.kieu_giam_gia === 'PhanTram'
-                                          ? formatCurrency(variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100))
-                                          : formatCurrency(Math.max(0, variant.gia_ban - variant.giamGia.gia_tri_giam))}
-                                      </div>
-                                      <div className="text-sm text-slate-400 line-through">
-                                        {formatCurrency(variant.gia_ban)}
-                                      </div>
-                                      {variant.giamGia.ten_giam_gia && (
-                                        <Link href={`/admin/discounts?search=${encodeURIComponent(variant.giamGia.ten_giam_gia)}`} legacyBehavior>
-                                          <a className="text-xs text-blue-600 mt-1 hover:underline cursor-pointer" target="_self" rel="noopener noreferrer">
-                                            {variant.giamGia.ten_giam_gia}
-                                          </a>
-                                        </Link>
-                                      )}
+                                  {variant.giamGias && variant.giamGias.length > 0 ? (
+                                    <div className="flex flex-col gap-2">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        className="h-auto px-0 hover:bg-transparent hover:opacity-70 transition-opacity"
+                                        onClick={() => setSelectedVariantForDiscounts(variant)}
+                                      >
+                                        {(() => {
+                                          const now = new Date();
+                                          const activeDiscounts = variant.giamGias?.filter(
+                                            (discount: GiamGia) => 
+                                              new Date(discount.thoi_gian_bat_dau) <= now && 
+                                              new Date(discount.thoi_gian_ket_thuc) >= now
+                                          ) || [];
+
+                                          const upcomingDiscount = variant.giamGias?.find(
+                                            (discount: GiamGia) => new Date(discount.thoi_gian_bat_dau) > now
+                                          );
+
+                                          if (activeDiscounts.length === 0) {
+                                            if (upcomingDiscount) {
+                                              return (
+                                                <div className="flex flex-col gap-2 items-start">
+                                                  <div className="flex items-center gap-2">
+                                                    <Tag className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                                                    <span className="text-xs text-slate-600">
+                                                      Sắp giảm giá
+                                                    </span>
+                                                  </div>
+                                                  <CountdownDisplay 
+                                                    date={upcomingDiscount.thoi_gian_bat_dau} 
+                                                    type="start" 
+                                                  />
+                                                </div>
+                                              );
+                                            }
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <Tag className="w-4 h-4 text-slate-400 group-hover:text-violet-500 transition-colors" />
+                                                <span className="text-xs text-slate-600">
+                                                  Xem lịch sử ({variant.giamGias?.length || 0})
+                                                </span>
+                                              </div>
+                                            );
+                                          }
+
+                                          return (
+                                            <div className="flex flex-col gap-2 items-start">
+                                              <div className="flex items-center gap-2">
+                                                <div className="flex -space-x-3">
+                                                  {activeDiscounts.map((giamGia: GiamGia, index: number) => (
+                                                    <Badge 
+                                                      key={giamGia.id_giam_gia}
+                                                      className={cn(
+                                                        "shadow-sm border-2 border-white font-medium",
+                                                        giamGia.kieu_giam_gia === 'PhanTram' 
+                                                          ? "bg-violet-500 text-white hover:bg-violet-600" 
+                                                          : "bg-teal-500 text-white hover:bg-teal-600"
+                                                      )}
+                                                      style={{ zIndex: activeDiscounts.length - index }}
+                                                    >
+                                                      {giamGia.kieu_giam_gia === 'PhanTram' 
+                                                        ? `-${giamGia.gia_tri_giam}%`
+                                                        : `-${formatCurrency(giamGia.gia_tri_giam)}`}
+                                                    </Badge>
+                                                  ))}
+                                                </div>
+                                                {variant.giamGias && variant.giamGias.length > activeDiscounts.length && (
+                                                  <span className="text-xs text-slate-600 group-hover:text-violet-600 transition-colors">
+                                                    +{variant.giamGias.length - activeDiscounts.length} khác
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {activeDiscounts.length > 0 && (
+                                                <CountdownDisplay 
+                                                  date={activeDiscounts[0].thoi_gian_ket_thuc} 
+                                                  type="end" 
+                                                />
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </Button>
                                     </div>
                                   ) : (
-                                    <div className="text-center transition-all duration-300 ease-in-out transform hover:scale-105">
-                                      <span className="text-sm text-slate-700">{formatCurrency(variant.gia_ban)}</span>
-                                      <div className="text-xs text-slate-400">Không giảm giá</div>
-                                    </div>
+                                    <span className="text-muted-foreground transition-colors duration-300">
+                                      Không giảm giá
+                                    </span>
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  {variant.giamGia ? (
-                                    <Badge className="bg-red-500 transition-all duration-300 ease-in-out transform hover:scale-105">
-                                      {variant.giamGia.kieu_giam_gia === 'PhanTram' 
-                                        ? `-${variant.giamGia.gia_tri_giam}%`
-                                        : `-${formatCurrency(variant.giamGia.gia_tri_giam)}`}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-muted-foreground transition-colors duration-300">Không giảm giá</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge className={`transition-all duration-300 ease-in-out transform hover:scale-105 ${
-                                    variant.trang_thai === "HoatDong" ? "bg-green-500" : "bg-red-500"
-                                  }`}>
+                                  <Badge 
+                                    className={cn(
+                                      "font-medium",
+                                      variant.trang_thai === "HoatDong" 
+                                        ? "bg-emerald-500 text-white" 
+                                        : "bg-rose-500 text-white"
+                                    )}
+                                  >
                                     {variant.trang_thai === "HoatDong" ? "Đang bán" : "Ngừng bán"}
                                   </Badge>
                                 </TableCell>
@@ -1112,6 +1323,251 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </>
               ) : (
                 'Cập nhật'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog hiển thị timeline giảm giá */}
+      <Dialog open={!!selectedVariantForDiscounts} onOpenChange={() => setSelectedVariantForDiscounts(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-none">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+              <Tag className="w-6 h-6 text-violet-500" />
+              Lịch sử giảm giá
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              Chi tiết các đợt giảm giá của sản phẩm{" "}
+              <span className="font-medium text-foreground">
+                {selectedVariantForDiscounts?.ma_san_pham_chi_tiet}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedVariantForDiscounts && selectedVariantForDiscounts.giamGias && (
+            <div className="flex-1 overflow-y-auto pr-2 space-y-8 py-4">
+              {/* Thống kê nhanh */}
+              <div className="grid grid-cols-3 gap-4 sticky top-0 bg-white pb-4 z-10">
+                {(() => {
+                  const now = new Date();
+                  const activeDiscounts = selectedVariantForDiscounts.giamGias.filter(
+                    discount => 
+                      new Date(discount.thoi_gian_bat_dau) <= now && 
+                      new Date(discount.thoi_gian_ket_thuc) >= now
+                  );
+
+                  const upcomingDiscounts = selectedVariantForDiscounts.giamGias.filter(
+                    discount => new Date(discount.thoi_gian_bat_dau) > now
+                  );
+
+                  const expiredDiscounts = selectedVariantForDiscounts.giamGias.filter(
+                    discount => new Date(discount.thoi_gian_ket_thuc) < now
+                  );
+
+                  return (
+                    <>
+                      <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium opacity-80">Đang áp dụng</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{activeDiscounts.length}</div>
+                          <p className="text-xs opacity-80">giảm giá</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium opacity-80">Sắp tới</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{upcomingDiscounts.length}</div>
+                          <p className="text-xs opacity-80">giảm giá</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-gradient-to-br from-slate-500 to-slate-600 text-white">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-medium opacity-80">Đã kết thúc</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-3xl font-bold">{expiredDiscounts.length}</div>
+                          <p className="text-xs opacity-80">giảm giá</p>
+                        </CardContent>
+                      </Card>
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Timeline */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <div className="h-6 w-1 bg-violet-500 rounded-full"></div>
+                  Timeline giảm giá
+                </h3>
+                <div className="space-y-4">
+                  {selectedVariantForDiscounts.giamGias.map((giamGia, index) => {
+                    const isActive = 
+                      new Date(giamGia.thoi_gian_bat_dau) <= new Date() && 
+                      new Date(giamGia.thoi_gian_ket_thuc) >= new Date();
+                    const isUpcoming = new Date(giamGia.thoi_gian_bat_dau) > new Date();
+
+                    return (
+                      <div 
+                        key={giamGia.id_giam_gia}
+                        className={cn(
+                          "relative flex items-center gap-4 p-6 rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md",
+                          isActive 
+                            ? "bg-gradient-to-r from-emerald-500/10 to-transparent border-emerald-200" 
+                            : isUpcoming 
+                              ? "bg-gradient-to-r from-blue-500/10 to-transparent border-blue-200"
+                              : "bg-gradient-to-r from-slate-500/10 to-transparent border-slate-200"
+                        )}
+                      >
+                        {/* Dot and line */}
+                        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-slate-200 mx-6"></div>
+                        <div 
+                          className={cn(
+                            "w-4 h-4 rounded-full z-10 ring-4 ring-white",
+                            isActive 
+                              ? "bg-emerald-500" 
+                              : isUpcoming 
+                                ? "bg-blue-500"
+                                : "bg-slate-500"
+                          )}
+                        ></div>
+
+                        {/* Content */}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-lg">{giamGia.ten_giam_gia}</h4>
+                                <Badge className="h-5 text-xs border border-current">
+                                  {giamGia.ma_giam_gia}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {new Date(giamGia.thoi_gian_bat_dau).toLocaleDateString('vi-VN', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })} 
+                                {" - "} 
+                                {new Date(giamGia.thoi_gian_ket_thuc).toLocaleDateString('vi-VN', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                              {isActive && (
+                                <div className="mt-1">
+                                  <CountdownDisplay date={giamGia.thoi_gian_ket_thuc} type="end" />
+                                </div>
+                              )}
+                              {isUpcoming && (
+                                <div className="mt-1">
+                                  <CountdownDisplay date={giamGia.thoi_gian_bat_dau} type="start" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                className={cn(
+                                  "font-medium",
+                                  isActive 
+                                    ? "bg-emerald-500 text-white" 
+                                    : isUpcoming 
+                                      ? "bg-blue-500 text-white"
+                                      : "bg-slate-500 text-white"
+                                )}
+                              >
+                                {isActive ? 'Đang áp dụng' :
+                                 isUpcoming ? 'Sắp tới' :
+                                 'Đã kết thúc'}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleRemoveDiscount(giamGia)}
+                                disabled={isRemovingDiscount}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="mt-4 flex items-center gap-6">
+                            <Badge 
+                              className={cn(
+                                "font-medium text-base px-3 py-1",
+                                giamGia.kieu_giam_gia === 'PhanTram' 
+                                  ? "bg-violet-500 text-white" 
+                                  : "bg-teal-500 text-white"
+                              )}
+                            >
+                              {giamGia.kieu_giam_gia === 'PhanTram' 
+                                ? `-${giamGia.gia_tri_giam}%`
+                                : `-${formatCurrency(giamGia.gia_tri_giam)}`}
+                            </Badge>
+                            <div className="flex items-center gap-2 text-base">
+                              <span className="line-through text-slate-500">
+                                {formatCurrency(selectedVariantForDiscounts.gia_ban)}
+                              </span>
+                              <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium text-emerald-600">
+                                {formatCurrency(
+                                  giamGia.kieu_giam_gia === 'PhanTram'
+                                    ? selectedVariantForDiscounts.gia_ban * (1 - giamGia.gia_tri_giam / 100)
+                                    : selectedVariantForDiscounts.gia_ban - giamGia.gia_tri_giam
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận xóa giảm giá */}
+      <Dialog open={isConfirmRemoveOpen} onOpenChange={setIsConfirmRemoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa giảm giá</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa giảm giá "{discountToRemove?.ten_giam_gia}" khỏi sản phẩm này? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsConfirmRemoveOpen(false)}
+              disabled={isRemovingDiscount}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemoveDiscount}
+              disabled={isRemovingDiscount}
+            >
+              {isRemovingDiscount ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Đang xóa...
+                </>
+              ) : (
+                'Xóa giảm giá'
               )}
             </Button>
           </DialogFooter>

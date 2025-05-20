@@ -81,6 +81,7 @@ interface OrderStatuses {
   DangChoXuLy: OrderStatus;
   DangChuanBi: OrderStatus;
   DangGiaoHang: OrderStatus;
+  DaNhanHang: OrderStatus;
   HetHang: OrderStatus;
   DaThanhToan: OrderStatus;
   ChuaThanhToan: OrderStatus;
@@ -117,6 +118,13 @@ const orderStatuses: OrderStatuses = {
     color: "bg-purple-100 text-purple-800 border-purple-200",
     icon: <Truck className="h-4 w-4" />,
     description: "Đơn hàng đang được vận chuyển",
+    nextStatus: "DaNhanHang"
+  },
+  DaNhanHang: {
+    label: "Đã nhận hàng",
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: <CheckCircle className="h-4 w-4" />,
+    description: "Đơn hàng đã được giao và xác nhận nhận hàng",
     nextStatus: "DaHoanThanh"
   },
   HetHang: {
@@ -275,6 +283,7 @@ const OrderTimeline = ({
     "DaXacNhan",
     "DangChuanBi",
     "DangGiaoHang",
+    "DaNhanHang",
     "DaHoanThanh"
   ];
 
@@ -426,6 +435,7 @@ export default function CustomerOrdersPage() {
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const cancelReasonRef = useRef<HTMLTextAreaElement>(null);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Add effect to focus textarea when dialog opens
   useEffect(() => {
@@ -1020,19 +1030,33 @@ export default function CustomerOrdersPage() {
                       </div>
                     )}
                     {selectedOrder && (selectedOrder.trang_thai === "HetHang") && (
-                      <div className="flex items-center gap-4 p-4 rounded-lg border border-destructive/20 bg-destructive/10">
-                        <div className="h-8 w-8 rounded-full bg-destructive/20 flex items-center justify-center">
-                          <XCircle className="h-4 w-4 text-destructive" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-destructive">
-                            Đơn hàng hết hàng
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Một số sản phẩm trong đơn hàng hiện đã hết hàng
-                          </p>
-                        </div>
-                      </div>
+                     <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4 rounded">
+  <div className="font-semibold mb-1 text-yellow-800 flex items-center gap-2">
+    <AlertCircle className="h-5 w-5 text-yellow-600" />
+    Đơn hàng đang chờ bổ sung hàng
+  </div>
+  <div className="text-sm text-yellow-700 mb-2">
+    Một số sản phẩm trong đơn đã hết hàng. Dự kiến bổ sung hàng trong vòng 3-5 ngày làm việc. Bạn có thể đợi hoặc chủ động hủy đơn nếu không muốn chờ.
+  </div>
+  
+  <Button
+    variant="destructive"
+    onClick={() => setShowCancelDialog(true)}
+    disabled={cancelling}
+  >
+    {cancelling ? "Đang hủy..." : "Hủy đơn"}
+  </Button>
+  <CancelOrderDialog
+    isOpen={showCancelDialog}
+    onClose={() => setShowCancelDialog(false)}
+    onConfirm={(reason) => {
+      handleCancelOrder(reason);
+      setShowCancelDialog(false);
+    }}
+    status={selectedOrder.trang_thai}
+    isLoading={cancelling}
+  />
+</div>
                     )}
                   </CardContent>
                 </Card>

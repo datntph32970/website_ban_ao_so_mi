@@ -21,7 +21,13 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
   });
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedSizesByColor, setSelectedSizesByColor] = useState<Record<string, string[]>>({});
-  const [variantValues, setVariantValues] = useState<Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string; images: File[] }>>>({});
+  const [variantValues, setVariantValues] = useState<Record<string, Record<string, { 
+    stock: number; 
+    importPrice: number; 
+    price: number; 
+    discount: string[]; 
+    images: File[] 
+  }>>>({});
   const [addColorOpen, setAddColorOpen] = useState(false);
   const tenSanPhamRef = useRef<HTMLInputElement>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -69,7 +75,7 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
       [colorId]: {
         ...(prev[colorId] || {}),
         [sizeId]: {
-          ...(prev[colorId]?.[sizeId] || { stock: 0, importPrice: 0, price: 0, discount: '', images: [] }),
+          ...(prev[colorId]?.[sizeId] || { stock: 0, importPrice: 0, price: 0, discount: [], images: [] }),
           [field]: value
         }
       }
@@ -134,7 +140,7 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
             so_luong: 0,
             gia_nhap: 0,
             gia_ban: 0,
-            id_giam_gia: '',
+            id_giam_gia: [],
             them_hinh_anh_spcts: []
           }))
         ];
@@ -404,7 +410,7 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
           so_luong: values.stock || 0,
           gia_nhap: values.importPrice || 0,
           gia_ban: values.price || 0,
-          id_giam_gia: values.discount || '',
+          id_giam_gia: Array.isArray(values.discount) ? values.discount : [],
           them_hinh_anh_spcts: images
         });
       }

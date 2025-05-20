@@ -684,13 +684,13 @@ const DetailDialog = ({
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                    <Button
+                      variant="ghost"
+                      size="icon"
                             onClick={handleCopyCode}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Sao chép mã khuyến mại</p>

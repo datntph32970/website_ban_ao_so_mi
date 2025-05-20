@@ -40,6 +40,8 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from "date-fns";
 
 const formSchema = z.object({
   ten_san_pham: z.string().min(1, "Tên sản phẩm là bắt buộc").max(100, "Tên sản phẩm không được vượt quá 100 ký tự"),
@@ -75,7 +77,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [addColorOpen, setAddColorOpen] = useState(false);
   const [selectedSizesByColor, setSelectedSizesByColor] = useState<Record<string, string[]>>({});
   const [variantImages, setVariantImages] = useState<Record<string, File[]>>({});
-  const [variantValues, setVariantValues] = useState<Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string; images: File[] }>>>({});
+  const [variantValues, setVariantValues] = useState<Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: File[] }>>>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const tenSanPhamRef = React.useRef<HTMLInputElement>(null);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
@@ -87,6 +89,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [isQuickAddSizeOpen, setIsQuickAddSizeOpen] = useState(false);
   const [newQuickColor, setNewQuickColor] = useState({ ten_mau_sac: "", mo_ta: "" });
   const [newQuickSize, setNewQuickSize] = useState({ ten_kich_co: "", mo_ta: "" });
+  const [selectedDiscount, setSelectedDiscount] = useState<string>("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -132,7 +135,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           attributeService.getAttributes('DanhMuc'),
           attributeService.getAttributes('MauSac'),
           attributeService.getAttributes('KichCo'),
-          giamGiaService.getAll(),
+          giamGiaService.getAll({
+            trang_hien_tai: 1,
+            so_phan_tu_tren_trang: 10
+          }),
         ]);
 
         if (!productData) {
@@ -231,7 +237,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
           const sizesByColor: Record<string, string[]> = {};
           const imagesByColor: Record<string, File[]> = {};
-          const valuesByColor: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string; images: File[] }>> = {};
+          const valuesByColor: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: File[] }>> = {};
 
           // Process variants
           for (const variant of productData.sanPhamChiTiets) {
@@ -251,7 +257,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               stock: variant.so_luong,
               importPrice: variant.gia_nhap,
               price: variant.gia_ban,
-              discount: variant.giamGia?.id_giam_gia || "",
+              discount: Array.isArray(variant.giamGias) ? variant.giamGias.map(g => g.id_giam_gia) : [],
               images: [],
             };
 
@@ -605,16 +611,16 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     const currentColorVariants = variantValues[colorId] || {};
     setVariantValues({
       ...variantValues,
-        [colorId]: {
+      [colorId]: {
         ...currentColorVariants,
-          [sizeId]: {
-            stock: 0,
-            importPrice: 0,
-            price: 0,
-            discount: "",
-            images: []
-          }
+        [sizeId]: {
+          stock: 0,
+          importPrice: 0,
+          price: 0,
+          discount: [],
+          images: []
         }
+      }
     });
   };
 
@@ -850,7 +856,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         ...prev[colorId],
                         [sizeId]: {
                           ...prev[colorId]?.[sizeId],
-                          [field]: value,
+                          [field]: field === 'discount' ? (Array.isArray(value) ? value : value ? [value] : []) : value,
                         },
                       },
                     }));

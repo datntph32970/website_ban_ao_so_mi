@@ -5,6 +5,7 @@ import { ClientBody } from "./ClientBody";
 import { Toaster } from 'react-hot-toast';
 import { Providers } from '@/components/providers/Providers';
 import { StoreProvider } from "@/contexts/store-context";
+import { DynamicFavicon } from "@/components/DynamicFavicon";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,6 +27,7 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning={true}>
         <StoreProvider>
           <Providers>
+            <DynamicFavicon />
             <ClientBody>
               {children}
               <Toaster

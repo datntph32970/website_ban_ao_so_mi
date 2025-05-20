@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import { SanPhamGiamGiaDTO } from "@/services/giam-gia.service";
 import { giamGiaService } from "@/services/giam-gia.service";
-import { getImageUrl } from "@/lib/utils";
+import { formatCurrency, getImageUrl } from "@/lib/utils";
 import { AddProductsDialog } from "./AddProductsDialog";
 import {
   Card,
@@ -41,6 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
+import Image from "next/image";
 
 interface SanPhamChiTiet {
   id_san_pham_chi_tiet: string;
@@ -123,9 +124,19 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
     if (!discount) return;
     setLoading(true);
     try {
-      const products = await giamGiaService.getDSSanPhamCuaGiamGia(discount.id_giam_gia, {
+      const products = await giamGiaService.getSanPhamDangGiamGia(discount.id_giam_gia, {
         trang_hien_tai: 1,
-        so_phan_tu_tren_trang: 100
+        so_phan_tu_tren_trang: 10,
+        tim_kiem: "",
+        sap_xep_theo: "",
+        sap_xep_tang: false,
+        id_thuong_hieu: [],
+        id_danh_muc: [],
+        id_kieu_dang: [],
+        id_chat_lieu: [],
+        id_xuat_xu: [],
+        gia_tu: undefined,
+        gia_den: undefined
       });
       setAvailableProducts(products.danh_sach as unknown as SanPhamGiamGiaDTO[]);
     } catch (error) {
@@ -208,7 +219,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center justify-between">
               <span>Chi tiết khuyến mại</span>
@@ -234,7 +245,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
           </DialogHeader>
 
           {discount && (
-            <div className="space-y-6">
+            <div className="space-y-6 overflow-y-auto flex-1 pr-2">
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2">
@@ -288,7 +299,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                               <Badge className="text-lg">
                                 {discount.kieu_giam_gia === 'PhanTram' 
                                   ? `${discount.gia_tri_giam}%`
-                                  : `${discount.gia_tri_giam.toLocaleString('vi-VN')}đ`
+                                  : `${formatCurrency(discount.gia_tri_giam)}đ`
                                 }
                               </Badge>
                             </div>
@@ -317,7 +328,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                           <div>
                             <p className="text-sm font-medium text-slate-500">Số lượng đã sử dụng</p>
                             <h3 className="text-2xl font-bold mt-1">
-                              {discount.so_luong_da_su_dung || 0}
+                              {discount.so_luong_da_su_dung || 0}/{discount.so_luong_toi_da}
                             </h3>
                           </div>
                           <div className="p-3 bg-blue-100 rounded-full">
@@ -325,11 +336,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                           </div>
                         </div>
                         <div className="mt-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-500">Tổng số lượng</span>
-                            <span className="font-medium">{discount.so_luong_toi_da}</span>
-                          </div>
-                          <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
+                          <div className="w-full bg-slate-200 rounded-full h-2">
                             <div
                               className="h-2 rounded-full bg-blue-600 transition-all duration-300"
                               style={{
@@ -339,35 +346,6 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                           </div>
                           <p className="text-xs text-slate-500 mt-1">
                             {Math.round(((discount.so_luong_da_su_dung || 0) / discount.so_luong_toi_da) * 100)}% đã sử dụng
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-slate-500">Doanh thu</p>
-                            <h3 className="text-2xl font-bold mt-1">
-                              {discount.so_luong_da_su_dung 
-                                ? (discount.kieu_giam_gia === 'PhanTram'
-                                  ? (discount.gia_tri_giam * discount.so_luong_da_su_dung / 100).toLocaleString('vi-VN')
-                                  : (discount.gia_tri_giam * discount.so_luong_da_su_dung).toLocaleString('vi-VN')
-                                ) : 0}đ
-                            </h3>
-                          </div>
-                          <div className="p-3 bg-green-100 rounded-full">
-                            <DollarSign className="h-6 w-6 text-green-600" />
-                          </div>
-                        </div>
-                        <div className="mt-4">
-                          <p className="text-sm text-slate-500">
-                            Giá trị trung bình: {discount.so_luong_da_su_dung 
-                              ? (discount.kieu_giam_gia === 'PhanTram'
-                                ? (discount.gia_tri_giam / 100).toLocaleString('vi-VN')
-                                : discount.gia_tri_giam.toLocaleString('vi-VN')
-                              ) : 0}đ
                           </p>
                         </div>
                       </CardContent>
@@ -418,6 +396,30 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                               const elapsed = now.getTime() - start.getTime();
                               return Math.min(100, Math.max(0, (elapsed / total) * 100));
                             })())}% thời gian đã trôi qua
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-500">Trạng thái</p>
+                            <h3 className="text-2xl font-bold mt-1">
+                              {discount.trang_thai === 'HoatDong' ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                            </h3>
+                          </div>
+                          <div className="p-3 bg-green-100 rounded-full">
+                            <DollarSign className="h-6 w-6 text-green-600" />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-sm text-slate-500">
+                            Thời gian bắt đầu: {format(new Date(discount.thoi_gian_bat_dau), 'dd/MM/yyyy HH:mm')}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            Thời gian kết thúc: {format(new Date(discount.thoi_gian_ket_thuc), 'dd/MM/yyyy HH:mm')}
                           </p>
                         </div>
                       </CardContent>
@@ -518,10 +520,12 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                                         <TableCell>
                                           <div className="flex items-center gap-2">
                                             {product.url_anh_mac_dinh && (
-                                              <img 
+                                              <Image 
                                                 src={getImageUrl(product.url_anh_mac_dinh)} 
                                                 alt={product.ten_san_pham}
-                                                className="w-10 h-10 object-cover rounded"
+                                                width={40}
+                                                height={40}
+                                                className="object-cover rounded"
                                               />
                                             )}
                                             <span>{product.ten_san_pham}</span>
@@ -569,6 +573,15 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                                                     style={{ animationDelay: `${(index + 1) * 100}ms` }}
                                                   >
                                                     <div className="flex items-center gap-4">
+                                                      <div className="w-8 h-8 relative">
+                                                        <Image
+                                                          src={getImageUrl(product.url_anh_mac_dinh)}
+                                                          alt={variant.ma_san_pham_chi_tiet}
+                                                          width={32}
+                                                          height={32}
+                                                          className="w-full h-full object-cover rounded transition-transform duration-200 hover:scale-110"
+                                                        />
+                                                      </div>
                                                       <div>
                                                         <p className="font-medium">
                                                           {variant.ten_mau_sac} - {variant.ten_kich_co}
@@ -621,10 +634,12 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                                     <TableCell>
                                       <div className="flex items-center gap-2">
                                         {product.url_anh_mac_dinh && (
-                                          <img 
+                                          <Image 
                                             src={getImageUrl(product.url_anh_mac_dinh)} 
                                             alt={product.ten_san_pham}
-                                            className="w-10 h-10 object-cover rounded"
+                                            width={40}
+                                            height={40}
+                                            className="object-cover rounded"
                                           />
                                         )}
                                         <span>{product.ten_san_pham}</span>

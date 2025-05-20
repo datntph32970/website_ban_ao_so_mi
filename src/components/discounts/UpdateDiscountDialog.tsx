@@ -129,7 +129,10 @@ export function UpdateDiscountDialog({
         so_luong_toi_da: Number(formData.so_luong_toi_da),
       };
 
-      const response = await giamGiaService.update(discount.id_giam_gia, data);
+      const response = await giamGiaService.update(discount.id_giam_gia, {
+        ...data,
+        id_giam_gia: discount.id_giam_gia
+      });
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
       toast.success("Cập nhật giảm giá thành công!");
       onSuccess?.();

@@ -29,14 +29,14 @@ export interface SanPhamChiTiet {
     hinhAnhSanPhamChiTiets?: HinhAnhSanPhamChiTiet[];
     hoaDonChiTiets?: HoaDonChiTietAdminDTO[];
     gioHangChiTiets?: GioHangChiTiet[];
-    giamGia?: GiamGia;
+    giamGias?: GiamGia[];
 }
 
 export interface ThemSanPhamChiTietAdminDTO {
     id_san_pham?: string;
     id_mau_sac: string; 
     id_kich_co: string;
-    id_giam_gia: string;
+    id_giam_gia: string[];
     so_luong: number;
     gia_nhap: number;
     gia_ban: number;
@@ -56,7 +56,7 @@ export interface SuaSanPhamChiTietAdminDTO {
   id_san_pham_chi_tiet?: string;
   id_mau_sac: string;
   id_kich_co: string;
-  id_giam_gia: string;
+  id_giam_gia: string[];
   so_luong: number;
   gia_ban: number;
   gia_nhap: number;

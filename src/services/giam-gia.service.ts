@@ -1,7 +1,6 @@
 import { api } from '@/lib/api';
 import { GiamGia, TrangThaiGiamGia } from '@/types/giam-gia';
-import { SanPham, PhanTrangSanPhamDTO, ThamSoPhanTrangSanPhamDTO } from '@/types/san-pham';
-
+import { SanPham, PhanTrangSanPhamDTO, ThamSoPhanTrangSanPhamDTO, PhanTrangSanPhamAdminDTO } from '@/types/san-pham';
 
 export interface CreateGiamGiaDTO {
     ten_giam_gia: string;
@@ -12,6 +11,7 @@ export interface CreateGiamGiaDTO {
     thoi_gian_bat_dau: string;
     thoi_gian_ket_thuc: string;
     trang_thai: TrangThaiGiamGia;
+    ma_giam_gia?: string;
 }
 
 export interface UpdateGiamGiaDTO extends Partial<CreateGiamGiaDTO> {
@@ -79,109 +79,135 @@ export interface ThemGiamGiaVaoSanPhamChiTietDTO {
     san_pham_chi_tiet_ids: string[];
 }
 
-interface XoaGiamGiaKhoiSanPhamChiTietDTO {
+export interface XoaGiamGiaKhoiSanPhamChiTietDTO {
+    id_giam_gia: string;
     san_pham_chi_tiet_ids: string[];
 }
 
+export interface ThongKeGiamGiaDTO {
+    id_giam_gia: string;
+    ma_giam_gia: string;
+    ten_giam_gia: string;
+    trang_thai: string;
+    thoi_gian_bat_dau: string;
+    thoi_gian_ket_thuc: string;
+    con_hieu_luc: boolean;
+    so_luong_da_su_dung: number;
+    so_luong_toi_da: number;
+    ti_le_su_dung: number;
+    tong_bien_the_ap_dung: number;
+    bien_the_dang_ap_dung: number;
+    danh_sach_bien_the: Array<{
+        id_san_pham: string;
+        ma_san_pham: string;
+        ten_san_pham: string;
+        so_luong_bien_the: number;
+        bien_the: Array<{
+            id_san_pham_chi_tiet: string;
+            ma_san_pham_chi_tiet: string;
+            so_luong: number;
+            trang_thai: string;
+        }>;
+    }>;
+}
+
+export interface ThongKeTongHopGiamGiaDTO {
+    tong_so_giam_gia: number;
+    dang_hoat_dong: number;
+    da_ket_thuc: number;
+    chua_bat_dau: number;
+    dang_ap_dung: number;
+    thong_ke_theo_thang: Array<{
+        nam: number;
+        thang: number;
+        so_luong: number;
+        dang_hoat_dong: number;
+        da_su_dung: number;
+    }>;
+}
+
 export const giamGiaService = {
-    // Lấy danh sách giảm giá (có filter)
-    getAll: async (params?: {
-        trang_thai?: string;
-        tim_kiem?: string;
-        thoi_gian_bat_dau?: string;
-        thoi_gian_ket_thuc?: string;
-        kieu_giam_gia?: string;
-        page?: number;
-        pageSize?: number;
-        sortBy?: string;
-        ascending?: boolean;
-    }): Promise<PaginatedResponse<GiamGia>> => {
-        const response = await api.get<PaginatedResponse<GiamGia>>('/GiamGia', {
-            params,
-        });
-        return response.data;
-    },
-
-    // Lấy chi tiết giảm giá theo ID
-    getById: async (id: string): Promise<GiamGia> => {
-        const response = await api.get<GiamGia>(`/GiamGia/${id}`);
-        return response.data;
-    },
-
-    // Thêm giảm giá mới
-    create: async (data: Partial<GiamGia>): Promise<GiamGia> => {
-        const response = await api.post<GiamGia>('/GiamGia', data);
-        return response.data;
-    },
-
-    // Cập nhật thông tin giảm giá
-    update: async (id: string, data: Partial<GiamGia>): Promise<GiamGia> => {
-        const response = await api.put<GiamGia>(`/GiamGia/${id}`, data);
-        return response.data;
-    },
-
-    // Xóa giảm giá
-    delete: async (id: string): Promise<GiamGia> => {
-        const response = await api.delete<GiamGia>(`/GiamGia/${id}`);
+    // Lấy danh sách giảm giá với phân trang và lọc
+    getAll: async (params: any): Promise<PaginatedResponse<GiamGia>> => {
+        const response = await api.get('/GiamGia', { params });
         return response.data;
     },
 
     // Lấy danh sách giảm giá đang hoạt động
-    getActive: async (): Promise<GiamGia[]> => {
+    getActiveDiscounts: async () => {
         const response = await api.get('/GiamGia/active');
         return response.data;
     },
 
-    // Lấy danh sách sản phẩm có thể áp dụng giảm giá
-    getSanPhamCoTheGiamGia: async (params?: {
-        timkiem?: string;
-        id_danh_muc?: string;
-        id_thuong_hieu?: string;
-        giam_gia_cua_san_phan_chi_tiet?: string;
-        trang_hien_tai?: number;
-        so_phan_tu_tren_trang?: number;
-        sap_xep_theo?: string;
-        sap_xep_tang?: boolean;
-        trang_thai_giam_gia?: "ChuaCoGiamGia" | "CoGiamGia" | "";
-    }): Promise<PhanTrangSanPhamDTO> => {
-        const queryParams = new URLSearchParams();
-        if (params?.timkiem) queryParams.append('timkiem', params.timkiem);
-        if (params?.id_danh_muc) queryParams.append('id_danh_muc', params.id_danh_muc);
-        if (params?.id_thuong_hieu) queryParams.append('id_thuong_hieu', params.id_thuong_hieu);
-        if (params?.giam_gia_cua_san_phan_chi_tiet) queryParams.append('giam_gia_cua_san_phan_chi_tiet', params.giam_gia_cua_san_phan_chi_tiet);
-        if (params?.trang_hien_tai) queryParams.append('trang_hien_tai', params.trang_hien_tai.toString());
-        if (params?.so_phan_tu_tren_trang) queryParams.append('so_phan_tu_tren_trang', params.so_phan_tu_tren_trang.toString());
-        if (params?.sap_xep_theo) queryParams.append('sap_xep_theo', params.sap_xep_theo);
-        if (params?.sap_xep_tang !== undefined) queryParams.append('sap_xep_tang', params.sap_xep_tang.toString());
-        if (params?.trang_thai_giam_gia) queryParams.append('trang_thai_giam_gia', params.trang_thai_giam_gia);
-
-        const response = await api.get<PhanTrangSanPhamDTO>(`/GiamGia/lay-danh-sach-san-pham-co-the-giam-gia?${queryParams.toString()}`);
+    // Lấy chi tiết giảm giá theo ID
+    getById: async (id: string) => {
+        const response = await api.get(`/GiamGia/${id}`);
         return response.data;
     },
 
-    // Lấy danh sách sản phẩm của giảm giá
-    getDSSanPhamCuaGiamGia: async (idGiamGia: string,thamSoPhanTrangSanPhamDTO: ThamSoPhanTrangSanPhamDTO): Promise<PhanTrangSanPhamDTO> => {
-        const response = await api.post<PhanTrangSanPhamDTO>(`/GiamGia/${idGiamGia}/san-pham`, thamSoPhanTrangSanPhamDTO);
+    // Tạo giảm giá mới
+    create: async (data: CreateGiamGiaDTO) => {
+        const response = await api.post('/GiamGia', data);
+        return response.data;
+    },
+
+    // Cập nhật giảm giá
+    update: async (id: string, data: UpdateGiamGiaDTO) => {
+        const response = await api.put(`/GiamGia/${id}`, data);
+        return response.data;
+    },
+
+    // Xóa giảm giá
+    delete: async (id: string) => {
+        const response = await api.delete(`/GiamGia/${id}`);
+        return response.data;
+    },
+
+    // Lấy danh sách sản phẩm có thể áp dụng giảm giá
+    getSanPhamCoTheGiamGia: async (id_giam_gia: string, data: ThamSoPhanTrangSanPhamDTO): Promise<PhanTrangSanPhamAdminDTO> => {
+        const response = await api.post(`/GiamGia/lay-danh-sach-san-pham-co-the-giam-gia/${id_giam_gia}`, data);
+        return response.data;
+    },
+
+    // Thêm giảm giá vào sản phẩm chi tiết
+    themGiamGiaVaoSanPhamChiTiet: async (data: ThemGiamGiaVaoSanPhamChiTietDTO) => {
+        const response = await api.post('/GiamGia/them-giam_gia-vao-san-pham-chi-tiet', data);
         return response.data;
     },
 
     // Xóa giảm giá khỏi sản phẩm chi tiết
-    xoaGiamGiaKhoiSanPhamChiTiet: async (dto: XoaGiamGiaKhoiSanPhamChiTietDTO): Promise<void> => {
-        await api.delete(`/GiamGia/xoa-giam_gia-khoi-san-pham-chi-tiet`, {
-            data: dto
-        });
+    xoaGiamGiaKhoiSanPhamChiTiet: async (data: XoaGiamGiaKhoiSanPhamChiTietDTO) => {
+        const response = await api.delete('/GiamGia/xoa-giam_gia-khoi-san-pham-chi-tiet', { data });
+        return response.data;
     },
 
-
-    // Thêm giảm giá vào sản phẩm chi tiết
-    themGiamGiaVaoSanPhamChiTiet: async (dto: ThemGiamGiaVaoSanPhamChiTietDTO): Promise<SanPham> => {
-        const response = await api.post<SanPham>('/GiamGia/them-giam_gia-vao-san-pham-chi-tiet', dto);
+    // Lấy danh sách sản phẩm đang áp dụng giảm giá
+    getSanPhamDangGiamGia: async (id: string, params: ThamSoPhanTrangSanPhamDTO) => {
+        const response = await api.post(`/GiamGia/${id}/san-pham`, params);
         return response.data;
     },
 
     // Lấy chi tiết sản phẩm đang áp dụng giảm giá
-    getSanPhamChiTietDangGiamGia: async (idGiamGia: string, idSanPham: string): Promise<SanPham> => {
-        const response = await api.get<SanPham>(`/GiamGia/${idGiamGia}/san-pham/${idSanPham}`);
+    getSanPhamChiTietDangGiamGia: async (id_giam_gia: string, id_san_pham: string) => {
+        const response = await api.get(`/GiamGia/${id_giam_gia}/san-pham/${id_san_pham}`);
+        return response.data;
+    },
+
+    // Lấy thống kê giảm giá theo ID
+    getThongKeGiamGia: async (id: string): Promise<ThongKeGiamGiaDTO> => {
+        const response = await api.get(`/GiamGia/thong-ke/${id}`);
+        return response.data;
+    },
+
+    // Lấy thống kê tổng hợp giảm giá
+    getThongKeTongHop: async (): Promise<ThongKeTongHopGiamGiaDTO> => {
+        const response = await api.get('/GiamGia/thong-ke-tong-hop');
+        return response.data;
+    },
+
+    // Cập nhật trạng thái giảm giá
+    capNhatTrangThaiGiamGia: async () => {
+        const response = await api.post('/GiamGia/cap-nhat-trang-thai-giam-gia');
         return response.data;
     }
 }; 

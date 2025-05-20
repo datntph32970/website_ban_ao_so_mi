@@ -4,12 +4,34 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, getImageUrl } from "@/lib/utils";
-import { SanPham } from "@/types/san-pham";
-import { SanPhamChiTiet } from "@/types/san-pham-chi-tiet";
+import { SanPham, SanPhamChiTietDTO } from "@/types/san-pham";
 import { gioHangService } from "@/services/gio-hang.service";
 import { toast } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 import Cookies from "js-cookie";
+
+interface GiamGia {
+  id_giam_gia: string;
+  ma_giam_gia: string;
+  ten_giam_gia: string;
+  kieu_giam_gia: string; // Accept string to match DTO
+  gia_tri_giam: number;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+  trang_thai: string;
+  mo_ta?: string;
+  so_luong_toi_da?: number;
+  so_luong_da_su_dung?: number;
+  ngay_tao?: string;
+}
+
+interface DiscountInfo {
+  finalPrice: number;
+  originalPrice: number;
+  discountLabel: string | null;
+  nearestEnd: Date | null;
+  hasMultipleDiscounts: boolean;
+}
 
 interface QuickAddToCartDialogProps {
   isOpen: boolean;
@@ -22,7 +44,7 @@ export function QuickAddToCartDialog({ isOpen, onClose, product }: QuickAddToCar
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState<SanPhamChiTiet | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<SanPhamChiTietDTO | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -43,13 +65,13 @@ export function QuickAddToCartDialog({ isOpen, onClose, product }: QuickAddToCar
       .filter((size): size is NonNullable<typeof size> => size !== undefined);
   };
 
-  const getVariantByColorAndSize = (colorId: string, sizeId: string) => {
+  const getVariantByColorAndSize = (colorId: string, sizeId: string): SanPhamChiTietDTO | null => {
     return product?.sanPhamChiTiets?.find(
       variant => 
         String(variant.mauSac?.id_mau_sac) === colorId && 
         String(variant.kichCo?.id_kich_co) === sizeId &&
         variant.trang_thai === "HoatDong"
-    ) || null;
+    ) as unknown as SanPhamChiTietDTO | null;
   };
 
   const handleColorChange = (colorId: string) => {
@@ -65,16 +87,72 @@ export function QuickAddToCartDialog({ isOpen, onClose, product }: QuickAddToCar
     setQuantity(1);
   };
 
-  const calculateDiscountedPrice = (variant: SanPhamChiTiet) => {
-    if (!variant.giamGia) return variant.gia_ban;
-    
-    if (variant.giamGia.kieu_giam_gia === 'PhanTram') {
-      return variant.gia_ban * (1 - variant.giamGia.gia_tri_giam / 100);
-    } else if (variant.giamGia.kieu_giam_gia === 'SoTien') {
-      return Math.max(0, variant.gia_ban - variant.giamGia.gia_tri_giam);
+  const calculateDiscountedPrice = (variant: SanPhamChiTietDTO): DiscountInfo => {
+    const now = new Date();
+    const activeDiscounts = (variant.giamGias || []).filter((g: GiamGia) => {
+      const start = new Date(g.thoi_gian_bat_dau);
+      const end = new Date(g.thoi_gian_ket_thuc);
+      return start <= now && end >= now;
+    });
+
+    if (activeDiscounts.length === 0) return {
+      finalPrice: variant.gia_ban,
+      originalPrice: variant.gia_ban,
+      discountLabel: null,
+      nearestEnd: null,
+      hasMultipleDiscounts: false
+    };
+
+    // Use the highest discount if multiple active
+    const highestDiscount = activeDiscounts.reduce((prev: GiamGia, current: GiamGia) => {
+      const prevValue = prev.kieu_giam_gia === 'PhanTram' 
+        ? (variant.gia_ban * prev.gia_tri_giam / 100)
+        : prev.gia_tri_giam;
+      const currentValue = current.kieu_giam_gia === 'PhanTram'
+        ? (variant.gia_ban * current.gia_tri_giam / 100)
+        : current.gia_tri_giam;
+      return prevValue > currentValue ? prev : current;
+    });
+
+    let finalPrice = variant.gia_ban;
+    let discountLabel = '';
+
+    if (highestDiscount.kieu_giam_gia === 'PhanTram') {
+      finalPrice = variant.gia_ban * (1 - highestDiscount.gia_tri_giam / 100);
+      discountLabel = `Giảm ${highestDiscount.gia_tri_giam}%`;
+    } else if (highestDiscount.kieu_giam_gia === 'SoTien') {
+      finalPrice = Math.max(0, variant.gia_ban - highestDiscount.gia_tri_giam);
+      discountLabel = `Giảm ${formatCurrency(highestDiscount.gia_tri_giam)}`;
     }
-    
-    return variant.gia_ban;
+
+    // Find nearest end time
+    const nearestEnd = activeDiscounts.reduce((nearest: Date | null, discount: GiamGia) => {
+      const end = new Date(discount.thoi_gian_ket_thuc);
+      if (!nearest || end < nearest) {
+        return end;
+      }
+      return nearest;
+    }, null);
+
+    return {
+      finalPrice,
+      originalPrice: variant.gia_ban,
+      discountLabel,
+      nearestEnd,
+      hasMultipleDiscounts: activeDiscounts.length > 1
+    };
+  };
+
+  const formatTimeLeft = (end: Date) => {
+    const now = new Date();
+    const diff = end.getTime() - now.getTime();
+    if (diff <= 0) return 'Đã kết thúc';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (days > 0) return `${days} ngày ${hours} giờ`;
+    if (hours > 0) return `${hours} giờ ${minutes} phút`;
+    return `${minutes} phút`;
   };
 
   const handleAddToCart = async () => {
@@ -147,25 +225,36 @@ export function QuickAddToCartDialog({ isOpen, onClose, product }: QuickAddToCar
             </div>
             <div>
               <h3 className="font-medium">{product.ten_san_pham}</h3>
-              {selectedVariant ? (
+              {selectedVariant && (
                 <>
-                  {selectedVariant.giamGia ? (
-                    <div className="mt-1">
-                      <p className="font-bold text-blue-600">
-                        {formatCurrency(calculateDiscountedPrice(selectedVariant))}
-                      </p>
-                      <p className="text-sm text-slate-500 line-through">
-                        {formatCurrency(selectedVariant.gia_ban)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="font-bold text-blue-600 mt-1">
-                      {formatCurrency(selectedVariant.gia_ban)}
-                    </p>
-                  )}
+                  {(() => {
+                    const discountInfo = calculateDiscountedPrice(selectedVariant);
+                    return (
+                      <div className="mt-1">
+                        {discountInfo.discountLabel && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-red-500 text-white px-2 py-0.5 rounded text-sm">
+                              {discountInfo.hasMultipleDiscounts ? 'Có nhiều mức giảm giá' : discountInfo.discountLabel}
+                            </span>
+                            {discountInfo.nearestEnd && (
+                              <span className="text-sm text-red-500">
+                                Kết thúc sau: {formatTimeLeft(discountInfo.nearestEnd)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <p className="font-bold text-blue-600">
+                          {formatCurrency(discountInfo.finalPrice)}
+                        </p>
+                        {discountInfo.discountLabel && (
+                          <p className="text-sm text-slate-500 line-through">
+                            {formatCurrency(discountInfo.originalPrice)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </>
-              ) : (
-                <p className="text-sm text-slate-500 mt-1">Vui lòng chọn phiên bản</p>
               )}
             </div>
           </div>
