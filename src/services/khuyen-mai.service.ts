@@ -38,7 +38,7 @@ class KhuyenMaiService {
     const response = await api.patch(`/khuyenmai/${id}/trangthai`, data);
     return response.data;
   }
-  async getActivePromotions(params?: { search?: string, id_hoa_don?: string }): Promise<KhuyenMai[]> {
+  async getActivePromotions(params?: { search?: string, id_hoa_don?: string }): Promise<{ tong_tien_hoa_don: number, khuyen_mais: { khuyenMai: KhuyenMai, giaTriThucTe: number, giaTriHienThi: string }[] }> {
     const response = await api.get("/khuyenmai/khuyen-mai-hoat-dong", { params });
     return response.data;
   }

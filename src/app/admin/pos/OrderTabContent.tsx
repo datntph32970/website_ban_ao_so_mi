@@ -146,7 +146,7 @@ export default function OrderTabContent({
 
   // State for promotions dialog
   const [isPromotionsDialogOpen, setIsPromotionsDialogOpen] = React.useState(false);
-  const [promotions, setPromotions] = React.useState<KhuyenMai[]>([]);
+  const [promotions, setPromotions] = React.useState<{ khuyenMai: KhuyenMai, giaTriThucTe: number, giaTriHienThi: string }[]>([]);
   const [isLoadingPromotions, setIsLoadingPromotions] = React.useState(false);
   const [promotionSearch, setPromotionSearch] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
@@ -220,19 +220,23 @@ export default function OrderTabContent({
     const loadPromotionInfo = async () => {
       if (order.discountCode && !order.khuyenMai) {
         try {
-          const promotions = await khuyenMaiService.getActivePromotions({ search: order.discountCode });
-          const promotion = promotions.find(p => p.ma_khuyen_mai === order.discountCode);
+          const res = await khuyenMaiService.getActivePromotions({ search: order.discountCode });
+          const promotion = res.khuyen_mais.find(p => p.khuyenMai.ma_khuyen_mai === order.discountCode);
           if (promotion) {
+            const km = promotion.khuyenMai;
             onOrderChange({
               ...order,
               khuyenMai: {
-                id_khuyen_mai: promotion.id_khuyen_mai,
-                ten_khuyen_mai: promotion.ten_khuyen_mai,
-                ma_khuyen_mai: promotion.ma_khuyen_mai,
-                loai_khuyen_mai: promotion.kieu_khuyen_mai,
-                gia_tri_khuyen_mai: promotion.gia_tri_giam,
-                gia_tri_giam_toi_da: promotion.gia_tri_giam_toi_da
-              }
+                id_khuyen_mai: km.id_khuyen_mai,
+                ten_khuyen_mai: km.ten_khuyen_mai,
+                ma_khuyen_mai: km.ma_khuyen_mai,
+                loai_khuyen_mai: km.kieu_khuyen_mai,
+                gia_tri_khuyen_mai: km.gia_tri_giam,
+                gia_tri_giam_toi_da: km.gia_tri_giam_toi_da
+              },
+              so_tien_khuyen_mai: promotion.giaTriThucTe,
+              discountAmount: promotion.giaTriThucTe,
+              tong_tien_phai_thanh_toan: Math.max(0, cartTotal - promotion.giaTriThucTe)
             });
           }
         } catch (error) {
@@ -240,7 +244,6 @@ export default function OrderTabContent({
         }
       }
     };
-
     loadPromotionInfo();
   }, [order.discountCode]);
 
@@ -344,8 +347,8 @@ export default function OrderTabContent({
   const fetchActivePromotions = async () => {
     try {
       setIsLoadingPromotions(true);
-      const data = await khuyenMaiService.getActivePromotions({ search: debouncedSearch });
-      setPromotions(data);
+      const res = await khuyenMaiService.getActivePromotions({ search: debouncedSearch });
+      setPromotions(res.khuyen_mais);
     } catch (error) {
       toast.error("Không thể tải danh sách khuyến mãi");
     } finally {
@@ -366,41 +369,24 @@ export default function OrderTabContent({
   };
 
   // Function to handle selecting a promotion
-  const handleSelectPromotion = (promotion: KhuyenMai) => {
-    if (promotion.ma_khuyen_mai) {
-      // Tính toán giá trị giảm giá
-      let discountAmount = 0;
-      if (promotion.kieu_khuyen_mai === 'PhanTram') {
-        // Nếu là giảm theo phần trăm
-        const maxDiscount = promotion.gia_tri_giam_toi_da || Infinity;
-        discountAmount = Math.min(
-          (cartTotal * promotion.gia_tri_giam / 100),
-          maxDiscount
-        );
-      } else {
-        // Nếu là giảm theo số tiền
-        discountAmount = Math.min(promotion.gia_tri_giam, cartTotal); // Đảm bảo không giảm quá tổng tiền hàng
-      }
-
-      // Cập nhật state ngay lập tức với đầy đủ thông tin
-      onOrderChange({
-        ...order,
-        discountCode: promotion.ma_khuyen_mai,
-        khuyenMai: {
-          id_khuyen_mai: promotion.id_khuyen_mai,
-          ten_khuyen_mai: promotion.ten_khuyen_mai,
-          ma_khuyen_mai: promotion.ma_khuyen_mai,
-          loai_khuyen_mai: promotion.kieu_khuyen_mai,
-          gia_tri_khuyen_mai: promotion.gia_tri_giam,
-          gia_tri_giam_toi_da: promotion.gia_tri_giam_toi_da
-        },
-        so_tien_khuyen_mai: discountAmount,
-        discountAmount: discountAmount,
-        tong_tien_phai_thanh_toan: Math.max(0, cartTotal - discountAmount)
-      });
-
+  const handleSelectPromotion = async (promotion: { khuyenMai: KhuyenMai, giaTriThucTe: number, giaTriHienThi: string }) => {
+    const km = promotion.khuyenMai;
+    if (km.ma_khuyen_mai) {
       // Gọi API để cập nhật server
-      onApplyDiscountCode(promotion.id_khuyen_mai);
+      await onApplyDiscountCode(km.id_khuyen_mai);
+      // Lấy lại hóa đơn mới nhất từ server
+      if (order.currentOrderId) {
+        const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+        onOrderChange({
+          ...order,
+          hoaDonChiTiets: invoice.hoaDonChiTiets,
+          so_tien_khuyen_mai: invoice.so_tien_khuyen_mai,
+          tong_tien_phai_thanh_toan: invoice.tong_tien_phai_thanh_toan,
+          khuyenMai: invoice.khuyenMai,
+          discountCode: invoice.khuyenMai?.ma_khuyen_mai || '',
+          discountAmount: invoice.so_tien_khuyen_mai || 0
+        });
+      }
     }
     setIsPromotionsDialogOpen(false);
   };
@@ -523,53 +509,29 @@ export default function OrderTabContent({
     const applyDiscountCode = async () => {
       if (debouncedDiscountCode !== null) {
         try {
-          const promotions = await khuyenMaiService.getActivePromotions({ search: debouncedDiscountCode });
-          const promotion = promotions.find(p => p.ma_khuyen_mai === debouncedDiscountCode);
-          
+          const res = await khuyenMaiService.getActivePromotions({ search: debouncedDiscountCode });
+          const promotion = res.khuyen_mais.find(p => p.khuyenMai.ma_khuyen_mai === debouncedDiscountCode);
           if (promotion) {
-            // Tính toán giá trị giảm giá
-            let discountAmount = 0;
-            if (promotion.kieu_khuyen_mai === 'PhanTram') {
-              const maxDiscount = promotion.gia_tri_giam_toi_da || Infinity;
-              discountAmount = Math.min(
-                (cartTotal * promotion.gia_tri_giam / 100),
-                maxDiscount
-              );
-            } else {
-              discountAmount = Math.min(promotion.gia_tri_giam, cartTotal);
+            const km = promotion.khuyenMai;
+            await onApplyDiscountCode(km.id_khuyen_mai);
+            // Lấy lại hóa đơn mới nhất từ server
+            if (order.currentOrderId) {
+              const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+              onOrderChange({
+                ...order,
+                hoaDonChiTiets: invoice.hoaDonChiTiets,
+                so_tien_khuyen_mai: invoice.so_tien_khuyen_mai,
+                tong_tien_phai_thanh_toan: invoice.tong_tien_phai_thanh_toan,
+                khuyenMai: invoice.khuyenMai,
+                discountCode: invoice.khuyenMai?.ma_khuyen_mai || '',
+                discountAmount: invoice.so_tien_khuyen_mai || 0
+              });
             }
-
-            // Cập nhật state với thông tin khuyến mãi
-            onOrderChange({
-              ...order,
-              khuyenMai: {
-                id_khuyen_mai: promotion.id_khuyen_mai,
-                ten_khuyen_mai: promotion.ten_khuyen_mai,
-                ma_khuyen_mai: promotion.ma_khuyen_mai,
-                loai_khuyen_mai: promotion.kieu_khuyen_mai,
-                gia_tri_khuyen_mai: promotion.gia_tri_giam,
-                gia_tri_giam_toi_da: promotion.gia_tri_giam_toi_da
-              },
-              so_tien_khuyen_mai: discountAmount,
-              discountAmount: discountAmount,
-              tong_tien_phai_thanh_toan: Math.max(0, cartTotal - discountAmount)
-            });
-
-            // Gọi API để cập nhật server
-            await onApplyDiscountCode(promotion.id_khuyen_mai);
-
-            // Hiển thị thông báo thành công
             toast.success(
-              `Đã áp dụng mã "${promotion.ma_khuyen_mai}"${
-                promotion.kieu_khuyen_mai === 'PhanTram'
-                  ? ` - Giảm ${promotion.gia_tri_giam}%`
-                  : ` - Giảm ${formatCurrency(promotion.gia_tri_giam)}`
-              }`
+              `Đã áp dụng mã "${km.ma_khuyen_mai}" - ${promotion.giaTriHienThi}`
             );
           } else if (debouncedDiscountCode !== '') {
-            // Nếu không tìm thấy mã và input không trống
             toast.error('Mã khuyến mãi không hợp lệ hoặc đã hết hạn');
-            // Reset khuyến mãi
             onOrderChange({
               ...order,
               khuyenMai: undefined,
@@ -585,7 +547,6 @@ export default function OrderTabContent({
         }
       }
     };
-
     applyDiscountCode();
   }, [debouncedDiscountCode, cartTotal]);
 
@@ -1636,43 +1597,32 @@ export default function OrderTabContent({
                   ) : (
                     promotions.map((promotion) => (
                       <TableRow
-                        key={promotion.id_khuyen_mai}
+                        key={promotion.khuyenMai.id_khuyen_mai}
                         className="cursor-pointer hover:bg-slate-50"
                         onClick={() => handleSelectPromotion(promotion)}
                       >
-                        <TableCell className="font-medium">{promotion.ma_khuyen_mai}</TableCell>
-                        <TableCell>{promotion.ten_khuyen_mai}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{promotion.mo_ta}</TableCell>
+                        <TableCell className="font-medium">{promotion.khuyenMai.ma_khuyen_mai}</TableCell>
+                        <TableCell>{promotion.khuyenMai.ten_khuyen_mai}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{promotion.khuyenMai.mo_ta}</TableCell>
                         <TableCell>
-                          {promotion.kieu_khuyen_mai === 'PhanTram' ? (
-                            <div className="space-y-1">
-                              <div className="font-medium text-green-600">{promotion.gia_tri_giam}%</div>
-                              <div className="text-xs text-slate-500">
-                                Tối đa: {promotion.gia_tri_giam_toi_da?.toLocaleString('vi-VN')}đ
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="font-medium text-green-600">
-                              {promotion.gia_tri_giam?.toLocaleString('vi-VN')}đ
-                            </div>
-                          )}
+                          <span className="font-medium text-green-600">{promotion.giaTriHienThi}</span>
                         </TableCell>
-                        <TableCell>{promotion.gia_tri_don_hang_toi_thieu?.toLocaleString('vi-VN')}đ</TableCell>
+                        <TableCell>{promotion.khuyenMai.gia_tri_don_hang_toi_thieu?.toLocaleString('vi-VN')}đ</TableCell>
                         <TableCell>
                           <div className="text-xs space-y-1">
                             <div>
                               <span className="font-medium">Từ:</span>{" "}
-                              {new Date(promotion.thoi_gian_bat_dau).toLocaleString('vi-VN')}
+                              {new Date(promotion.khuyenMai.thoi_gian_bat_dau).toLocaleString('vi-VN')}
                             </div>
                             <div>
                               <span className="font-medium">Đến:</span>{" "}
-                              {new Date(promotion.thoi_gian_ket_thuc).toLocaleString('vi-VN')}
+                              {new Date(promotion.khuyenMai.thoi_gian_ket_thuc).toLocaleString('vi-VN')}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {promotion.so_luong_toi_da - promotion.so_luong_da_su_dung} / {promotion.so_luong_toi_da}
+                            {promotion.khuyenMai.so_luong_toi_da - promotion.khuyenMai.so_luong_da_su_dung} / {promotion.khuyenMai.so_luong_toi_da}
                           </div>
                         </TableCell>
                       </TableRow>
