@@ -27,6 +27,7 @@ import debounce from 'lodash/debounce';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Province, District, Ward } from "@/stores/address-store";
+import { khuyenMaiService } from "@/services/khuyen-mai.service";
 
 interface CapNhatHoaDonOnlineDTO {
   id_dia_chi_nhan_hang: string;
@@ -505,6 +506,10 @@ export default function CheckoutPage() {
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
   const [isUpdatingAddress, setIsUpdatingAddress] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
+  const [promoList, setPromoList] = useState<any[]>([]);
+  const [isLoadingPromos, setIsLoadingPromos] = useState(false);
+  const [promoSearch, setPromoSearch] = useState("");
 
   useEffect(() => {
     if (orderId) {
@@ -579,20 +584,20 @@ export default function CheckoutPage() {
     updateNote(newNote);
   };
 
-  const handleApplyPromoCode = async () => {
-    if (!promoCode.trim() || !orderData) {
+  const handleApplyPromoCode = async (code?: string) => {
+    const promo = (code !== undefined ? code : promoCode).trim();
+    if (!promo || !orderData) {
       toast.error('Vui lòng nhập mã khuyến mãi');
       return;
     }
-
     try {
       setIsApplyingPromo(true);
-      await hoaDonService.apDungKhuyenMai(orderData.id_hoa_don, promoCode);
+      await hoaDonService.apDungKhuyenMai(orderData.id_hoa_don, promo);
       await loadData(); // Reload order data to get updated prices
       toast.success('Áp dụng mã khuyến mãi thành công');
     } catch (error: any) {
       console.error('Error applying promo code:', error);
-      toast.error(error.response?.data?.message || 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn');
+      toast.error(error.response?.data || 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn');
       setPromoCode(''); // Clear invalid promo code
     } finally {
       setIsApplyingPromo(false);
@@ -736,6 +741,26 @@ export default function CheckoutPage() {
       setPromoCode(orderData.khuyenMai.ma_khuyen_mai);
     }
   }, [orderData]);
+
+  // Function to fetch active promotions
+  const fetchPromotions = async (search = "") => {
+    setIsLoadingPromos(true);
+    try {
+      const res = await khuyenMaiService.getActivePromotions({ search, id_hoa_don: orderData?.id_hoa_don });
+      setPromoList(res.khuyen_mais || []);
+    } catch (e) {
+      toast.error("Không thể tải danh sách khuyến mãi");
+    } finally {
+      setIsLoadingPromos(false);
+    }
+  };
+
+  // Load promotions when dialog opens
+  useEffect(() => {
+    if (isPromoDialogOpen) {
+      fetchPromotions(promoSearch);
+    }
+  }, [isPromoDialogOpen, promoSearch]);
 
   if (isLoading) {
     return (
@@ -892,6 +917,13 @@ export default function CheckoutPage() {
                         className="flex-1"
                         disabled={isApplyingPromo || orderData?.khuyenMai != null}
                       />
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsPromoDialogOpen(true)}
+                        disabled={isApplyingPromo || orderData?.khuyenMai != null}
+                      >
+                        Chọn mã
+                      </Button>
                       {orderData?.khuyenMai ? (
                         <Button
                           variant="outline"
@@ -915,7 +947,7 @@ export default function CheckoutPage() {
                       ) : (
                         <Button
                           variant="outline"
-                          onClick={handleApplyPromoCode}
+                          onClick={() => handleApplyPromoCode()}
                           disabled={isApplyingPromo || !promoCode.trim()}
                         >
                           {isApplyingPromo ? 'Đang áp dụng...' : 'Áp dụng'}
@@ -1033,6 +1065,83 @@ export default function CheckoutPage() {
         onSelect={handleAddressSelect}
         currentAddressId={orderData?.dia_chi_nhan_hang}
       />
+
+      <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Chọn mã khuyến mãi</DialogTitle>
+            <DialogDescription>
+              Danh sách các mã khuyến mãi đang hoạt động
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mb-4">
+            <Input
+              placeholder="Tìm kiếm tên hoặc mã khuyến mãi..."
+              value={promoSearch}
+              onChange={e => setPromoSearch(e.target.value)}
+            />
+          </div>
+          {isLoadingPromos ? (
+            <div className="flex justify-center py-8">
+              <span>Đang tải...</span>
+            </div>
+          ) : (
+            <div className="max-h-80 overflow-y-auto">
+              {promoList.length === 0 ? (
+                <div className="text-center text-slate-500 py-8">Không có khuyến mãi nào</div>
+              ) : (
+                <div className="space-y-4">
+                  {promoList.map((promo) => (
+                    <div
+                      key={promo.khuyenMai.id_khuyen_mai}
+                      className="border rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-4 bg-gradient-to-br from-white to-slate-50 hover:shadow-md transition"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="inline-block px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-700 tracking-wider">
+                            {promo.khuyenMai.ma_khuyen_mai}
+                          </span>
+                          <span className="text-sm font-medium text-blue-600 line-clamp-1">{promo.khuyenMai.ten_khuyen_mai}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-xs text-slate-600 mb-1">
+                          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                            {promo.giaTriHienThi}
+                          </span>
+                          <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">
+                            Số lượng còn lại: {promo.khuyenMai.so_luong_toi_da - promo.khuyenMai.so_luong_da_su_dung}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          <span className="mr-2">Thời gian áp dụng:</span>
+                          <span className="font-medium">
+                            {new Date(promo.khuyenMai.thoi_gian_bat_dau).toLocaleString('vi-VN')} - {new Date(promo.khuyenMai.thoi_gian_ket_thuc).toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                        {promo.khuyenMai.mo_ta && (
+                          <div className="mt-1 text-xs text-slate-400 italic line-clamp-2">{promo.khuyenMai.mo_ta}</div>
+                        )}
+                      </div>
+                      <div className="flex-shrink-0 flex items-center justify-center">
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow"
+                          onClick={async () => {
+                            setIsPromoDialogOpen(false);
+                            setPromoCode(promo.khuyenMai.ma_khuyen_mai);
+                            handleApplyPromoCode(promo.khuyenMai.ma_khuyen_mai);
+                          }}
+                        >
+                          Áp dụng
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
