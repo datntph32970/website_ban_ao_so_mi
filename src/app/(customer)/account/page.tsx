@@ -84,8 +84,8 @@ export default function AccountPage() {
       const response = await khachHangService.capNhatProfile(formData);
       setProfile(response.profile);
       toast.success("Cập nhật thông tin thành công");
-    } catch (error) {
-      toast.error("Cập nhật thông tin thất bại");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Cập nhật thông tin thất bại");
     } finally {
       setIsLoading(false);
       setFormData(null);

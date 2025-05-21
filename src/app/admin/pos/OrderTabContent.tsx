@@ -113,19 +113,19 @@ export default function OrderTabContent({
     onOrderChange({ ...order, [field]: value });
   };
   
-  // Tính toán tổng tiền từ API response hoặc cart
-  const cartTotal = order.hoaDonChiTiets?.reduce((total: number, item: HoaDonChiTietAdminDTO) => total + item.thanh_tien, 0) || 
-                   order.cart?.reduce((total: number, item: any) => total + (item.total || 0), 0) || 0;
+  // Tính toán tổng tiền từ hoaDonChiTiets
+  const cartTotal = Array.isArray(order.hoaDonChiTiets)
+    ? order.hoaDonChiTiets.reduce((total: number, item: any) => total + (item.thanh_tien || 0), 0)
+    : 0;
   
   // Tính toán giá trị giảm giá
-  const discountAmount = order.khuyenMai ? (
-    order.khuyenMai.loai_khuyen_mai === 'PhanTram' ? 
-      Number(Math.min(
-        (cartTotal * order.khuyenMai.gia_tri_khuyen_mai / 100),
-        order.khuyenMai.gia_tri_giam_toi_da || Infinity
-      ).toFixed(2)) : 
-      Number(Math.min(order.khuyenMai.gia_tri_khuyen_mai, cartTotal).toFixed(2))
-  ) : 0;
+  const discountAmount = order.khuyenMai
+    ? (order.khuyenMai.loai_khuyen_mai === 'PhanTram'
+        ? Math.min(cartTotal * order.khuyenMai.gia_tri_khuyen_mai / 100, order.khuyenMai.gia_tri_giam_toi_da || Infinity)
+        : Math.min(order.khuyenMai.gia_tri_khuyen_mai, cartTotal))
+    : 0;
+
+  const totalAmount = Math.max(0, cartTotal - discountAmount);
 
   // Format số tiền giảm giá để hiển thị
   const formatDiscountAmount = (amount: number) => {
@@ -136,8 +136,6 @@ export default function OrderTabContent({
       minimumFractionDigits: 2
     }).format(amount);
   };
-
-  const totalAmount = Math.max(0, order.tong_tien_phai_thanh_toan || Number((cartTotal - discountAmount).toFixed(2)));
 
   // Thêm các state cục bộ cho dialog chi tiết sản phẩm
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
@@ -167,6 +165,9 @@ export default function OrderTabContent({
   const [isLoadingPaymentMethods, setIsLoadingPaymentMethods] = useState(false);
 
   const [debouncedDiscountCode, setDebouncedDiscountCode] = useState<string | null>(null);
+
+  // Thêm state tạm cho số lượng ở đầu component
+  const [localQuantities, setLocalQuantities] = React.useState<{ [id: string]: number | '' }>({});
 
   React.useEffect(() => {
     setCurrentImageIndex(0);
@@ -386,29 +387,15 @@ export default function OrderTabContent({
           discountCode: invoice.khuyenMai?.ma_khuyen_mai || '',
           discountAmount: invoice.so_tien_khuyen_mai || 0
         });
+        console.log('Giỏ hàng sau khi áp mã khuyến mại:', invoice.hoaDonChiTiets || order.cart);
       }
     }
     setIsPromotionsDialogOpen(false);
   };
 
   // Function to handle updating cart item quantity
-  const handleUpdateQuantity = (item: any, newQuantity: number) => {
-    // Optimistic update: update cart immediately
-    const updatedCart = order.cart.map((cartItem: any) =>
-      cartItem.id === item.id
-        ? {
-            ...cartItem,
-            quantity: newQuantity,
-            total: cartItem.price * newQuantity
-          }
-        : cartItem
-    );
-    onOrderChange({
-      ...order,
-      cart: updatedCart
-    });
-    // Then call parent to sync with server
-    onUpdateCartItemQuantity(item.id, item.id_san_pham_chi_tiet, newQuantity);
+  const handleUpdateQuantity = (id_hoa_don_chi_tiet: string, id_san_pham_chi_tiet: string, newQuantity: number) => {
+    onUpdateCartItemQuantity(id_hoa_don_chi_tiet, id_san_pham_chi_tiet, newQuantity);
   };
 
   // Function to handle adding to cart
@@ -435,7 +422,7 @@ export default function OrderTabContent({
 
   // Function to handle payment button click
   const handlePayment = async () => {
-    if (!order.cart || order.cart.length === 0) {
+    if (!order.hoaDonChiTiets || order.hoaDonChiTiets.length === 0) {
       toast.error('Giỏ hàng trống!');
       return;
     }
@@ -810,119 +797,86 @@ export default function OrderTabContent({
                 ) : (
                   <>
                     <div className="max-h-[400px] overflow-y-auto space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                      {order.hoaDonChiTiets?.map((item: any, index: number) => (
-                        <div key={index} className="flex items-center border-b border-slate-100 pb-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{item.sanPhamChiTiet.ten_san_pham}</p>
-                            {item.don_gia > item.gia_sau_giam_gia ? (
-                              <>
-                                <span className="text-green-600 font-bold text-sm mr-2">
-                                  {formatCurrency(item.gia_sau_giam_gia)}
-                                </span>
-                                <span className="text-xs text-slate-400 line-through">
+                      {Array.isArray(order.hoaDonChiTiets) && order.hoaDonChiTiets.length > 0 ? (
+                        order.hoaDonChiTiets.map((item: any, index: number) => (
+                          <div key={index} className="flex items-center border-b border-slate-100 pb-3">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{item.sanPhamChiTiet.ten_san_pham}</p>
+                              {(item.sanPhamChiTiet.ten_mau_sac || item.sanPhamChiTiet.ten_kich_co) && (
+                                <p className="text-xs text-slate-500">
+                                  {[item.sanPhamChiTiet.ten_mau_sac, item.sanPhamChiTiet.ten_kich_co].filter(Boolean).join(' - ')}
+                                </p>
+                              )}
+                              {item.don_gia > item.gia_sau_giam_gia ? (
+                                <>
+                                  <span className="text-green-600 font-bold text-sm mr-2">
+                                    {formatCurrency(item.gia_sau_giam_gia)}
+                                  </span>
+                                  <span className="text-xs text-slate-400 line-through">
+                                    {formatCurrency(item.don_gia)}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-sm font-bold text-blue-600">
                                   {formatCurrency(item.don_gia)}
                                 </span>
-                              </>
-                            ) : (
-                              <span className="text-sm font-bold text-blue-600">
-                                {formatCurrency(item.don_gia)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
-                              handleUpdateQuantity(item, item.so_luong - 1);
-                            }}>
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              className="w-16 h-7 text-center"
-                              value={item.so_luong || ''}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (/^\d*$/.test(value)) {
-                                  const newQuantity = parseInt(value) || 0;
-                                  if (newQuantity >= 0) {
-                                    handleUpdateQuantity(item, newQuantity);
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
+                                handleUpdateQuantity(item.id_hoa_don_chi_tiet, item.id_san_pham_chi_tiet, item.so_luong - 1);
+                              }}>
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min="1"
+                                className="w-16 h-7 text-center"
+                                value={(localQuantities[item.id_hoa_don_chi_tiet] ?? item.so_luong) || ''}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  if (/^\d*$/.test(value)) {
+                                    setLocalQuantities(q => ({
+                                      ...q,
+                                      [item.id_hoa_don_chi_tiet]: value === '' ? '' : parseInt(value)
+                                    }));
                                   }
-                                }
-                              }}
-                            />
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
-                              handleUpdateQuantity(item, item.so_luong + 1);
-                            }}>
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => {
-                              handleUpdateQuantity(item, 0);
-                            }}>
-                              <Trash className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="ml-4 w-20 text-right">
-                            <p className="font-bold text-sm">{formatCurrency(item.thanh_tien)}</p>
-                          </div>
-                        </div>
-                      ))}
-
-                      {order.cart?.map((item: any, index: number) => (
-                        <div key={index} className="flex items-center border-b border-slate-100 pb-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{item.name}</p>
-                            {item.originalPrice > item.price ? (
-                              <>
-                                <span className="text-green-600 font-bold text-sm mr-2">
-                                  {formatCurrency(item.price)}
-                                </span>
-                                <span className="text-xs text-slate-400 line-through">
-                                  {formatCurrency(item.originalPrice)}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-sm font-bold text-blue-600">
-                                {formatCurrency(item.price)}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
-                              handleUpdateQuantity(item, item.quantity - 1);
-                            }}>
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              className="w-16 h-7 text-center"
-                              value={item.quantity || ''}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (/^\d*$/.test(value)) {
-                                  const newQuantity = parseInt(value) || 0;
-                                  if (newQuantity >= 0) {
-                                    handleUpdateQuantity(item, newQuantity);
+                                }}
+                                onBlur={e => {
+                                  const newQuantity = parseInt(e.target.value) || 0;
+                                  if (newQuantity > 0 && newQuantity !== item.so_luong) {
+                                    handleUpdateQuantity(item.id_hoa_don_chi_tiet, item.id_san_pham_chi_tiet, newQuantity);
                                   }
-                                }
-                              }}
-                            />
-                            <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
-                              handleUpdateQuantity(item, item.quantity + 1);
-                            }}>
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => {
-                              handleUpdateQuantity(item, 0);
-                            }}>
-                              <Trash className="h-3 w-3" />
-                            </Button>
+                                  // Xóa state tạm sau khi cập nhật
+                                  setLocalQuantities(q => {
+                                    const { [item.id_hoa_don_chi_tiet]: _, ...rest } = q;
+                                    return rest;
+                                  });
+                                }}
+                              />
+                              <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => {
+                                handleUpdateQuantity(item.id_hoa_don_chi_tiet, item.id_san_pham_chi_tiet, item.so_luong + 1);
+                              }}>
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => {
+                                handleUpdateQuantity(item.id_hoa_don_chi_tiet, item.id_san_pham_chi_tiet, 0);
+                              }}>
+                                <Trash className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <div className="ml-4 w-20 text-right">
+                              <p className="font-bold text-sm">{formatCurrency(item.thanh_tien)}</p>
+                            </div>
                           </div>
-                          <div className="ml-4 w-20 text-right">
-                            <p className="font-bold text-sm">{formatCurrency(item.total)}</p>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-slate-500">
+                          <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                          <p>Giỏ hàng trống</p>
+                          <p className="text-xs mt-1">Chọn sản phẩm để thêm vào giỏ hàng</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                     <div className="border-t border-slate-200 pt-4 space-y-2">
                       <div className="flex justify-between items-center">
@@ -998,7 +952,7 @@ export default function OrderTabContent({
                       <Button 
                         className="flex-1" 
                         onClick={handlePayment}
-                        disabled={!order.cart || order.cart.length === 0 || isPaymentLoading}
+                        disabled={!order.hoaDonChiTiets || order.hoaDonChiTiets.length === 0 || isPaymentLoading}
                       >
                         {isPaymentLoading ? 'Đang tải...' : 'Thanh toán'}
                       </Button>
@@ -1143,35 +1097,53 @@ export default function OrderTabContent({
             <div>
               <h3 className="font-medium mb-2">Chi tiết đơn hàng</h3>
               <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {order.cart?.map((item: any, index: number) => (
-                  <div key={index} className="p-3 flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {item.quantity} x {formatCurrency(item.price)}
-                      </p>
+                {Array.isArray(order.hoaDonChiTiets) && order.hoaDonChiTiets.length > 0 ? (
+                  order.hoaDonChiTiets.map((item: any, index: number) => (
+                    <div key={index} className="p-3 flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{item.sanPhamChiTiet?.ten_san_pham || item.ten_san_pham}</p>
+                        <p className="text-xs text-slate-500">
+                          {item.so_luong} x {formatCurrency(item.gia_sau_giam_gia)}
+                        </p>
+                      </div>
+                      <p className="text-sm font-medium">{formatCurrency(item.thanh_tien)}</p>
                     </div>
-                    <p className="text-sm font-medium">{formatCurrency(item.total)}</p>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="text-center text-slate-400 py-6">Không có sản phẩm nào trong hóa đơn</div>
+                )}
               </div>
             </div>
 
             {/* Tổng tiền và giảm giá */}
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Tổng tiền hàng</span>
-                <span>{formatCurrency(cartTotal)}</span>
-              </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Giảm giá</span>
-                  <span>-{formatCurrency(discountAmount)}</span>
-                </div>
+              {cartTotal > 0 && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span>Tổng tiền hàng</span>
+                    <span>{formatCurrency(cartTotal)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Giảm giá</span>
+                      <span>-{formatCurrency(discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold pt-2 border-t">
+                    <span>Tổng thanh toán</span>
+                    <span className="text-lg">{formatCurrency(totalAmount)}</span>
+                  </div>
+                </>
               )}
-              <div className="flex justify-between font-bold pt-2 border-t">
-                <span>Tổng thanh toán</span>
-                <span className="text-lg">{formatCurrency(totalAmount)}</span>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" className="flex-1">Hủy</Button>
+                <Button 
+                  className="flex-1" 
+                  onClick={handlePayment}
+                  disabled={!order.hoaDonChiTiets || order.hoaDonChiTiets.length === 0 || isPaymentLoading}
+                >
+                  {isPaymentLoading ? 'Đang tải...' : 'Thanh toán'}
+                </Button>
               </div>
             </div>
 

@@ -283,23 +283,10 @@ export default function POSPage() {
           );
           const newOrders = pendingOrders.map((order, idx) => {
             const chiTiet = chiTietArr[idx];
-            const cart: CartItem[] = (chiTiet.hoaDonChiTiets || []).map((item: any) => ({
-              id: item.id_hoa_don_chi_tiet,
-              id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
-              name: [
-                item.sanPhamChiTiet?.ten_san_pham,
-                item.sanPhamChiTiet?.ten_mau_sac,
-                item.sanPhamChiTiet?.ten_kich_co
-              ].filter(Boolean).join(' - '),
-              price: item.gia_sau_giam_gia,
-              originalPrice: item.don_gia,
-              quantity: item.so_luong,
-              total: item.thanh_tien
-            }));
             return {
               ...getDefaultOrder(maxPrice),
               currentOrderId: order.id_hoa_don,
-              cart,
+              hoaDonChiTiets: chiTiet.hoaDonChiTiets || [],
               selectedCustomer: order.khachHang ? {
                 id_khach_hang: order.khachHang.id_khach_hang,
                 ma_khach_hang: order.khachHang.ma_khach_hang,
@@ -453,7 +440,6 @@ export default function POSPage() {
       // If no order ID exists, create a new invoice
       if (!currentOrder.currentOrderId) {
         const newInvoice = await hoaDonService.themHoaDonTaiQuay();
-
         // Get pending orders and update current order ID
         const pendingOrders = await hoaDonService.getAllHoaDonTaiQuayCho();
         setOrders(prev => {
@@ -474,19 +460,7 @@ export default function POSPage() {
       const invoice = await hoaDonService.getHoaDonTaiQuayChoById(orders[activeOrderIndex].currentOrderId);
       setOrders(prev => {
         const newOrders = [...prev];
-        newOrders[activeOrderIndex].cart = (invoice.hoaDonChiTiets || []).map((item: any) => ({
-          id: item.id_hoa_don_chi_tiet.toString(),
-          id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
-          name: [
-            item.sanPhamChiTiet?.ten_san_pham,
-            item.sanPhamChiTiet?.ten_mau_sac,
-            item.sanPhamChiTiet?.ten_kich_co
-          ].filter(Boolean).join(' - '),
-          price: item.gia_sau_giam_gia,
-          originalPrice: item.don_gia,
-          quantity: item.so_luong,
-          total: item.thanh_tien
-        }));
+        newOrders[activeOrderIndex].hoaDonChiTiets = invoice.hoaDonChiTiets || [];
         return newOrders;
       });
 
@@ -558,7 +532,7 @@ export default function POSPage() {
     if (!orders[activeOrderIndex]) return;
     setIsCartUpdating(true);
     // Lưu lại số lượng cũ để có thể khôi phục nếu có lỗi
-    const oldQuantity = orders[activeOrderIndex].cart.find(item => item.id === id)?.quantity || 0;
+    const oldQuantity = orders[activeOrderIndex].hoaDonChiTiets?.find(item => item.id_hoa_don_chi_tiet === id)?.so_luong || 0;
 
     try {
       if (newQuantity <= 0) {
@@ -576,22 +550,9 @@ export default function POSPage() {
       const invoice = await hoaDonService.getHoaDonTaiQuayChoById(orders[activeOrderIndex].currentOrderId);
       setOrders(prev => {
         const newOrders = [...prev];
-        newOrders[activeOrderIndex].cart = (invoice.hoaDonChiTiets || []).map((item: any) => ({
-          id: item.id_hoa_don_chi_tiet.toString(),
-          id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
-          name: [
-            item.sanPhamChiTiet?.ten_san_pham,
-            item.sanPhamChiTiet?.ten_mau_sac,
-            item.sanPhamChiTiet?.ten_kich_co
-          ].filter(Boolean).join(' - '),
-          price: item.gia_sau_giam_gia,
-          originalPrice: item.don_gia,
-          quantity: item.so_luong,
-          total: item.thanh_tien
-        }));
+        newOrders[activeOrderIndex].hoaDonChiTiets = invoice.hoaDonChiTiets || [];
         return newOrders;
       });
-
       // Cập nhật lại thông tin chi tiết sản phẩm đang hiển thị nếu có
       if (orders[activeOrderIndex].selectedProduct) {
         const productId = orders[activeOrderIndex].selectedProduct.id_san_pham || orders[activeOrderIndex].selectedProduct.id_san_pham.toString();
@@ -652,13 +613,15 @@ export default function POSPage() {
       setOrders(prev => {
         const newOrders = [...prev];
         const activeOrder = newOrders[activeOrderIndex];
-        newOrders[activeOrderIndex].cart = activeOrder.cart.map(item => 
-          item.id === id ? { ...item, quantity: oldQuantity, total: item.price * oldQuantity } : item
-        );
+        if (activeOrder.hoaDonChiTiets) {
+          activeOrder.hoaDonChiTiets = activeOrder.hoaDonChiTiets.map(item =>
+            item.id_hoa_don_chi_tiet === id ? { ...item, so_luong: oldQuantity } : item
+          );
+        }
         return newOrders;
       });
       toast.error(error.response?.data || 'Không thể cập nhật số lượng sản phẩm');
-      throw error; // Ném lỗi để component con có thể bắt
+      throw error;
     } finally {
       setIsCartUpdating(false);
     }
@@ -857,7 +820,7 @@ export default function POSPage() {
 
   // Handler thanh toán
   const handlePayment = () => {
-    if (!orders[activeOrderIndex] || orders[activeOrderIndex].cart.length === 0) {
+    if (!orders[activeOrderIndex] || orders[activeOrderIndex].hoaDonChiTiets.length === 0) {
       return;
     }
     setIsPaymentOpen(true);
@@ -875,7 +838,7 @@ export default function POSPage() {
           const newOrder = {
             ...getDefaultOrder(maxPrice),
           currentOrderId: response, // Sử dụng ID từ response
-          cart: [],
+          hoaDonChiTiets: [],
           selectedCustomer: null
         };
         
@@ -944,7 +907,7 @@ export default function POSPage() {
         // Nếu chưa có ID hóa đơn (chưa lưu), chỉ xóa khỏi giỏ hàng
         setOrders(prev => {
           const newOrders = [...prev];
-          newOrders[orderIndex].cart = newOrders[orderIndex].cart.filter(item => item.id !== itemId);
+          newOrders[orderIndex].hoaDonChiTiets = order.hoaDonChiTiets.filter(item => item.id_hoa_don_chi_tiet !== itemId);
           return newOrders;
         });
         return;
@@ -953,7 +916,7 @@ export default function POSPage() {
       await hoaDonService.xoaHoaDonChiTiet(itemId);
       setOrders(prev => {
         const newOrders = [...prev];
-        newOrders[orderIndex].cart = newOrders[orderIndex].cart.filter(item => item.id !== itemId);
+        newOrders[orderIndex].hoaDonChiTiets = order.hoaDonChiTiets.filter(item => item.id_hoa_don_chi_tiet !== itemId);
         return newOrders;
       });
 
@@ -1028,19 +991,7 @@ export default function POSPage() {
           const newOrders = [...prev];
           newOrders[idx] = {
             ...newOrders[idx],
-            cart: (chiTiet.hoaDonChiTiets || []).map((item: any) => ({
-              id: item.id_hoa_don_chi_tiet,
-              id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
-              name: [
-                item.sanPhamChiTiet?.ten_san_pham,
-                item.sanPhamChiTiet?.ten_mau_sac,
-                item.sanPhamChiTiet?.ten_kich_co
-              ].filter(Boolean).join(' - '),
-              price: item.gia_sau_giam_gia,
-              originalPrice: item.don_gia,
-              quantity: item.so_luong,
-              total: item.thanh_tien
-            })),
+            hoaDonChiTiets: chiTiet.hoaDonChiTiets || [],
             selectedCustomer: chiTiet.khachHang ? {
               id_khach_hang: chiTiet.khachHang.id_khach_hang,
               ma_khach_hang: chiTiet.khachHang.ma_khach_hang,
@@ -1278,7 +1229,7 @@ export default function POSPage() {
         const newOrders = pendingOrders.map((order, idx) => ({
           ...getDefaultOrder(maxPrice),
           currentOrderId: order.id_hoa_don,
-          cart: idx === 0
+          hoaDonChiTiets: idx === 0
             ? (chiTiet.hoaDonChiTiets || []).map((item: any) => ({
                 id: item.id_hoa_don_chi_tiet.toString(),
                 id_san_pham_chi_tiet: item.id_san_pham_chi_tiet,
