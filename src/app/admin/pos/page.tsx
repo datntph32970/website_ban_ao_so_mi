@@ -181,6 +181,8 @@ interface OrderTabState {
   ten_nguoi_xu_ly: string;
   nhanVienXuLy: any;
   hoaDonChiTiets: any[];
+  khuyenMai: any;
+  isNewOrder: boolean;
 }
 
 // 3. Sửa getDefaultOrder
@@ -225,6 +227,8 @@ function getDefaultOrder(maxPrice: number): OrderTabState {
     ten_nguoi_xu_ly: '',
     nhanVienXuLy: {},
     hoaDonChiTiets: [],
+    khuyenMai: null,
+    isNewOrder: true
   };
 }
 
@@ -269,6 +273,7 @@ export default function POSPage() {
     totalItems: 0
   });
   const [isCartUpdating, setIsCartUpdating] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
 
   // Thêm useEffect để lấy danh sách hóa đơn chờ khi component mount
   useEffect(() => {
@@ -830,30 +835,26 @@ export default function POSPage() {
   const handleAddNewOrder = async () => {
     try {
       setIsAddingOrder(true);
+      // Tạo hóa đơn mới
       const response = await hoaDonService.themHoaDonTaiQuay();
-      
-      // Kiểm tra response có phải là ID của hóa đơn mới không
-      if (response && typeof response === 'string' && response !== 'Thêm hóa đơn thành công') {
-        // Tạo tab mới với ID hóa đơn mới
-          const newOrder = {
-            ...getDefaultOrder(maxPrice),
-          currentOrderId: response, // Sử dụng ID từ response
-          hoaDonChiTiets: [],
-          selectedCustomer: null
-        };
-        
-        // Thêm tab mới và chuyển sang tab đó
-          setOrders(prev => [...prev, newOrder]);
-          setActiveOrderIndex(orders.length);
-          setShowEmptyState(false);
-          toast.success('Tạo hóa đơn mới thành công');
-        } else {
-        throw new Error('Không nhận được ID hóa đơn mới từ server');
-      }
-    } catch (error: any) {
-      console.error('Lỗi khi tạo hóa đơn mới:', error);
-      const errorMessage = error.response?.data || error.message || 'Không thể tạo hóa đơn mới';
-      toast.error(errorMessage);
+      const newOrderId = response;
+
+      // Tạo tab mới với hóa đơn mới
+      const newOrder = getDefaultOrder(maxPrice);
+      newOrder.currentOrderId = newOrderId;
+      newOrder.isNewOrder = true;
+
+      // Cập nhật state với tab mới
+      setOrders(prev => [...prev, newOrder]);
+      setActiveOrderIndex(orders.length);
+
+      // Cập nhật lại danh sách hóa đơn chờ tại quầy
+      await fetchPendingOrders();
+
+      toast.success('Đã tạo hóa đơn mới');
+    } catch (error) {
+      console.error('Error creating new order:', error);
+      toast.error('Không thể tạo hóa đơn mới');
     } finally {
       setIsAddingOrder(false);
     }
@@ -983,14 +984,27 @@ export default function POSPage() {
   // Thay đổi sự kiện khi đổi tab hóa đơn
   const handleTabChange = async (idx: number) => {
     setActiveOrderIndex(idx);
-    const orderId = orders[idx].currentOrderId;
+    const orderId = orders[idx]?.currentOrderId;
+    
     if (orderId) {
       try {
         const chiTiet = await hoaDonService.getHoaDonTaiQuayChoById(orderId);
         setOrders(prev => {
           const newOrders = [...prev];
+          // Reset to default state first
+          const defaultOrder = {
+            ...getDefaultOrder(maxPrice),
+            currentOrderId: orderId,
+            isNewOrder: false,
+            // Reset all promotion related fields
+            khuyenMai: null,
+            discountCode: '',
+            discountAmount: 0,
+            so_tien_khuyen_mai: 0
+          };
+          // Then update with server data
           newOrders[idx] = {
-            ...newOrders[idx],
+            ...defaultOrder,
             hoaDonChiTiets: chiTiet.hoaDonChiTiets || [],
             selectedCustomer: chiTiet.khachHang ? {
               id_khach_hang: chiTiet.khachHang.id_khach_hang,
@@ -998,7 +1012,13 @@ export default function POSPage() {
               ten_khach_hang: chiTiet.khachHang.ten_khach_hang,
               so_dien_thoai: chiTiet.khachHang.sdt_khach_hang,
               trang_thai: 'HoatDong'
-            } : null
+            } : null,
+            khuyenMai: chiTiet.khuyenMai,
+            discountCode: chiTiet.khuyenMai?.ma_khuyen_mai || '',
+            discountAmount: chiTiet.so_tien_khuyen_mai || 0,
+            tong_tien_don_hang: chiTiet.tong_tien_don_hang || 0,
+            so_tien_khuyen_mai: chiTiet.so_tien_khuyen_mai || 0,
+            tong_tien_phai_thanh_toan: chiTiet.tong_tien_phai_thanh_toan || 0
           };
           return newOrders;
         });
@@ -1265,6 +1285,17 @@ export default function POSPage() {
     } catch (error) {
       console.error('Error refreshing orders:', error);
       toast.error('Không thể cập nhật danh sách hóa đơn');
+    }
+  };
+
+  // Hàm lấy danh sách hóa đơn chờ tại quầy
+  const fetchPendingOrders = async () => {
+    try {
+      const response = await hoaDonService.getAllHoaDonTaiQuayCho();
+      setPendingOrders(response);
+    } catch (error) {
+      console.error('Error fetching pending orders:', error);
+      toast.error('Không thể tải danh sách hóa đơn chờ');
     }
   };
 

@@ -206,47 +206,55 @@ export default function OrderTabContent({
 
   // Effect để cập nhật lại thông tin khuyến mãi khi quay lại tab
   React.useEffect(() => {
-    // Chỉ gọi API khi có id_khuyen_mai và không phải từ việc chọn khuyến mãi mới
-    if (order.khuyenMai?.id_khuyen_mai) {
-      const timer = setTimeout(() => {
-        onApplyDiscountCode(order.khuyenMai.id_khuyen_mai);
-      }, 100); // Thêm delay nhỏ để tránh gọi API trùng lặp
-
-      return () => clearTimeout(timer);
+    // Chỉ gọi API khi có id_khuyen_mai và không phải đơn hàng mới
+    if (order.khuyenMai?.id_khuyen_mai && !order.isNewOrder && order.currentOrderId) {
+      // Thêm flag để kiểm tra xem có phải đang chuyển tab không
+      const isTabChange = order.khuyenMai?.id_khuyen_mai !== order.discountCode;
+      if (!isTabChange) {
+        const timer = setTimeout(() => {
+          onApplyDiscountCode(order.khuyenMai.id_khuyen_mai);
+        }, 100);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [order.khuyenMai?.id_khuyen_mai]);
+  }, [order.khuyenMai?.id_khuyen_mai, order.isNewOrder, order.currentOrderId, order.discountCode]);
 
   // Effect để load thông tin khuyến mãi khi có mã
   React.useEffect(() => {
     const loadPromotionInfo = async () => {
-      if (order.discountCode && !order.khuyenMai) {
-        try {
-          const res = await khuyenMaiService.getActivePromotions({ search: order.discountCode });
-          const promotion = res.khuyen_mais.find(p => p.khuyenMai.ma_khuyen_mai === order.discountCode);
-          if (promotion) {
-            const km = promotion.khuyenMai;
-            onOrderChange({
-              ...order,
-              khuyenMai: {
-                id_khuyen_mai: km.id_khuyen_mai,
-                ten_khuyen_mai: km.ten_khuyen_mai,
-                ma_khuyen_mai: km.ma_khuyen_mai,
-                loai_khuyen_mai: km.kieu_khuyen_mai,
-                gia_tri_khuyen_mai: km.gia_tri_giam,
-                gia_tri_giam_toi_da: km.gia_tri_giam_toi_da
-              },
-              so_tien_khuyen_mai: promotion.giaTriThucTe,
-              discountAmount: promotion.giaTriThucTe,
-              tong_tien_phai_thanh_toan: Math.max(0, cartTotal - promotion.giaTriThucTe)
-            });
+      // Chỉ load khi có mã giảm giá, chưa có khuyến mãi và không phải đơn hàng mới
+      if (order.discountCode && !order.khuyenMai && !order.isNewOrder && order.currentOrderId) {
+        // Thêm flag để kiểm tra xem có phải đang chuyển tab không
+        const isTabChange = order.discountCode !== order.khuyenMai?.ma_khuyen_mai;
+        if (!isTabChange) {
+          try {
+            const res = await khuyenMaiService.getActivePromotions({ search: order.discountCode });
+            const promotion = res.khuyen_mais.find(p => p.khuyenMai.ma_khuyen_mai === order.discountCode);
+            if (promotion) {
+              const km = promotion.khuyenMai;
+              onOrderChange({
+                ...order,
+                khuyenMai: {
+                  id_khuyen_mai: km.id_khuyen_mai,
+                  ten_khuyen_mai: km.ten_khuyen_mai,
+                  ma_khuyen_mai: km.ma_khuyen_mai,
+                  loai_khuyen_mai: km.kieu_khuyen_mai,
+                  gia_tri_khuyen_mai: km.gia_tri_giam,
+                  gia_tri_giam_toi_da: km.gia_tri_giam_toi_da
+                },
+                so_tien_khuyen_mai: promotion.giaTriThucTe,
+                discountAmount: promotion.giaTriThucTe,
+                tong_tien_phai_thanh_toan: Math.max(0, cartTotal - promotion.giaTriThucTe)
+              });
+            }
+          } catch (error) {
+            console.error('Error loading promotion info:', error);
           }
-        } catch (error) {
-          console.error('Error loading promotion info:', error);
         }
       }
     };
     loadPromotionInfo();
-  }, [order.discountCode]);
+  }, [order.discountCode, order.isNewOrder, order.currentOrderId, order.khuyenMai?.ma_khuyen_mai]);
 
   // Effect để lấy danh sách phương thức thanh toán
   useEffect(() => {
@@ -494,48 +502,53 @@ export default function OrderTabContent({
   // Effect để tự động áp dụng mã khuyến mãi khi người dùng nhập
   useEffect(() => {
     const applyDiscountCode = async () => {
-      if (debouncedDiscountCode !== null) {
-        try {
-          const res = await khuyenMaiService.getActivePromotions({ search: debouncedDiscountCode });
-          const promotion = res.khuyen_mais.find(p => p.khuyenMai.ma_khuyen_mai === debouncedDiscountCode);
-          if (promotion) {
-            const km = promotion.khuyenMai;
-            await onApplyDiscountCode(km.id_khuyen_mai);
-            // Lấy lại hóa đơn mới nhất từ server
-            if (order.currentOrderId) {
-              const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+      // Chỉ áp dụng khi có mã giảm giá và không phải đơn hàng mới
+      if (debouncedDiscountCode !== null && !order.isNewOrder && order.currentOrderId) {
+        // Thêm flag để kiểm tra xem có phải đang chuyển tab không
+        const isTabChange = debouncedDiscountCode !== order.khuyenMai?.ma_khuyen_mai;
+        if (!isTabChange) {
+          try {
+            const res = await khuyenMaiService.getActivePromotions({ search: debouncedDiscountCode });
+            const promotion = res.khuyen_mais.find(p => p.khuyenMai.ma_khuyen_mai === debouncedDiscountCode);
+            if (promotion) {
+              const km = promotion.khuyenMai;
+              await onApplyDiscountCode(km.id_khuyen_mai);
+              // Lấy lại hóa đơn mới nhất từ server
+              if (order.currentOrderId) {
+                const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
+                onOrderChange({
+                  ...order,
+                  hoaDonChiTiets: invoice.hoaDonChiTiets,
+                  so_tien_khuyen_mai: invoice.so_tien_khuyen_mai,
+                  tong_tien_phai_thanh_toan: invoice.tong_tien_phai_thanh_toan,
+                  khuyenMai: invoice.khuyenMai,
+                  discountCode: invoice.khuyenMai?.ma_khuyen_mai || '',
+                  discountAmount: invoice.so_tien_khuyen_mai || 0
+                });
+              }
+              toast.success(
+                `Đã áp dụng mã "${km.ma_khuyen_mai}" - ${promotion.giaTriHienThi}`
+              );
+            } else if (debouncedDiscountCode !== '') {
+              toast.error('Mã khuyến mãi không hợp lệ hoặc đã hết hạn');
               onOrderChange({
                 ...order,
-                hoaDonChiTiets: invoice.hoaDonChiTiets,
-                so_tien_khuyen_mai: invoice.so_tien_khuyen_mai,
-                tong_tien_phai_thanh_toan: invoice.tong_tien_phai_thanh_toan,
-                khuyenMai: invoice.khuyenMai,
-                discountCode: invoice.khuyenMai?.ma_khuyen_mai || '',
-                discountAmount: invoice.so_tien_khuyen_mai || 0
+                khuyenMai: undefined,
+                so_tien_khuyen_mai: 0,
+                discountAmount: 0,
+                tong_tien_phai_thanh_toan: cartTotal
               });
+              onApplyDiscountCode('');
             }
-            toast.success(
-              `Đã áp dụng mã "${km.ma_khuyen_mai}" - ${promotion.giaTriHienThi}`
-            );
-          } else if (debouncedDiscountCode !== '') {
-            toast.error('Mã khuyến mãi không hợp lệ hoặc đã hết hạn');
-            onOrderChange({
-              ...order,
-              khuyenMai: undefined,
-              so_tien_khuyen_mai: 0,
-              discountAmount: 0,
-              tong_tien_phai_thanh_toan: cartTotal
-            });
-            onApplyDiscountCode('');
+          } catch (error) {
+            console.error('Error applying discount code:', error);
+            toast.error('Không thể áp dụng mã khuyến mãi');
           }
-        } catch (error) {
-          console.error('Error applying discount code:', error);
-          toast.error('Không thể áp dụng mã khuyến mãi');
         }
       }
     };
     applyDiscountCode();
-  }, [debouncedDiscountCode, cartTotal]);
+  }, [debouncedDiscountCode, cartTotal, order.isNewOrder, order.currentOrderId, order.khuyenMai?.ma_khuyen_mai]);
 
   return (
     <div>
