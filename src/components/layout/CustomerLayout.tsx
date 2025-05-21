@@ -105,15 +105,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             </nav>
 
             {/* Search Bar */}
-            <div className="hidden md:flex items-center">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Tìm kiếm sản phẩm..."
-                  className="w-[300px] pl-8"
-                />
-              </div>
-            </div>
+           
 
             {/* Actions */}
             <div className="flex items-center space-x-4">

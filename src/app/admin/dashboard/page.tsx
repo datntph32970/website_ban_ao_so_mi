@@ -169,6 +169,7 @@ export default function DashboardPage() {
   const [sanPhamBanChay, setSanPhamBanChay] = useState<SanPhamBanChayChiTiet[]>([]);
   const [nhanVienXuatSac, setNhanVienXuatSac] = useState<NhanVienDoanhThu[]>([]);
   const [loading, setLoading] = useState(true);
+  const [revenueChange, setRevenueChange] = useState<number>(0);
   const [dashboardStats, setDashboardStats] = useState<Array<{
     title: string;
     value: string;
@@ -178,6 +179,7 @@ export default function DashboardPage() {
     color: string;
     textColor: string;
   }>>([]);
+  const [sevenDayChange, setSevenDayChange] = useState<number>(0);
 
   // Get current date info
   const currentDate = new Date();
@@ -245,6 +247,47 @@ export default function DashboardPage() {
     }
   };
 
+  // Calculate 7-day revenue change
+  const calculateSevenDayChange = async () => {
+    try {
+      // Get current week's data
+      const today = new Date();
+      const currentWeekPromises = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() - (6 - i));
+        const formattedDate = date.toISOString().split('T')[0];
+        return thongKeService.getDonHangTheoNgay(formattedDate);
+      });
+      
+      // Get previous week's data
+      const previousWeekPromises = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(date.getDate() - (13 - i));
+        const formattedDate = date.toISOString().split('T')[0];
+        return thongKeService.getDonHangTheoNgay(formattedDate);
+      });
+
+      const [currentWeekResults, previousWeekResults] = await Promise.all([
+        Promise.all(currentWeekPromises),
+        Promise.all(previousWeekPromises)
+      ]);
+
+      const currentWeekTotal = currentWeekResults.reduce((sum, result) => 
+        sum + (result?.success ? result.data.so_don_hang : 0), 0);
+      
+      const previousWeekTotal = previousWeekResults.reduce((sum, result) => 
+        sum + (result?.success ? result.data.so_don_hang : 0), 0);
+
+      if (previousWeekTotal === 0) {
+        return currentWeekTotal > 0 ? 100 : 0;
+      }
+      return ((currentWeekTotal - previousWeekTotal) / previousWeekTotal) * 100;
+    } catch (error) {
+      console.error('Error calculating 7-day change:', error);
+      return 0;
+    }
+  };
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -276,7 +319,19 @@ export default function DashboardPage() {
 
         // Fetch yearly revenue
         const yearlyRevenue = await thongKeService.getDoanhThuTheoNam(currentYear) as ApiResponse<ThongKeDoanhThuResponse>;
-        setDoanhThuNam(yearlyRevenue?.success ? yearlyRevenue.data.doanh_thu : 0);
+        const previousYearRevenue = await thongKeService.getDoanhThuTheoNam(currentYear - 1) as ApiResponse<ThongKeDoanhThuResponse>;
+
+        const currentRevenue = yearlyRevenue?.success ? yearlyRevenue.data.doanh_thu : 0;
+        const lastYearRevenue = previousYearRevenue?.success ? previousYearRevenue.data.doanh_thu : 0;
+
+        setDoanhThuNam(currentRevenue);
+
+        // Calculate revenue change percentage
+        const revenueChangeValue = lastYearRevenue === 0 
+          ? currentRevenue > 0 ? 100 : 0
+          : ((currentRevenue - lastYearRevenue) / lastYearRevenue) * 100;
+        
+        setRevenueChange(revenueChangeValue);
 
         // Fetch orders for the past 7 days with improved date formatting
         const today = new Date();
@@ -393,16 +448,20 @@ export default function DashboardPage() {
 
         const productStats = calculateProductStats();
 
+        // Calculate seven day change
+        const sevenDayChangeValue = await calculateSevenDayChange();
+        setSevenDayChange(sevenDayChangeValue);
+
         // Update dashboard stats with the calculated values
         const newDashboardStats = [
           {
             title: "Tổng doanh thu",
-            value: formatCurrency(doanhThuNam),
-            change: "+23%",
+            value: formatCurrency(currentRevenue),
+            change: `${revenueChangeValue > 0 ? '+' : ''}${revenueChangeValue.toFixed(0)}%`,
             icon: <DollarSign className="h-8 w-8 text-green-500" />,
             description: "so với năm trước",
             color: "bg-green-50",
-            textColor: "text-green-500"
+            textColor: revenueChangeValue >= 0 ? "text-green-500" : "text-red-500"
           },
           {
             title: "Tổng đơn hàng",
@@ -496,13 +555,15 @@ export default function DashboardPage() {
         setTongSanPhamThang(0);
         setTongSanPhamThangTruoc(0);
         setDashboardStats([]);
+        setRevenueChange(0);
+        setSevenDayChange(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchDashboardData();
-  }, [currentMonth, currentYear, doanhThuNam]);
+  }, [currentMonth, currentYear]);
 
   // Các tab cho biểu đồ phân tích
   const analysisTabs = [
@@ -699,62 +760,34 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
                     <p className="text-sm text-slate-500">Tháng hiện tại</p>
-                      <p className="text-xl font-bold">{formatCurrency(doanhThuNam)}</p>
+                    <p className="text-xl font-bold">{formatCurrency(doanhThuNam)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">So với tháng trước</p>
-                    <p className="text-xl font-bold text-green-600">+23%</p>
+                    <p className={`text-xl font-bold ${revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {revenueChange > 0 ? '+' : ''}{revenueChange.toFixed(0)}%
+                    </p>
                   </div>
                 </div>
               </div>
               <div className="p-4 hover:bg-slate-50">
-                  <h3 className="font-medium">Đơn hàng 7 ngày gần nhất</h3>
+                <h3 className="font-medium">Đơn hàng 7 ngày gần nhất</h3>
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
                     <p className="text-sm text-slate-500">Tổng số đơn</p>
-                      <p className="text-xl font-bold">{donHangTuan.reduce((sum, item) => sum + item.orders, 0)}</p>
+                    <p className="text-xl font-bold">{donHangTuan.reduce((sum, item) => sum + item.orders, 0)}</p>
                   </div>
                   <div>
-                      <p className="text-sm text-slate-500">So với 7 ngày trước</p>
-                    <p className="text-xl font-bold text-green-600">+18%</p>
+                    <p className="text-sm text-slate-500">So với 7 ngày trước</p>
+                    <p className={`text-xl font-bold ${sevenDayChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {sevenDayChange > 0 ? '+' : ''}{sevenDayChange.toFixed(0)}%
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
-
-      <div className="mt-8">
-        <Card className="shadow-sm">
-          <CardHeader className="border-b">
-            <CardTitle>Nhân viên xuất sắc</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  {nhanVienXuatSac.map((nhanVien, index) => (
-                    <div key={nhanVien.nhan_vien.id} className="flex flex-col items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
-                  <div className="h-16 w-16 rounded-full bg-slate-200 mb-3 flex items-center justify-center overflow-hidden">
-                    <span className="text-lg font-bold text-slate-500">NV</span>
-                  </div>
-                      <h3 className="font-medium text-center">{nhanVien.nhan_vien.ten_nhan_vien}</h3>
-                      <p className="text-sm text-slate-500 mb-2">Doanh số: {formatCurrency(nhanVien.doanh_thu)}</p>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    index === 0 ? "bg-yellow-100 text-yellow-800" :
-                    index === 1 ? "bg-slate-100 text-slate-800" :
-                    index === 2 ? "bg-amber-100 text-amber-800" :
-                    "bg-blue-100 text-blue-800"
-                  }`}>
-                    {index === 0 ? "#1" :
-                    index === 1 ? "#2" :
-                    index === 2 ? "#3" :
-                    `#${index + 1}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
         </>
       )}
     </AdminLayout>
