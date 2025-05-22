@@ -191,9 +191,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   reject(new Error(`Failed to load image: ${imageUrl}`));
                 };
                 
-                // Thêm timestamp để tránh cache
-                const timestamp = new Date().getTime();
-                imageElement.src = `${imageUrl}?t=${timestamp}`;
+                imageElement.src = imageUrl; // Removed timestamp
               });
             };
 
@@ -285,9 +283,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                           reject(new Error(`Failed to load image: ${imageUrl}`));
                         };
                         
-                        // Thêm timestamp để tránh cache
-                        const timestamp = new Date().getTime();
-                        imageElement.src = `${imageUrl}?t=${timestamp}`;
+                        imageElement.src = imageUrl; // Removed timestamp
                       });
                     };
 

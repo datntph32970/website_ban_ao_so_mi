@@ -1148,16 +1148,7 @@ export default function OrderTabContent({
                   </div>
                 </>
               )}
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" className="flex-1">Hủy</Button>
-                <Button 
-                  className="flex-1" 
-                  onClick={handlePayment}
-                  disabled={!order.hoaDonChiTiets || order.hoaDonChiTiets.length === 0 || isPaymentLoading}
-                >
-                  {isPaymentLoading ? 'Đang tải...' : 'Thanh toán'}
-                </Button>
-              </div>
+              
             </div>
 
             {/* Phương thức thanh toán */}

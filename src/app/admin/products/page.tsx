@@ -394,9 +394,9 @@ export default function ProductsPage() {
       await sanPhamService.xoaSanPham(productToDelete);
       toast.success('Xóa sản phẩm thành công!');
       fetchProducts(); // Tải lại danh sách sau khi xóa
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi xóa sản phẩm:', error);
-      toast.error('Có lỗi xảy ra khi xóa sản phẩm!');
+      toast.error(error?.response?.data||'Có lỗi xảy ra khi xóa sản phẩm!');
     } finally {
       setIsDeleteDialogOpen(false);
       setProductToDelete(null);
@@ -430,9 +430,9 @@ export default function ProductsPage() {
       toast.success('Xóa sản phẩm thành công!');
       setSelectedProducts([]);
       fetchProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi xóa sản phẩm:', error);
-      toast.error('Có lỗi xảy ra khi xóa sản phẩm!');
+      toast.error(error?.response?.data||'Không thể xóa sản phẩm!');
     } finally {
       setIsBulkDeleteDialogOpen(false);
     }
