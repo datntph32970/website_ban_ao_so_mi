@@ -62,7 +62,7 @@ export interface KhachHangAdminDTO {
   gioi_tinh?: string;
   trang_thai: string;
   gioHangItemsDTOs?: any[];
-  hoaDonDTOs?: any[];
+  hoaDons?: HoaDonAdminDTO[];
   diaChiDTOs?: any[];
 }
 

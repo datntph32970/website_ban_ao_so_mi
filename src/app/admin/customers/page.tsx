@@ -573,7 +573,7 @@ export default function CustomersPage() {
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-slate-500">Tổng đơn hàng</Label>
                       <div className="p-3 bg-slate-50 rounded-lg text-sm">
-                        {selectedCustomer.hoaDonDTOs?.length || 0} đơn hàng
+                        {selectedCustomer.hoaDons?.length || 0} đơn hàng
                       </div>
                     </div>
                   </div>
