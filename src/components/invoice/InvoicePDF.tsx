@@ -162,6 +162,7 @@ export interface InvoicePDFProps {
       ngayLap: string;
       nhanVienBanHang: string;
       maNhanVien: string;
+      maKhuyenMai: string;
     };
     thongTinKhachHang: {
       tenKhachHang: string;
@@ -208,6 +209,12 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoiceData }) => (
         <View style={styles.invoiceInfo}>
           <Text style={styles.invoiceNumber}>Số HĐ: {invoiceData?.thongTinHoaDon?.soHoaDon}</Text>
           <Text>Ngày: {invoiceData?.thongTinHoaDon?.ngayLap}</Text>
+          {invoiceData?.thongTinHoaDon?.maKhuyenMai && (
+            <Text>
+              <Text style={styles.infoLabel}>Mã KM:</Text>
+              <Text style={styles.infoValue}>{invoiceData.thongTinHoaDon.maKhuyenMai}</Text>
+            </Text>
+          )}
         </View>
 
         <View style={styles.infoGroup}>
@@ -219,12 +226,14 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoiceData }) => (
             <Text style={styles.infoLabel}>Khách hàng:</Text>
             <Text style={styles.infoValue}>{invoiceData?.thongTinKhachHang?.tenKhachHang || 'Khách lẻ'}</Text>
           </Text>
+         
           {invoiceData?.thongTinKhachHang?.soDienThoai && (
             <Text>
               <Text style={styles.infoLabel}>SĐT:</Text>
               <Text style={styles.infoValue}>{invoiceData.thongTinKhachHang.soDienThoai}</Text>
             </Text>
           )}
+           
         </View>
 
         <View style={styles.table}>

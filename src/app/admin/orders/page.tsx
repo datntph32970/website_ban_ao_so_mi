@@ -753,6 +753,12 @@ const OrderListPage = () => {
                         <CreditCard className="h-4 w-4 text-slate-400" />
                         <span className="font-medium">Phương thức:</span> {selectedOrder.ten_phuong_thuc_thanh_toan}
                       </p>
+                      {selectedOrder.khuyenMai?.ma_khuyen_mai && (
+                        <p className="text-slate-600 flex items-center gap-2">
+                          <Tag className="h-4 w-4 text-slate-400" />
+                          <span className="font-medium">Mã khuyến mãi:</span> {selectedOrder.khuyenMai?.ma_khuyen_mai}
+                        </p>
+                      )}
                       {selectedOrder.ghi_chu && (
                         <p className="text-slate-600 flex items-center gap-2">
                           <FileText className="h-4 w-4 text-slate-400" />

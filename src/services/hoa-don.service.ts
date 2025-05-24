@@ -191,4 +191,12 @@ export const hoaDonService = {
         return response.data;
     },
 
+    traHangTaiQuay: async (id_hoa_don: string, ly_do: string): Promise<{
+        message: string;
+        hoa_don: HoaDonAdminDTO;
+    }> => {
+        const response = await api.post(`/HoaDon/tra-hang-tai-quay/${id_hoa_don}`, { ly_do });
+        return response.data;
+    },
+
 }

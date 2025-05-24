@@ -37,7 +37,7 @@ import { Plus } from "lucide-react";
 
 const formSchema = z.object({
   ten_nguoi_nhan: z.string().min(1, "Vui lòng nhập tên người nhận"),
-  so_dien_thoai: z.string().min(10, "Số điện thoại không hợp lệ").max(11),
+  so_dien_thoai: z.string().min(10, "Số điện thoại không hợp lệ").max(10),
   dia_chi_cu_the: z.string().min(1, "Vui lòng nhập địa chỉ cụ thể"),
   tinh: z.string().min(1, "Vui lòng chọn tỉnh/thành phố"),
   huyen: z.string().min(1, "Vui lòng chọn quận/huyện"),
