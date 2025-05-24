@@ -228,6 +228,9 @@ const OrderListPage = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState("");
+  const [isReturning, setIsReturning] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -379,6 +382,29 @@ const OrderListPage = () => {
         toast.error(error.response?.data || 'Có lỗi xảy ra khi tải thông tin hóa đơn');
     } finally {
         setIsPrinting(false);
+    }
+  };
+
+  const handleReturnGoods = async () => {
+    if (!selectedOrder || !returnReason.trim()) {
+      toast.error("Vui lòng nhập lý do trả hàng");
+      return;
+    }
+
+    try {
+      setIsReturning(true);
+      await hoaDonService.traHangTaiQuay(selectedOrder.id_hoa_don, returnReason);
+      toast.success("Đã xử lý trả hàng thành công");
+      setReturnReason("");
+      setIsReturnDialogOpen(false);
+      const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+      setSelectedOrder(updatedOrder);
+      fetchOrders();
+    } catch (error: any) {
+      console.error("Error processing return:", error);
+      toast.error(error.response?.data || "Không thể xử lý trả hàng");
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -1387,7 +1413,85 @@ const OrderListPage = () => {
                   </Dialog>
                 </>
               )}
-
+{selectedOrder && selectedOrder.loai_hoa_don === 'TaiQuay' && selectedOrder.trang_thai === 'DaThanhToan' && (
+                <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      className="bg-orange-500/80 hover:bg-orange-500 text-white transition-colors"
+                      onClick={() => setIsReturnDialogOpen(true)}
+                      disabled={isReturning}
+                    >
+                      {isReturning ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowLeftRight className="h-4 w-4 mr-2" />
+                          Trả hàng
+                        </>
+                      )}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2 text-orange-600">
+                        <ArrowLeftRight className="h-5 w-5" />
+                        Trả hàng tại quầy
+                      </DialogTitle>
+                      <DialogDescription>
+                        Bạn có chắc chắn muốn xử lý trả hàng cho hóa đơn này? Hành động này không thể hoàn tác.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="my-6">
+                      <Label htmlFor="returnReason" className="text-sm font-medium block mb-2">
+                        Lý do trả hàng*
+                      </Label>
+                      <div className="relative">
+                        <Textarea
+                          id="returnReason"
+                          className="min-h-[120px] resize-none pr-4 focus-visible:ring-slate-400"
+                          placeholder="Vui lòng nhập lý do trả hàng"
+                          value={returnReason}
+                          onChange={(e) => setReturnReason(e.target.value)}
+                        />
+                        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                          {returnReason.length}/500
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setReturnReason("");
+                          setIsReturnDialogOpen(false);
+                        }}
+                        className="hover:bg-slate-100"
+                        disabled={isReturning}
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        variant="default"
+                        className="bg-orange-500/80 hover:bg-orange-500"
+                        onClick={handleReturnGoods}
+                        disabled={isReturning}
+                      >
+                        {isReturning ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          "Xác nhận trả hàng"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
               <Button 
                 className="bg-blue-500/80 hover:bg-blue-500 text-white transition-colors flex items-center gap-2"
                 onClick={handlePrintInvoice}
