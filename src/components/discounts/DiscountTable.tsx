@@ -373,7 +373,6 @@ export function DiscountTable({
         onOpenChange={setIsUpdateDialogOpen}
         discount={selectedDiscount}
         onSuccess={() => {
-          toast.success("Cập nhật giảm giá thành công");
           setIsUpdateDialogOpen(false);
         }}
       />

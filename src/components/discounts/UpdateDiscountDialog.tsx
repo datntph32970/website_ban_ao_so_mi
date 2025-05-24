@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/select";
 import { GiamGia, TrangThaiGiamGia } from "@/types/giam-gia";
 import { giamGiaService } from "@/services/giam-gia.service";
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { AlertCircle } from "lucide-react";
 
 interface UpdateDiscountDialogProps {
   open: boolean;
@@ -23,6 +24,8 @@ interface UpdateDiscountDialogProps {
   onSuccess?: () => void;
 }
 
+type DialogMode = 'edit' | 'confirm' | 'conflict';
+
 export function UpdateDiscountDialog({
   open,
   onOpenChange,
@@ -30,6 +33,9 @@ export function UpdateDiscountDialog({
   onSuccess,
 }: UpdateDiscountDialogProps) {
   const queryClient = useQueryClient();
+  const [dialogMode, setDialogMode] = useState<DialogMode>('edit');
+  const [conflictDetails, setConflictDetails] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     ten_giam_gia: "",
     mo_ta: "",
@@ -60,6 +66,13 @@ export function UpdateDiscountDialog({
       setErrors({});
     }
   }, [discount]);
+
+  useEffect(() => {
+    if (!open) {
+      setDialogMode('edit');
+      setIsSubmitting(false);
+    }
+  }, [open]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -122,177 +135,263 @@ export function UpdateDiscountDialog({
       return;
     }
 
+    setDialogMode('confirm');
+  };
+
+  const handleConfirmUpdate = async () => {
+    if (!discount) return;
+    setIsSubmitting(true);
+
     try {
       const data = {
         ...formData,
         gia_tri_giam: Number(formData.gia_tri_giam),
         so_luong_toi_da: Number(formData.so_luong_toi_da),
+        id_giam_gia: discount.id_giam_gia
       };
 
-      const response = await giamGiaService.update(discount.id_giam_gia, {
-        ...data,
-        id_giam_gia: discount.id_giam_gia
-      });
+      const response = await giamGiaService.update(discount.id_giam_gia, data);
       queryClient.invalidateQueries({ queryKey: ['discounts'] });
       toast.success("Cập nhật giảm giá thành công!");
       onSuccess?.();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Lỗi khi cập nhật giảm giá:", error);
-      if (error.response?.data) {
-        toast.error(error.response.data);
+      
+      if (error.message && error.chi_tiet && Array.isArray(error.chi_tiet)) {
+        setConflictDetails(error.chi_tiet);
+        setDialogMode('conflict');
+      } else if (error.message) {
+        toast.error(error.message);
+        setDialogMode('edit');
+      } else if (error.errors && Array.isArray(error.errors)) {
+        error.errors.forEach((err: string) => {
+          toast.error(err);
+        });
+        setDialogMode('edit');
       } else {
         toast.error("Có lỗi xảy ra khi cập nhật giảm giá!");
+        setDialogMode('edit');
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderDialogContent = () => {
+    switch (dialogMode) {
+      case 'confirm':
+        return (
+          <div className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Xác nhận cập nhật</DialogTitle>
+            </DialogHeader>
+            <p className="text-slate-600">
+              Bạn có chắc chắn muốn cập nhật thông tin giảm giá này? Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setDialogMode('edit')}
+                disabled={isSubmitting}
+              >
+                Hủy
+              </Button>
+              <Button 
+                onClick={handleConfirmUpdate}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Đang cập nhật..." : "Xác nhận"}
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'conflict':
+        return (
+          <div className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+                Xung đột thời gian giảm giá
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-slate-600">
+              Không thể cập nhật thời gian giảm giá do xung đột với các giảm giá khác. 
+              Các sản phẩm sau đã có giảm giá trong khoảng thời gian này:
+            </p>
+            <div className="max-h-[300px] overflow-y-auto rounded-lg border border-slate-200">
+              <ul className="divide-y divide-slate-200">
+                {conflictDetails.map((detail, index) => (
+                  <li key={index} className="p-3 text-sm text-slate-600">
+                    {detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setDialogMode('edit')}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>Cập nhật giảm giá</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="ma_giam_gia">Mã giảm giá <span className="text-red-500">*</span></Label>
+                <Input
+                  id="ma_giam_gia"
+                  value={formData.ma_giam_gia}
+                  onChange={(e) => setFormData({ ...formData, ma_giam_gia: e.target.value.toUpperCase() })}
+                  placeholder="Nhập mã giảm giá"
+                  required
+                />
+                {errors.ma_giam_gia && (
+                  <p className="text-sm text-red-500">{errors.ma_giam_gia}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ten_giam_gia">Tên giảm giá <span className="text-red-500">*</span></Label>
+                <Input
+                  id="ten_giam_gia"
+                  value={formData.ten_giam_gia}
+                  onChange={(e) => setFormData({ ...formData, ten_giam_gia: e.target.value })}
+                  required
+                />
+                {errors.ten_giam_gia && (
+                  <p className="text-sm text-red-500">{errors.ten_giam_gia}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kieu_giam_gia">Loại giảm giá</Label>
+                <Select
+                  value={formData.kieu_giam_gia}
+                  onValueChange={(value) => setFormData({ ...formData, kieu_giam_gia: value as "PhanTram" | "SoTien" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn loại giảm giá" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PhanTram">Phần trăm</SelectItem>
+                    <SelectItem value="SoTien">Số tiền cố định</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.kieu_giam_gia && (
+                  <p className="text-sm text-red-500">{errors.kieu_giam_gia}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mo_ta">Mô tả</Label>
+              <Textarea
+                id="mo_ta"
+                value={formData.mo_ta}
+                onChange={(e) => setFormData({ ...formData, mo_ta: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="gia_tri_giam">Giá trị giảm</Label>
+                <Input
+                  id="gia_tri_giam"
+                  type="number"
+                  value={formData.gia_tri_giam}
+                  onChange={(e) => setFormData({ ...formData, gia_tri_giam: e.target.value })}
+                  required
+                />
+                {errors.gia_tri_giam && (
+                  <p className="text-sm text-red-500">{errors.gia_tri_giam}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="so_luong_toi_da">Số lượng tối đa</Label>
+                <Input
+                  id="so_luong_toi_da"
+                  type="number"
+                  value={formData.so_luong_toi_da}
+                  onChange={(e) => setFormData({ ...formData, so_luong_toi_da: e.target.value })}
+                  required
+                />
+                {errors.so_luong_toi_da && (
+                  <p className="text-sm text-red-500">{errors.so_luong_toi_da}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="trang_thai">Trạng thái</Label>
+                <Select
+                  value={formData.trang_thai}
+                  onValueChange={(value) => setFormData({ ...formData, trang_thai: value as TrangThaiGiamGia })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={TrangThaiGiamGia.HoatDong}>Đang hoạt động</SelectItem>
+                    <SelectItem value={TrangThaiGiamGia.NgungHoatDong}>Ngừng hoạt động</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="thoi_gian_bat_dau">Thời gian bắt đầu</Label>
+                <Input
+                  id="thoi_gian_bat_dau"
+                  type="datetime-local"
+                  value={formData.thoi_gian_bat_dau}
+                  onChange={(e) => setFormData({ ...formData, thoi_gian_bat_dau: e.target.value })}
+                  required
+                />
+                {errors.thoi_gian_bat_dau && (
+                  <p className="text-sm text-red-500">{errors.thoi_gian_bat_dau}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="thoi_gian_ket_thuc">Thời gian kết thúc</Label>
+                <Input
+                  id="thoi_gian_ket_thuc"
+                  type="datetime-local"
+                  value={formData.thoi_gian_ket_thuc}
+                  onChange={(e) => setFormData({ ...formData, thoi_gian_ket_thuc: e.target.value })}
+                  required
+                />
+                {errors.thoi_gian_ket_thuc && (
+                  <p className="text-sm text-red-500">{errors.thoi_gian_ket_thuc}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Đang cập nhật..." : "Cập nhật"}
+              </Button>
+            </div>
+          </form>
+        );
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Cập nhật giảm giá</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="ma_giam_gia">Mã giảm giá <span className="text-red-500">*</span></Label>
-              <Input
-                id="ma_giam_gia"
-                value={formData.ma_giam_gia}
-                onChange={(e) => setFormData({ ...formData, ma_giam_gia: e.target.value.toUpperCase() })}
-                placeholder="Nhập mã giảm giá"
-                required
-              />
-              {errors.ma_giam_gia && (
-                <p className="text-sm text-red-500">{errors.ma_giam_gia}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ten_giam_gia">Tên giảm giá <span className="text-red-500">*</span></Label>
-              <Input
-                id="ten_giam_gia"
-                value={formData.ten_giam_gia}
-                onChange={(e) => setFormData({ ...formData, ten_giam_gia: e.target.value })}
-                required
-              />
-              {errors.ten_giam_gia && (
-                <p className="text-sm text-red-500">{errors.ten_giam_gia}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kieu_giam_gia">Loại giảm giá</Label>
-              <Select
-                value={formData.kieu_giam_gia}
-                onValueChange={(value) => setFormData({ ...formData, kieu_giam_gia: value as "PhanTram" | "SoTien" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại giảm giá" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PhanTram">Phần trăm</SelectItem>
-                  <SelectItem value="SoTien">Số tiền cố định</SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.kieu_giam_gia && (
-                <p className="text-sm text-red-500">{errors.kieu_giam_gia}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mo_ta">Mô tả</Label>
-            <Textarea
-              id="mo_ta"
-              value={formData.mo_ta}
-              onChange={(e) => setFormData({ ...formData, mo_ta: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="gia_tri_giam">Giá trị giảm</Label>
-              <Input
-                id="gia_tri_giam"
-                type="number"
-                value={formData.gia_tri_giam}
-                onChange={(e) => setFormData({ ...formData, gia_tri_giam: e.target.value })}
-                required
-              />
-              {errors.gia_tri_giam && (
-                <p className="text-sm text-red-500">{errors.gia_tri_giam}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="so_luong_toi_da">Số lượng tối đa</Label>
-              <Input
-                id="so_luong_toi_da"
-                type="number"
-                value={formData.so_luong_toi_da}
-                onChange={(e) => setFormData({ ...formData, so_luong_toi_da: e.target.value })}
-                required
-              />
-              {errors.so_luong_toi_da && (
-                <p className="text-sm text-red-500">{errors.so_luong_toi_da}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="trang_thai">Trạng thái</Label>
-              <Select
-                value={formData.trang_thai}
-                onValueChange={(value) => setFormData({ ...formData, trang_thai: value as TrangThaiGiamGia })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={TrangThaiGiamGia.HoatDong}>Đang hoạt động</SelectItem>
-                  <SelectItem value={TrangThaiGiamGia.NgungHoatDong}>Ngừng hoạt động</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="thoi_gian_bat_dau">Thời gian bắt đầu</Label>
-              <Input
-                id="thoi_gian_bat_dau"
-                type="datetime-local"
-                value={formData.thoi_gian_bat_dau}
-                onChange={(e) => setFormData({ ...formData, thoi_gian_bat_dau: e.target.value })}
-                required
-              />
-              {errors.thoi_gian_bat_dau && (
-                <p className="text-sm text-red-500">{errors.thoi_gian_bat_dau}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="thoi_gian_ket_thuc">Thời gian kết thúc</Label>
-              <Input
-                id="thoi_gian_ket_thuc"
-                type="datetime-local"
-                value={formData.thoi_gian_ket_thuc}
-                onChange={(e) => setFormData({ ...formData, thoi_gian_ket_thuc: e.target.value })}
-                required
-              />
-              {errors.thoi_gian_ket_thuc && (
-                <p className="text-sm text-red-500">{errors.thoi_gian_ket_thuc}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Hủy
-            </Button>
-            <Button type="submit">Cập nhật</Button>
-          </div>
-        </form>
+        {renderDialogContent()}
       </DialogContent>
     </Dialog>
   );
