@@ -662,9 +662,9 @@ export default function POSPage() {
       return;
     }
 
-    const phoneRegex = /^(0|\+84)([0-9]{9,10})$/;
+    const phoneRegex = /^(0|\+84)([0-9]{9})$/;
     if (!phoneRegex.test(customerData.so_dien_thoai)) {
-      toast.error('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại bắt đầu bằng 0 hoặc +84 và có 9-10 chữ số');
+      toast.error('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại bắt đầu bằng 0 hoặc +84 và có 9 chữ số');
       return;
     }
 

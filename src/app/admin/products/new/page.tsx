@@ -44,15 +44,35 @@ export default function NewProductPage() {
   useEffect(() => {
     setAttrLoading(true);
     Promise.all([
-      // Giả sử các hàm này trả về promise
-      attributeService.getAttributes('ThuongHieu'),
-      attributeService.getAttributes('KieuDang'),
-      attributeService.getAttributes('ChatLieu'),
-      attributeService.getAttributes('XuatXu'),
-      attributeService.getAttributes('DanhMuc'),
-      attributeService.getAttributes('MauSac'),
-      attributeService.getAttributes('KichCo'),
-    ]).finally(() => setAttrLoading(false));
+      attributeService.getActiveBrands(),
+      attributeService.getActiveStyles(),
+      attributeService.getActiveMaterials(),
+      attributeService.getActiveOrigins(),
+      attributeService.getActiveCategories(),
+      attributeService.getActiveColors(),
+      attributeService.getActiveSizes(),
+    ])
+    .then(([brands, styles, materials, origins, categories, colors, sizes]) => {
+      // Log để kiểm tra dữ liệu danh mục
+      console.log('Active Categories:', categories);
+      
+      // Đảm bảo chỉ lấy danh mục có trạng thái HoatDong
+      const activeCategories = categories.filter(cat => cat.trang_thai === 'HoatDong');
+      console.log('Filtered Active Categories:', activeCategories);
+
+      form.setBrands(brands);
+      form.setStyles(styles);
+      form.setMaterials(materials);
+      form.setOrigins(origins);
+      form.setCategories(activeCategories); // Sử dụng danh mục đã lọc
+      form.setColors(colors);
+      form.setSizes(sizes);
+    })
+    .catch(error => {
+      console.error('Error loading attributes:', error);
+      toast.error('Không thể tải dữ liệu thuộc tính');
+    })
+    .finally(() => setAttrLoading(false));
   }, []);
 
   useEffect(() => {

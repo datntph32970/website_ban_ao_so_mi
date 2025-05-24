@@ -179,6 +179,11 @@ export default function ProductGeneralInfoForm({
                 <span className="flex items-center gap-2">
                   <span>{i.ten_chat_lieu}</span>
                   <span className="text-xs text-slate-400">{i.ma_chat_lieu}</span>
+                  {i.trang_thai !== 'HoatDong' && (
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                      Không hoạt động
+                    </span>
+                  )}
                 </span>
               );
             }}
@@ -205,6 +210,11 @@ export default function ProductGeneralInfoForm({
                 <span className="flex items-center gap-2">
                   <span>{i.ten_kieu_dang}</span>
                   <span className="text-xs text-slate-400">{i.ma_kieu_dang}</span>
+                  {i.trang_thai !== 'HoatDong' && (
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                      Không hoạt động
+                    </span>
+                  )}
                 </span>
               );
             }}
@@ -232,6 +242,11 @@ export default function ProductGeneralInfoForm({
                 <span className="flex items-center gap-2">
                   <span>{i.ten_thuong_hieu}</span>
                   <span className="text-xs text-slate-400">{i.ma_thuong_hieu}</span>
+                  {i.trang_thai !== 'HoatDong' && (
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                      Không hoạt động
+                    </span>
+                  )}
                 </span>
               );
             }}
@@ -259,6 +274,11 @@ export default function ProductGeneralInfoForm({
                 <span className="flex items-center gap-2">
                   <span>{i.ten_xuat_xu}</span>
                   <span className="text-xs text-slate-400">{i.ma_xuat_xu}</span>
+                  {i.trang_thai !== 'HoatDong' && (
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                      Không hoạt động
+                    </span>
+                  )}
                 </span>
               );
             }}
@@ -286,6 +306,11 @@ export default function ProductGeneralInfoForm({
                 <span className="flex items-center gap-2">
                   <span>{i.ten_danh_muc}</span>
                   <span className="text-xs text-slate-400">{i.ma_danh_muc}</span>
+                  {i.trang_thai !== 'HoatDong' && (
+                    <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                      Không hoạt động
+                    </span>
+                  )}
                 </span>
               );
             }}

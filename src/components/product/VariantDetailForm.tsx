@@ -69,10 +69,25 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
   });
 
   return (
-    <div className="rounded-xl border border-slate-200 shadow-sm p-4 bg-slate-50">
+    <div className={cn(
+      "rounded-xl border border-slate-200 shadow-sm p-4",
+      size?.trang_thai === 'HoatDong' ? 'bg-slate-50' : 'bg-slate-100'
+    )}>
       <div className="flex items-center gap-3 mb-3">
         <span className="w-5 h-5 rounded-full border border-slate-200" style={{background: '#f3f4f6'}}></span>
-        <span className="font-medium text-slate-700">{color?.ten_mau_sac} / {size?.ten_kich_co}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-slate-700">{color?.ten_mau_sac} / {size?.ten_kich_co}</span>
+          {color?.trang_thai !== 'HoatDong' && (
+            <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+              Màu không hoạt động
+            </span>
+          )}
+          {size?.trang_thai !== 'HoatDong' && (
+            <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+              Kích cỡ không hoạt động
+            </span>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
         <div>
@@ -86,7 +101,8 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
             onChange={e => onChange('stock', parseInt(e.target.value) || 0)}
             className={cn(
               "h-10 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-base",
-              errors.stock && "border-red-500 focus:border-red-500 focus:ring-red-200"
+              errors.stock && "border-red-500 focus:border-red-500 focus:ring-red-200",
+              size?.trang_thai !== 'HoatDong' && "bg-slate-50"
             )}
           />
           {errors.stock && <div className="text-xs text-red-500 mt-1">{errors.stock}</div>}
@@ -102,7 +118,8 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
             onChange={e => onChange('importPrice', parseInt(e.target.value) || 0)}
             className={cn(
               "h-10 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-base",
-              errors.importPrice && "border-red-500 focus:border-red-500 focus:ring-red-200"
+              errors.importPrice && "border-red-500 focus:border-red-500 focus:ring-red-200",
+              size?.trang_thai !== 'HoatDong' && "bg-slate-50"
             )}
           />
           {errors.importPrice && <div className="text-xs text-red-500 mt-1">{errors.importPrice}</div>}
@@ -118,7 +135,8 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
             onChange={e => onChange('price', parseInt(e.target.value) || 0)}
             className={cn(
               "h-10 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-base",
-              errors.price && "border-red-500 focus:border-red-500 focus:ring-red-200"
+              errors.price && "border-red-500 focus:border-red-500 focus:ring-red-200",
+              size?.trang_thai !== 'HoatDong' && "bg-slate-50"
             )}
           />
           {errors.price && <div className="text-xs text-red-500 mt-1">{errors.price}</div>}
@@ -136,9 +154,12 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
               <SelectTrigger className={cn(
                 "h-10 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-base",
                 errors.discount && "border-red-500 focus:border-red-500 focus:ring-red-200",
-                loading && "opacity-50 cursor-not-allowed"
+                loading && "opacity-50 cursor-not-allowed",
+                (size?.trang_thai !== 'HoatDong' || color?.trang_thai !== 'HoatDong') && "bg-slate-50"
               )}>
-                <SelectValue placeholder={loading ? "Đang tải..." : "Chọn chương trình giảm giá"} />
+                <SelectValue placeholder={
+                  loading ? "Đang tải..." : "Chọn chương trình giảm giá"
+                } />
               </SelectTrigger>
               <SelectContent>
                 <div className="px-2 pb-2">
@@ -187,24 +208,29 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
                 return (
                   <Badge 
                     key={discountId}
-                    className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700"
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-1",
+                      (size?.trang_thai === 'HoatDong' && color?.trang_thai === 'HoatDong')
+                        ? "bg-slate-100 text-slate-700"
+                        : "bg-slate-200 text-slate-500"
+                    )}
                   >
                     <div className="flex flex-col items-start">
-  <div className="flex items-center gap-1">
-    <span>{discount.ten_giam_gia}</span>
-    <Badge className="text-xs font-mono bg-white border border-slate-200 text-slate-700">
-      {discount.ma_giam_gia}
-    </Badge>
-    <span className="text-xs bg-orange-100 text-orange-600 px-1 rounded">
-      {discount.kieu_giam_gia === 'PhanTram' 
-        ? `${discount.gia_tri_giam}%`
-        : formatCurrency(discount.gia_tri_giam)}
-    </span>
-  </div>
-  <span className="text-xs text-slate-500">
-    {format(new Date(discount.thoi_gian_bat_dau), 'dd/MM/yyyy HH:mm')} - {format(new Date(discount.thoi_gian_ket_thuc), 'dd/MM/yyyy HH:mm')}
-  </span>
-</div>
+                      <div className="flex items-center gap-1">
+                        <span>{discount.ten_giam_gia}</span>
+                        <Badge className="text-xs font-mono bg-white border border-slate-200 text-slate-700">
+                          {discount.ma_giam_gia}
+                        </Badge>
+                        <span className="text-xs bg-orange-100 text-orange-600 px-1 rounded">
+                          {discount.kieu_giam_gia === 'PhanTram' 
+                            ? `${discount.gia_tri_giam}%`
+                            : formatCurrency(discount.gia_tri_giam)}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        {format(new Date(discount.thoi_gian_bat_dau), 'dd/MM/yyyy HH:mm')} - {format(new Date(discount.thoi_gian_ket_thuc), 'dd/MM/yyyy HH:mm')}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveDiscount(discountId)}

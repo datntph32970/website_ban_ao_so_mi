@@ -107,5 +107,18 @@ export const attributeService = {
   getActiveMaterials: async () => {
     const response = await api.get<ChatLieu[]>('/ChatLieu/active');
     return response.data;
+  },
+
+  // Lấy danh sách màu sắc đang hoạt động
+  getActiveColors: async () => {
+    const response = await api.get<MauSac[]>('/MauSac/active');
+    return response.data;
+  },
+
+  // Lấy danh sách kích cỡ đang hoạt động
+  getActiveSizes: async () => {
+    const response = await api.get<KichCo[]>('/KichCo/active');
+    return response.data;
   }
+  
 }; 

@@ -90,6 +90,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [newQuickColor, setNewQuickColor] = useState({ ten_mau_sac: "", mo_ta: "" });
   const [newQuickSize, setNewQuickSize] = useState({ ten_kich_co: "", mo_ta: "" });
   const [selectedDiscount, setSelectedDiscount] = useState<string>("");
+  const [attrLoading, setAttrLoading] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -118,11 +119,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         setIsLoading(true);
         const [
           productData,
-          brandsData,
-          stylesData,
-          materialsData,
-          originsData,
-          categoriesData,
+          allBrands,
+          allStyles,
+          allMaterials,
+          allOrigins,
+          allCategories,
           colorsData,
           sizesData,
           discountsData,
@@ -148,16 +149,28 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }
 
         setProduct(productData);
-        setBrands(brandsData as ThuongHieu[]);
-        setStyles(stylesData as KieuDang[]);
-        setMaterials(materialsData as ChatLieu[]);
-        setOrigins(originsData as XuatXu[]);
-        setCategories(categoriesData as DanhMuc[]);
-        setColors(colorsData as MauSac[]);
-        setSizes(sizesData as KichCo[]);
+
+        // Set attributes for dropdowns, keeping inactive ones that are used in the product
+        setBrands((allBrands as ThuongHieu[]).filter(b => 
+          b.trang_thai === 'HoatDong' || String(b.id_thuong_hieu) === String(productData.thuongHieu?.id_thuong_hieu)
+        ));
+        setStyles((allStyles as KieuDang[]).filter(s => 
+          s.trang_thai === 'HoatDong' || String(s.id_kieu_dang) === String(productData.kieuDang?.id_kieu_dang)
+        ));
+        setMaterials((allMaterials as ChatLieu[]).filter(m => 
+          m.trang_thai === 'HoatDong' || String(m.id_chat_lieu) === String(productData.chatLieu?.id_chat_lieu)
+        ));
+        setOrigins((allOrigins as XuatXu[]).filter(o => 
+          o.trang_thai === 'HoatDong' || String(o.id_xuat_xu) === String(productData.xuatXu?.id_xuat_xu)
+        ));
+        setCategories((allCategories as DanhMuc[]).filter(c => 
+          c.trang_thai === 'HoatDong' || String(c.id_danh_muc) === String(productData.danhMuc?.id_danh_muc)
+        ));
+        setColors((colorsData as MauSac[]).filter(c => c.trang_thai === 'HoatDong'));
+        setSizes((sizesData as KichCo[]).filter(s => s.trang_thai === 'HoatDong'));
         setDiscounts(discountsData.data as GiamGia[]);
 
-        // Set form values
+        // Set form values with full attribute data
         form.reset({
           ten_san_pham: productData.ten_san_pham,
           mo_ta: productData.mo_ta,
@@ -564,6 +577,22 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   };
 
   const handleToggleSizeForColor = (colorId: string, sizeId: string) => {
+    // Kiểm tra xem kích cỡ này có active không
+    const size = sizes.find(s => String(s.id_kich_co) === sizeId);
+    if (!size) return;
+
+    // Nếu kích cỡ không active và chưa được sử dụng trong sản phẩm, không cho phép thêm
+    if (size.trang_thai !== 'HoatDong') {
+      const existingVariant = product?.sanPhamChiTiets?.find(
+        variant => String(variant.mauSac?.id_mau_sac) === colorId && String(variant.kichCo?.id_kich_co) === sizeId
+      );
+      
+      if (!existingVariant) {
+        toast.error("Không thể thêm kích cỡ không hoạt động");
+        return;
+      }
+    }
+
     // Kiểm tra xem kích cỡ này đã tồn tại trong sản phẩm chưa
     const existingVariant = product?.sanPhamChiTiets?.find(
       variant => String(variant.mauSac?.id_mau_sac) === colorId && String(variant.kichCo?.id_kich_co) === sizeId
@@ -603,7 +632,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       [colorId]: updatedSizes
     });
 
-      // Khởi tạo giá trị mặc định cho kích cỡ mới
+    // Khởi tạo giá trị mặc định cho kích cỡ mới
     const currentColorVariants = variantValues[colorId] || {};
     setVariantValues({
       ...variantValues,

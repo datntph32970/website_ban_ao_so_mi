@@ -1114,7 +1114,12 @@ export default function OrderTabContent({
                   order.hoaDonChiTiets.map((item: any, index: number) => (
                     <div key={index} className="p-3 flex items-center justify-between">
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{item.sanPhamChiTiet?.ten_san_pham || item.ten_san_pham}</p>
+                        <p className="text-sm font-medium">
+                          {item.sanPhamChiTiet?.ten_san_pham || item.ten_san_pham}
+                          <span className="text-xs text-slate-500 ml-2">
+                            ({item.sanPhamChiTiet?.ma_san_pham_chi_tiet || item.ma_san_pham_chi_tiet})
+                          </span>
+                        </p>
                         <p className="text-xs text-slate-500">
                           {item.so_luong} x {formatCurrency(item.gia_sau_giam_gia)}
                         </p>

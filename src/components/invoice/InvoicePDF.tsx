@@ -177,6 +177,7 @@ export interface InvoicePDFProps {
       donGia: number;
       giaSauGiamGia: number;
       thanhTien: number;
+      maSPCT: string;
     }>;
     thongTinThanhToan: {
       tongTienHang: number;
@@ -238,6 +239,7 @@ const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoiceData }) => (
             <View key={index} style={styles.tableRow}>
               <View style={styles.productCol}>
                 <Text style={styles.productName}>{item.tenSanPham}</Text>
+                <Text style={styles.productVariant}>Mã SPCT: {item.maSPCT}</Text>
                 <Text style={styles.productVariant}>{item.mauSac} - {item.kichCo}</Text>
               </View>
               <Text style={styles.qtyCol}>{item.soLuong}</Text>

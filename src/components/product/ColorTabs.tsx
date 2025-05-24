@@ -70,7 +70,14 @@ export default function ColorTabs({
           return (
             <TabsTrigger key={colorId} value={colorId} className="flex items-center gap-2 min-w-[120px] h-10 px-5 py-2 rounded-xl border-2 text-base font-medium shadow-sm transition-all data-[state=active]:bg-blue-50 data-[state=active]:border-blue-500">
               <span className="w-5 h-5 rounded-full border border-slate-200" style={{background: '#f3f4f6'}}></span>
-              {color?.ten_mau_sac}
+              <div className="flex items-center gap-2">
+                <span>{color?.ten_mau_sac}</span>
+                {color?.trang_thai !== 'HoatDong' && (
+                  <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                    Màu không hoạt động
+                  </span>
+                )}
+              </div>
               <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
                 {variantImages[colorId]?.length || 0} ảnh
               </span>
@@ -100,21 +107,48 @@ export default function ColorTabs({
           </PopoverTrigger>
           <PopoverContent align="start" className="p-2 w-48">
             <div className="flex flex-col gap-1">
-              {colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).length === 0 ? (
+              {colors.filter(c => {
+                // Lọc để hiển thị:
+                // 1. Tất cả màu sắc đang hoạt động
+                // 2. Màu sắc không hoạt động nhưng đã được chọn trong sản phẩm
+                return !selectedColors.includes(String(c.id_mau_sac)) && (
+                  c.trang_thai === 'HoatDong' || 
+                  selectedColors.includes(String(c.id_mau_sac))
+                );
+              }).length === 0 ? (
                 <span className="text-slate-400 text-sm">Đã chọn hết màu</span>
               ) : (
-                colors.filter(c => !selectedColors.includes(String(c.id_mau_sac))).map((color, idx) => (
+                colors.filter(c => {
+                  return !selectedColors.includes(String(c.id_mau_sac)) && (
+                    c.trang_thai === 'HoatDong' || 
+                    selectedColors.includes(String(c.id_mau_sac))
+                  );
+                }).map((color, idx) => (
                   <button
                     key={`${color.id_mau_sac}_${idx}`}
                     type="button"
-                    className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-blue-50 text-base font-medium"
+                    className={cn(
+                      "flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-blue-50 text-base font-medium",
+                      color.trang_thai !== 'HoatDong' && "opacity-50 cursor-not-allowed"
+                    )}
                     onClick={() => {
-                      onAddColor(String(color.id_mau_sac));
-                      setAddColorOpen(false);
+                      if (color.trang_thai === 'HoatDong') {
+                        onAddColor(String(color.id_mau_sac));
+                        setAddColorOpen(false);
+                      }
                     }}
+                    disabled={color.trang_thai !== 'HoatDong'}
+                    title={color.trang_thai !== 'HoatDong' ? 'Màu này không hoạt động' : ''}
                   >
                     <span className="w-5 h-5 rounded-full border border-slate-200" style={{background: '#f3f4f6'}}></span>
-                    {color.ten_mau_sac}
+                    <div className="flex items-center gap-2">
+                      <span>{color.ten_mau_sac}</span>
+                      {color.trang_thai !== 'HoatDong' && (
+                        <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                          Màu không hoạt động
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))
               )}
@@ -168,15 +202,37 @@ export default function ColorTabs({
               </label>
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                {sizes.filter(size => size.id_kich_co).map((size: KichCo, idx) => (
+                {sizes
+                  .filter(size => {
+                    // Lọc để hiển thị:
+                    // 1. Tất cả kích cỡ đang hoạt động
+                    // 2. Kích cỡ không hoạt động nhưng đã được chọn trong sản phẩm
+                    return size.id_kich_co && (
+                      size.trang_thai === 'HoatDong' || 
+                      selectedSizes.includes(String(size.id_kich_co))
+                    );
+                  })
+                  .map((size: KichCo, idx) => (
                   <div key={`${colorId}_${size.id_kich_co || 'none'}_${idx}`} className="flex flex-col items-center">
                     <button
                       type="button"
                       className={`px-5 py-3 rounded-xl border-2 text-base font-medium shadow-sm transition-all
-                        ${selectedSizes.includes(String(size.id_kich_co)) ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'}`}
+                        ${selectedSizes.includes(String(size.id_kich_co)) 
+                          ? size.trang_thai === 'HoatDong'
+                            ? 'bg-blue-50 border-blue-500 text-blue-700'
+                            : 'bg-slate-50 border-slate-400 text-slate-500'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
                       onClick={() => handleToggleSizeForColor(colorId, String(size.id_kich_co))}
+                      disabled={size.trang_thai !== 'HoatDong' && !selectedSizes.includes(String(size.id_kich_co))}
+                      title={size.trang_thai !== 'HoatDong' ? 'Kích cỡ này không hoạt động' : ''}
                     >
                       {size.ten_kich_co}
+                      {size.trang_thai !== 'HoatDong' && (
+                        <span className="ml-2 text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                          Không hoạt động
+                        </span>
+                      )}
                     </button>
                     {errors[`${colorId}_${size.id_kich_co}_size`] && (
                       <div className="text-xs text-red-500 mt-1">
