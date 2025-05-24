@@ -39,60 +39,6 @@ interface XacNhanDatHangResponse {
     hoa_don?: HoaDonAdminDTO;
 }
 
-interface TaoYeuCauHoanHangDTO {
-    id_hoa_don: string;
-    ly_do_hoan_hang: string;
-    mo_ta_chi_tiet?: string;
-    hinh_anh_base64: string[];
-    chi_tiet_hoan_hang: ChiTietHoanHangDTO[][];
-}
-
-interface ChiTietHoanHangDTO {
-    id_san_pham_chi_tiet: string;
-    so_luong: number;
-    ly_do?: string;
-}
-
-interface YeuCauHoanHangDTO {
-    id: string;
-    ma_hoa_don: string;
-    ten_khach_hang: string;
-    ly_do_hoan_hang: string;
-    mo_ta_chi_tiet?: string;
-    hinh_anh: string[];
-    tong_so_luong: number;
-    so_tien_hoan: number;
-    trang_thai: string;
-    ngay_tao: string;
-    ngay_cap_nhat?: string;
-    ghi_chu?: string;
-    chi_tiet_hoan_hang: ChiTietHoanHangDTO[];
-}
-
-interface CapNhatTrangThaiHoanHangDTO {
-    trang_thai: string;
-    ghi_chu?: string;
-}
-
-interface ThamSoPhanTrangYeuCauHoanHangDTO {
-    trang_hien_tai: number;
-    so_phan_tu_tren_trang: number;
-    tim_kiem?: string;
-    trang_thai?: string;
-    loai_hoa_don?: string;
-    id_phuong_thuc_thanh_toan?: string;
-    ngay_tao_tu?: string;
-    ngay_tao_den?: string;
-}
-
-interface PhanTrangYeuCauHoanHangDTO {
-    trang_hien_tai: number;
-    so_phan_tu_tren_trang: number;
-    tong_so_trang: number;
-    tong_so_phan_tu: number;
-    danh_sach: YeuCauHoanHangDTO[];
-}
-
 export const hoaDonService = {
     getHoaDon: async (tham_so: ThamSoPhanTrangHoaDonAdminDTO): Promise<PhanTrangHoaDonAdminDTO> => {
         const response = await api.get('/HoaDon/lay-danh-sach-hoa-don', { params: tham_so });
@@ -245,31 +191,4 @@ export const hoaDonService = {
         return response.data;
     },
 
-    // Tạo yêu cầu hoàn hàng
-    taoYeuCauHoanHang: async (data: TaoYeuCauHoanHangDTO): Promise<{
-        id: string;
-        tong_tien_hoan: number;
-        chi_tiet_hoan_hang: {
-            id_san_pham: string;
-            so_luong: number;
-            don_gia: number;
-        }[];
-    }> => {
-        const response = await api.post('/YeuCauHoanHang', data);
-        return response.data;
-    },
-
-    // Lấy danh sách yêu cầu hoàn hàng
-    getDanhSachYeuCauHoanHang: async (tham_so: ThamSoPhanTrangYeuCauHoanHangDTO): Promise<PhanTrangYeuCauHoanHangDTO> => {
-        const response = await api.get('/YeuCauHoanHang', { params: tham_so });
-        return response.data;
-    },
-
-    // Cập nhật trạng thái yêu cầu hoàn hàng
-    capNhatTrangThaiYeuCauHoanHang: async (id: string, data: CapNhatTrangThaiHoanHangDTO): Promise<{
-        message: string;
-    }> => {
-        const response = await api.put(`/YeuCauHoanHang/${id}/trang-thai`, data);
-        return response.data;
-    }
 }

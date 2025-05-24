@@ -464,7 +464,7 @@ export default function DashboardPage() {
             textColor: revenueChangeValue >= 0 ? "text-green-500" : "text-red-500"
           },
           {
-            title: "Tổng đơn hàng",
+            title: "Tổng đơn hàng mới",
             value: orderStats.value,
             change: orderStats.change,
             icon: <TrendingUp className="h-8 w-8 text-purple-500" />,
@@ -473,7 +473,7 @@ export default function DashboardPage() {
             textColor: "text-purple-500"
           },
           {
-            title: "Nhân viên",
+            title: "Nhân viên mới",
             value: employeeStats.value,
             change: employeeStats.change,
             icon: <Users className="h-8 w-8 text-orange-500" />,
@@ -482,7 +482,7 @@ export default function DashboardPage() {
             textColor: "text-orange-500"
           },
           {
-            title: "Sản phẩm",
+            title: "Sản phẩm mới",
             value: productStats.value,
             change: productStats.change,
             icon: <Package className="h-8 w-8 text-blue-500" />,
@@ -712,6 +712,7 @@ export default function DashboardPage() {
                       >
                         {product.ten_san_pham}
                       </Link>
+                      <p className="text-sm text-slate-500">Mã SP: {product.ma_san_pham}</p>
                       <p className="text-sm text-slate-500">Đã bán: {product.so_luong_ban} </p>
                   </div>
                   <div className="text-right">
