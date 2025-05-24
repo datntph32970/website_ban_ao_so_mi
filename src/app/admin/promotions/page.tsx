@@ -241,11 +241,15 @@ const AddEditDialog = ({
                       value={formData.ma_khuyen_mai}
                       onChange={(e) => setFormData({ ...formData, ma_khuyen_mai: e.target.value.toUpperCase() })}
                       placeholder="Nhập mã khuyến mãi"
-                      className={`w-full ${errors.ma_khuyen_mai ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      className={`w-full ${isEdit ? "bg-slate-100 cursor-not-allowed" : ""} ${errors.ma_khuyen_mai ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                       required
+                      disabled={isEdit}
                     />
                     {errors.ma_khuyen_mai && (
                       <p className="text-sm text-red-500">{errors.ma_khuyen_mai}</p>
+                    )}
+                    {isEdit && (
+                      <p className="text-xs text-slate-500">Mã khuyến mãi không thể thay đổi sau khi tạo</p>
                     )}
                   </div>
                   <div className="space-y-2">
