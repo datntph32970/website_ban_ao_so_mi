@@ -350,6 +350,7 @@ const OrderListPage = () => {
               thongTinKhachHang: response.data.thongTinKhachHang,
               chiTietHoaDon: response.data.chiTietHoaDon.map((item: {
                 tenSanPham: string;
+                maSPCT: string;
                 mauSac: string;
                 kichCo: string;
                 soLuong: number;
@@ -359,6 +360,7 @@ const OrderListPage = () => {
               }) => ({
                 tenSanPham: item.tenSanPham,
                 mauSac: item.mauSac,
+                maSPCT: item.maSPCT,
                 kichCo: item.kichCo,
                 soLuong: item.soLuong,
                 donGia: item.donGia,
