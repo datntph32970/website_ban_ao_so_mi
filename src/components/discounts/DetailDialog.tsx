@@ -196,9 +196,12 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
   };
 
   const handleRemoveSelected = async () => {
-    if (selectedProducts.length === 0) return;
+    if (selectedProducts.length === 0 || !discount) return;
     try {
-      await giamGiaService.xoaGiamGiaKhoiSanPhamChiTiet({ san_pham_chi_tiet_ids: selectedProducts });
+      await giamGiaService.xoaGiamGiaKhoiSanPhamChiTiet({ 
+        id_giam_gia: discount.id_giam_gia,
+        san_pham_chi_tiet_ids: selectedProducts 
+      });
       await fetchAvailableProducts();
       setSelectedProducts([]);
       toast.success("Đã xóa khuyến mại khỏi các sản phẩm đã chọn");
@@ -328,7 +331,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                           <div>
                             <p className="text-sm font-medium text-slate-500">Số lượng đã sử dụng</p>
                             <h3 className="text-2xl font-bold mt-1">
-                              {discount.so_luong_da_su_dung || 0}/{discount.so_luong_toi_da}
+                              {discount.so_luong_da_su_dung || 0}
                             </h3>
                           </div>
                           <div className="p-3 bg-blue-100 rounded-full">
@@ -340,12 +343,12 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
                             <div
                               className="h-2 rounded-full bg-blue-600 transition-all duration-300"
                               style={{
-                                width: `${((discount.so_luong_da_su_dung || 0) / discount.so_luong_toi_da) * 100}%`
+                                width: '100%'
                               }}
                             />
                           </div>
                           <p className="text-xs text-slate-500 mt-1">
-                            {Math.round(((discount.so_luong_da_su_dung || 0) / discount.so_luong_toi_da) * 100)}% đã sử dụng
+                            Đã sử dụng
                           </p>
                         </div>
                       </CardContent>
@@ -698,6 +701,7 @@ export const DetailDialog: React.FC<DetailDialogProps> = ({
         open={isAddProductOpen}
         onOpenChange={setIsAddProductOpen}
         onSuccess={fetchAvailableProducts}
+        fetchProducts={giamGiaService.getSanPhamCoTheGiamGia}
       />
     </>
   );

@@ -290,23 +290,18 @@ export function DiscountTable({
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium">{discount.so_luong_da_su_dung || 0}</span>
-                        <span className="text-slate-500">/ {discount.so_luong_toi_da}</span>
                       </div>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full transition-all duration-300"
                           style={{ 
-                            width: `${((discount.so_luong_da_su_dung || 0) / discount.so_luong_toi_da) * 100}%`,
-                            backgroundColor: (discount.so_luong_da_su_dung || 0) >= discount.so_luong_toi_da 
-                              ? '#ef4444' 
-                              : (discount.so_luong_da_su_dung || 0) >= discount.so_luong_toi_da * 0.8 
-                                ? '#f59e0b' 
-                                : '#22c55e'
+                            width: '100%',
+                            backgroundColor: '#22c55e'
                           }}
                         />
                       </div>
                       <p className="text-xs text-slate-500">
-                        {Math.round(((discount.so_luong_da_su_dung || 0) / discount.so_luong_toi_da) * 100)}% đã sử dụng
+                        Đã sử dụng
                       </p>
                     </div>
                   </TableCell>
@@ -498,23 +493,18 @@ export function DiscountTable({
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium">{discountDetails.so_luong_da_su_dung || 0}</span>
-                        <span className="text-slate-500">/ {discountDetails.so_luong_toi_da}</span>
                       </div>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full transition-all duration-300"
                           style={{ 
-                            width: `${((discountDetails.so_luong_da_su_dung || 0) / discountDetails.so_luong_toi_da) * 100}%`,
-                            backgroundColor: (discountDetails.so_luong_da_su_dung || 0) >= discountDetails.so_luong_toi_da 
-                              ? '#ef4444' 
-                              : (discountDetails.so_luong_da_su_dung || 0) >= discountDetails.so_luong_toi_da * 0.8 
-                                ? '#f59e0b' 
-                                : '#22c55e'
+                            width: '100%',
+                            backgroundColor: '#22c55e'
                           }}
                         />
                       </div>
                       <p className="text-xs text-slate-500">
-                        {Math.round(((discountDetails.so_luong_da_su_dung || 0) / discountDetails.so_luong_toi_da) * 100)}% đã sử dụng
+                        Đã sử dụng
                       </p>
                     </div>
                   </div>
@@ -628,10 +618,9 @@ export function DiscountTable({
                           <div className="flex items-end justify-between">
                             <div>
                               <p className="text-2xl font-bold">
-                                {statisticsData.so_luong_da_su_dung}/{statisticsData.so_luong_toi_da}
+                                {statisticsData.so_luong_da_su_dung}
                               </p>
                               <p className="text-sm text-slate-500">
-                                Tỷ lệ: {Math.round(statisticsData.ti_le_su_dung * 100)}%
                               </p>
                             </div>
                             <TrendingUp className="h-8 w-8 text-slate-400" />

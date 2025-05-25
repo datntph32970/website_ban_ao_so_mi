@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { SanPham } from '@/types/san-pham';
+import { SanPhamAdminDTO } from '@/types/san-pham';
 
 interface ManageProductsDialogProps {
     open: boolean;
@@ -26,14 +26,14 @@ export function ManageProductsDialog({
     onOpenChange,
     discountId,
 }: ManageProductsDialogProps) {
-    const [products, setProducts] = useState<SanPham[]>([]);
+    const [products, setProducts] = useState<SanPhamAdminDTO[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
     const fetchProducts = async () => {
         try {
-            const response = await giamGiaService.getSanPhamCoTheGiamGia({
-                timkiem: searchTerm,
+            const response = await giamGiaService.getSanPhamCoTheGiamGia(discountId, {
+                tim_kiem: searchTerm,
             });
             setProducts(response.danh_sach);
         } catch (error) {

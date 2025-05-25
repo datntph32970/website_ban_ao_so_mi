@@ -133,8 +133,8 @@ export default function ColorTabs({
                     )}
                     onClick={() => {
                       if (color.trang_thai === 'HoatDong') {
-                        onAddColor(String(color.id_mau_sac));
-                        setAddColorOpen(false);
+                      onAddColor(String(color.id_mau_sac));
+                      setAddColorOpen(false);
                       }
                     }}
                     disabled={color.trang_thai !== 'HoatDong'}

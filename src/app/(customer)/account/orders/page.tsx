@@ -399,9 +399,19 @@ const OrderTimeline = ({
             variant="destructive" 
             className="w-full"
             onClick={() => setShowCancelDialog(true)}
+            disabled={cancelling}
           >
-            <XCircle className="h-4 w-4 mr-2" />
-            Hủy đơn hàng
+            {cancelling ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Đang hủy...
+              </>
+            ) : (
+              <>
+                <XCircle className="h-4 w-4 mr-2" />
+                Hủy đơn hàng
+              </>
+            )}
           </Button>
 
           <CancelOrderDialog
@@ -911,6 +921,9 @@ export default function CustomerOrdersPage() {
                                   </Badge>
                                   <Badge className="text-xs bg-secondary text-secondary-foreground">
                                     {item.sanPhamChiTiet.ten_kich_co}
+                                  </Badge>
+                                  <Badge className="text-xs bg-secondary text-secondary-foreground">
+                                    {item.sanPhamChiTiet.ma_san_pham_chi_tiet}
                                   </Badge>
                                 </div>
                                 <div className="flex items-center gap-2 mt-2">

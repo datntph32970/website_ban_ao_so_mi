@@ -16,7 +16,6 @@ export interface GiamGia {
     kieu_giam_gia: "PhanTram" | "SoTien";
     gia_tri_giam: number;
     gia_toi_da?: number;
-    so_luong_toi_da: number;
     so_luong_da_su_dung: number;
     thoi_gian_bat_dau: string;
     thoi_gian_ket_thuc: string;

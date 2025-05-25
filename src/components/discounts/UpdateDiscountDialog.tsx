@@ -26,6 +26,17 @@ interface UpdateDiscountDialogProps {
 
 type DialogMode = 'edit' | 'confirm' | 'conflict';
 
+interface FormData {
+  ten_giam_gia: string;
+  mo_ta: string;
+  kieu_giam_gia: "PhanTram" | "SoTien";
+  gia_tri_giam: string;
+  thoi_gian_bat_dau: string;
+  thoi_gian_ket_thuc: string;
+  trang_thai: TrangThaiGiamGia;
+  ma_giam_gia: string;
+}
+
 export function UpdateDiscountDialog({
   open,
   onOpenChange,
@@ -36,12 +47,11 @@ export function UpdateDiscountDialog({
   const [dialogMode, setDialogMode] = useState<DialogMode>('edit');
   const [conflictDetails, setConflictDetails] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     ten_giam_gia: "",
     mo_ta: "",
-    kieu_giam_gia: "" as "PhanTram" | "SoTien",
+    kieu_giam_gia: "PhanTram",
     gia_tri_giam: "",
-    so_luong_toi_da: "",
     thoi_gian_bat_dau: "",
     thoi_gian_ket_thuc: "",
     trang_thai: TrangThaiGiamGia.HoatDong,
@@ -57,7 +67,6 @@ export function UpdateDiscountDialog({
         mo_ta: discount.mo_ta || "",
         kieu_giam_gia: discount.kieu_giam_gia,
         gia_tri_giam: discount.gia_tri_giam.toString(),
-        so_luong_toi_da: discount.so_luong_toi_da.toString(),
         thoi_gian_bat_dau: new Date(discount.thoi_gian_bat_dau).toISOString().slice(0, 16),
         thoi_gian_ket_thuc: new Date(discount.thoi_gian_ket_thuc).toISOString().slice(0, 16),
         trang_thai: discount.trang_thai,
@@ -103,15 +112,6 @@ export function UpdateDiscountDialog({
       }
     }
 
-    if (!formData.so_luong_toi_da) {
-      newErrors.so_luong_toi_da = "Vui lòng nhập số lượng tối đa";
-    } else {
-      const soLuong = Number(formData.so_luong_toi_da);
-      if (isNaN(soLuong) || soLuong <= 0) {
-        newErrors.so_luong_toi_da = "Số lượng tối đa phải lớn hơn 0";
-      }
-    }
-
     if (!formData.thoi_gian_bat_dau) {
       newErrors.thoi_gian_bat_dau = "Vui lòng chọn thời gian bắt đầu";
     }
@@ -146,7 +146,6 @@ export function UpdateDiscountDialog({
       const data = {
         ...formData,
         gia_tri_giam: Number(formData.gia_tri_giam),
-        so_luong_toi_da: Number(formData.so_luong_toi_da),
         id_giam_gia: discount.id_giam_gia
       };
 
@@ -311,19 +310,6 @@ export function UpdateDiscountDialog({
                 />
                 {errors.gia_tri_giam && (
                   <p className="text-sm text-red-500">{errors.gia_tri_giam}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="so_luong_toi_da">Số lượng tối đa</Label>
-                <Input
-                  id="so_luong_toi_da"
-                  type="number"
-                  value={formData.so_luong_toi_da}
-                  onChange={(e) => setFormData({ ...formData, so_luong_toi_da: e.target.value })}
-                  required
-                />
-                {errors.so_luong_toi_da && (
-                  <p className="text-sm text-red-500">{errors.so_luong_toi_da}</p>
                 )}
               </div>
             </div>

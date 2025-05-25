@@ -28,6 +28,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Province, District, Ward } from "@/stores/address-store";
 import { khuyenMaiService } from "@/services/khuyen-mai.service";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CapNhatHoaDonOnlineDTO {
   id_dia_chi_nhan_hang: string;
@@ -510,6 +520,7 @@ export default function CheckoutPage() {
   const [promoList, setPromoList] = useState<any[]>([]);
   const [isLoadingPromos, setIsLoadingPromos] = useState(false);
   const [promoSearch, setPromoSearch] = useState("");
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
   useEffect(() => {
     if (orderId) {
@@ -645,19 +656,23 @@ export default function CheckoutPage() {
       return;
     }
 
+    setIsConfirmDialogOpen(true);
+  };
+
+  const handleConfirmPlaceOrder = async () => {
     try {
       setIsPlacingOrder(true);
       
       // Cập nhật thông tin hóa đơn lần cuối
-      await hoaDonService.capNhatHoaDonOnline(orderData.id_hoa_don, {
-        phi_van_chuyen: orderData.phi_van_chuyen || 0,
+      await hoaDonService.capNhatHoaDonOnline(orderData!.id_hoa_don, {
+        phi_van_chuyen: orderData!.phi_van_chuyen || 0,
         ghi_chu: note,
-        id_khuyen_mai: orderData.khuyenMai?.id_khuyen_mai,
+        id_khuyen_mai: orderData!.khuyenMai?.id_khuyen_mai,
         id_phuong_thuc_thanh_toan: paymentMethod
       });
 
       // Xác nhận đặt hàng
-      const response = await hoaDonService.xacNhanDatHang(orderData.id_hoa_don);
+      const response = await hoaDonService.xacNhanDatHang(orderData!.id_hoa_don);
 
       if (response.redirect_url) {
         window.location.href = response.redirect_url;
@@ -670,6 +685,7 @@ export default function CheckoutPage() {
       toast.error(error.response?.data?.message || "Không thể đặt hàng");
     } finally {
       setIsPlacingOrder(false);
+      setIsConfirmDialogOpen(false);
     }
   };
 
@@ -1142,6 +1158,35 @@ export default function CheckoutPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận đặt hàng</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn đặt hàng với tổng giá trị {formatCurrency(orderData?.tong_tien_phai_thanh_toan || 0)}?
+              Sau khi xác nhận, đơn hàng sẽ được nhận viên xử lý đơn hàng cho bạn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPlacingOrder}>Hủy</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmPlaceOrder}
+              disabled={isPlacingOrder}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isPlacingOrder ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Xác nhận đặt hàng"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 

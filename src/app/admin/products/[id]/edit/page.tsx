@@ -632,7 +632,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       [colorId]: updatedSizes
     });
 
-    // Khởi tạo giá trị mặc định cho kích cỡ mới
+      // Khởi tạo giá trị mặc định cho kích cỡ mới
     const currentColorVariants = variantValues[colorId] || {};
     setVariantValues({
       ...variantValues,

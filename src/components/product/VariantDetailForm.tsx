@@ -76,7 +76,7 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
       <div className="flex items-center gap-3 mb-3">
         <span className="w-5 h-5 rounded-full border border-slate-200" style={{background: '#f3f4f6'}}></span>
         <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-700">{color?.ten_mau_sac} / {size?.ten_kich_co}</span>
+        <span className="font-medium text-slate-700">{color?.ten_mau_sac} / {size?.ten_kich_co}</span>
           {color?.trang_thai !== 'HoatDong' && (
             <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
               Màu không hoạt động
@@ -216,21 +216,21 @@ export default function VariantDetailForm({ color, size, values, errors = {}, on
                     )}
                   >
                     <div className="flex flex-col items-start">
-                      <div className="flex items-center gap-1">
-                        <span>{discount.ten_giam_gia}</span>
-                        <Badge className="text-xs font-mono bg-white border border-slate-200 text-slate-700">
-                          {discount.ma_giam_gia}
-                        </Badge>
-                        <span className="text-xs bg-orange-100 text-orange-600 px-1 rounded">
-                          {discount.kieu_giam_gia === 'PhanTram' 
-                            ? `${discount.gia_tri_giam}%`
-                            : formatCurrency(discount.gia_tri_giam)}
-                        </span>
-                      </div>
-                      <span className="text-xs text-slate-500">
-                        {format(new Date(discount.thoi_gian_bat_dau), 'dd/MM/yyyy HH:mm')} - {format(new Date(discount.thoi_gian_ket_thuc), 'dd/MM/yyyy HH:mm')}
-                      </span>
-                    </div>
+  <div className="flex items-center gap-1">
+    <span>{discount.ten_giam_gia}</span>
+    <Badge className="text-xs font-mono bg-white border border-slate-200 text-slate-700">
+      {discount.ma_giam_gia}
+    </Badge>
+    <span className="text-xs bg-orange-100 text-orange-600 px-1 rounded">
+      {discount.kieu_giam_gia === 'PhanTram' 
+        ? `${discount.gia_tri_giam}%`
+        : formatCurrency(discount.gia_tri_giam)}
+    </span>
+  </div>
+  <span className="text-xs text-slate-500">
+    {format(new Date(discount.thoi_gian_bat_dau), 'dd/MM/yyyy HH:mm')} - {format(new Date(discount.thoi_gian_ket_thuc), 'dd/MM/yyyy HH:mm')}
+  </span>
+</div>
                     <button
                       type="button"
                       onClick={() => handleRemoveDiscount(discountId)}

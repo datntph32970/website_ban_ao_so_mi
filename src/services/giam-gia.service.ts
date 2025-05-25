@@ -7,11 +7,10 @@ export interface CreateGiamGiaDTO {
     mo_ta: string;
     kieu_giam_gia: string;
     gia_tri_giam: number;
-    so_luong_toi_da: number;
     thoi_gian_bat_dau: string;
     thoi_gian_ket_thuc: string;
     trang_thai: TrangThaiGiamGia;
-    ma_giam_gia?: string;
+    ma_giam_gia: string;
 }
 
 export interface UpdateGiamGiaDTO {
@@ -20,10 +19,8 @@ export interface UpdateGiamGiaDTO {
     mo_ta: string;
     kieu_giam_gia: string;
     gia_tri_giam: number;
-    so_luong_toi_da: number;
     thoi_gian_bat_dau: string;
     thoi_gian_ket_thuc: string;
-    trang_thai: string;
     ma_giam_gia: string;
 }
 
@@ -102,7 +99,6 @@ export interface ThongKeGiamGiaDTO {
     thoi_gian_ket_thuc: string;
     con_hieu_luc: boolean;
     so_luong_da_su_dung: number;
-    so_luong_toi_da: number;
     ti_le_su_dung: number;
     tong_bien_the_ap_dung: number;
     bien_the_dang_ap_dung: number;
@@ -163,8 +159,8 @@ export const giamGiaService = {
     // Cập nhật giảm giá
     update: async (id: string, data: UpdateGiamGiaDTO) => {
         try {
-            const response = await api.put(`/GiamGia/${id}`, data);
-            return response.data;
+        const response = await api.put(`/GiamGia/${id}`, data);
+        return response.data;
         } catch (error: any) {
             if (error.response?.data) {
                 const errorData = error.response.data;
