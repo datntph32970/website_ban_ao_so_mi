@@ -154,7 +154,7 @@ const orderStatuses: OrderStatuses = {
   },
   DaHuy: {
     label: "Đã hủy",
-    color: "bg-slate-100 text-slate-800 border-slate-200",
+    color: "bg-red-100 text-red-800 border-red-200",
     icon: <XCircle className="h-4 w-4" />,
     description: "Đơn hàng đã bị hủy"
   }
@@ -816,16 +816,30 @@ export default function CustomerOrdersPage() {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">
-              Cập nhật lần cuối: {selectedOrder && new Date(selectedOrder.ngay_tao).toLocaleString("vi-VN", {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-              })}
-            </p>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                <span>Ngày tạo: {selectedOrder?.ngay_tao ? new Date(selectedOrder.ngay_tao).toLocaleString("vi-VN", {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                }) : 'N/A'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Cập nhật lần cuối: {selectedOrder?.ngay_sua ? new Date(selectedOrder.ngay_sua).toLocaleString("vi-VN", {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                }) : 'N/A'}</span>
+              </div>
+            </div>
           </DialogHeader>
 
           <ScrollArea className="h-[calc(90vh-120px)]">

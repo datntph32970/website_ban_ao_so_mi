@@ -761,7 +761,11 @@ const OrderListPage = () => {
                     <div className="space-y-2">
                       <p className="text-slate-600 flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-slate-400" />
-                        <span className="font-medium">Ngày tạo:</span> {new Date(selectedOrder.ngay_tao).toLocaleString("vi-VN")}
+                        <span className="font-medium">Ngày tạo:</span> {selectedOrder.ngay_tao ? new Date(selectedOrder.ngay_tao).toLocaleString("vi-VN") : 'N/A'}
+                      </p>
+                      <p className="text-slate-600 flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-slate-400" />
+                        <span className="font-medium">Cập nhật lần cuối:</span> {selectedOrder.ngay_sua ? new Date(selectedOrder.ngay_sua).toLocaleString("vi-VN") : 'N/A'}
                       </p>
                       <p className="text-slate-600">
                         <span className="flex items-center gap-2 mb-1">
