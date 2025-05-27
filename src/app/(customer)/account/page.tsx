@@ -37,6 +37,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { UserCircle } from "lucide-react";
 import AddressList from "./components/address-list";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const formSchema = z.object({
+  ten_khach_hang: z.string().min(1, "Vui lòng nhập họ và tên").optional(),
+  email: z.string().email("Email không hợp lệ").optional(),
+  so_dien_thoai: z.string()
+    .regex(/^0[0-9]{9,10}$/, "Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại 10-11 số bắt đầu bằng số 0")
+    .min(1, "Vui lòng nhập số điện thoại")
+    .optional(),
+  ngay_sinh: z.string().optional(),
+  gioi_tinh: z.string().optional(),
+});
 
 export default function AccountPage() {
   const [profile, setProfile] = useState<KhachHang | null>(null);
@@ -44,6 +57,7 @@ export default function AccountPage() {
   const [formData, setFormData] = useState<UpdateKhachHangDTO | null>(null);
 
   const form = useForm<UpdateKhachHangDTO>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       ten_khach_hang: "",
       email: "",

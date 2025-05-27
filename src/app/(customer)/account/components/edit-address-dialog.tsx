@@ -37,7 +37,9 @@ import { Pencil } from "lucide-react";
 
 const formSchema = z.object({
   ten_nguoi_nhan: z.string().min(1, "Vui lòng nhập tên người nhận"),
-  so_dien_thoai: z.string().min(10, "Số điện thoại không hợp lệ").max(11),
+  so_dien_thoai: z.string()
+    .regex(/^0[0-9]{9}$/, "Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại 10 số bắt đầu bằng số 0")
+    .min(1, "Vui lòng nhập số điện thoại"),
   dia_chi_cu_the: z.string().min(1, "Vui lòng nhập địa chỉ cụ thể"),
   tinh: z.string().min(1, "Vui lòng chọn tỉnh/thành phố"),
   huyen: z.string().min(1, "Vui lòng chọn quận/huyện"),

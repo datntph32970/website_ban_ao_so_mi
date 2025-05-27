@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL + '/api' || 'https://localhost:7
 
 export const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000, // 10 giây timeout
+  timeout: 15000, // 10 giây timeout
   headers: {
     'Content-Type': 'application/json',
   },

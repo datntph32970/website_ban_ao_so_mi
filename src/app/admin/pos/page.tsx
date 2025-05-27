@@ -852,9 +852,9 @@ export default function POSPage() {
       await fetchPendingOrders();
 
       toast.success('Đã tạo hóa đơn mới');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating new order:', error);
-      toast.error('Không thể tạo hóa đơn mới');
+      toast.error(error.response?.data ||'Không thể tạo hóa đơn mới');
     } finally {
       setIsAddingOrder(false);
     }
