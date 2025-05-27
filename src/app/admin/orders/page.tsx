@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,6 +81,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import Image from "next/image";
+import { getImageUrl } from "@/lib/utils";
 
 // Trạng thái đơn hàng
 const orderStatus = {
@@ -102,6 +104,12 @@ const orderStatus = {
     label: "Đang chờ xử lý",
     color: "bg-blue-100 text-blue-800",
     icon: <Clock className="h-4 w-4 mr-1" />,
+    type: "Online"
+  },
+  DaXacNhan: {
+    label: "Đã xác nhận",
+    color: "bg-green-100 text-green-800",
+    icon: <CheckCircle2 className="h-4 w-4 mr-1" />,
     type: "Online"
   },
   DangChuanBi: {
@@ -146,23 +154,23 @@ const orderStatus = {
     icon: <XCircle className="h-4 w-4 mr-1" />,
     type: "Online"
   },
-  DaHoanTraMotPhan: {
-    label: "Đã hoàn trả một phần",
+    DangYeuCauTraHang: {
+    label: "Đang yêu cầu trả hàng",
     color: "bg-orange-100 text-orange-800",
     icon: <ArrowLeftRight className="h-4 w-4 mr-1" />,
     type: "Online"
   },
-  DaHoanTraToanBo: {
-    label: "Đã hoàn trả toàn bộ",
-    color: "bg-red-100 text-red-800",
-    icon: <ArrowLeftRight className="h-4 w-4 mr-1" />,
-    type: "Online"
-  },
-  DaXacNhan: {
-    label: "Đã xác nhận",
+  DaXacNhanTraHang: {
+    label: "Đã xác nhận trả hàng",
     color: "bg-green-100 text-green-800",
     icon: <CheckCircle2 className="h-4 w-4 mr-1" />,
     type: "Online"
+  },
+  DaTraHang: {
+    label: "Đã trả hàng",
+    color: "bg-green-100 text-green-800",
+    icon: <CheckCircle2 className="h-4 w-4 mr-1" />,
+    type: "All"
   }
 };
 
@@ -231,6 +239,12 @@ const OrderListPage = () => {
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [isReturning, setIsReturning] = useState(false);
+  const [isConfirmingReturn, setIsConfirmingReturn] = useState(false);
+  const [isCompletingReturn, setIsCompletingReturn] = useState(false);
+  const [returnNote, setReturnNote] = useState("");
+  const [isRejectingReturn, setIsRejectingReturn] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -405,6 +419,47 @@ const OrderListPage = () => {
       toast.error(error.response?.data || "Không thể xử lý trả hàng");
     } finally {
       setIsReturning(false);
+    }
+  };
+
+  const handleConfirmReturn = async () => {
+    if (!selectedOrder || !returnNote.trim()) {
+      toast.error("Vui lòng nhập ghi chú xác nhận trả hàng");
+      return;
+    }
+
+    try {
+      setIsConfirmingReturn(true);
+      await hoaDonService.xacNhanTraHang(selectedOrder.id_hoa_don);
+      toast.success("Đã xác nhận yêu cầu trả hàng");
+      setReturnNote("");
+      setIsReturnDialogOpen(false);
+      const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+      setSelectedOrder(updatedOrder);
+      fetchOrders();
+    } catch (error: any) {
+      console.error("Error confirming return:", error);
+      toast.error(error.response?.data || "Không thể xác nhận yêu cầu trả hàng");
+    } finally {
+      setIsConfirmingReturn(false);
+    }
+  };
+
+  const handleCompleteReturn = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      setIsCompletingReturn(true);
+      await hoaDonService.hoanThanhTraHang(selectedOrder.id_hoa_don);
+      toast.success("Đã hoàn thành quá trình trả hàng");
+      const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+      setSelectedOrder(updatedOrder);
+      fetchOrders();
+    } catch (error: any) {
+      console.error("Error completing return:", error);
+      toast.error(error.response?.data || "Không thể hoàn thành quá trình trả hàng");
+    } finally {
+      setIsCompletingReturn(false);
     }
   };
 
@@ -933,6 +988,87 @@ const OrderListPage = () => {
                   </>
                 )}
               </div>
+
+              {/* Thông tin trả hàng */}
+              {selectedOrder && selectedOrder.trang_thai === "DangYeuCauTraHang" && (
+                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <h4 className="font-medium text-orange-800 mb-2 flex items-center gap-2">
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Thông tin yêu cầu trả hàng
+                  </h4>
+                  <div className="space-y-3">
+                    <p className="text-orange-700">
+                      <span className="font-medium">Lý do trả hàng:</span> {selectedOrder.ly_do_tra_hang}
+                    </p>
+                    {selectedOrder.hinh_anh_tra_hang && (
+                      <div>
+                        <p className="font-medium text-orange-700 mb-2">Hình ảnh trả hàng:</p>
+                        <Image
+                          src={getImageUrl(selectedOrder.hinh_anh_tra_hang)}
+                          alt="Hình ảnh trả hàng"
+                          width={200}
+                          height={200}
+                          className="rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedOrder && selectedOrder.trang_thai === "DaXacNhanTraHang" && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Thông tin xác nhận trả hàng
+                  </h4>
+                  <div className="space-y-3">
+                    <p className="text-green-700">
+                      <span className="font-medium">Lý do trả hàng:</span> {selectedOrder.ly_do_tra_hang}
+                    </p>
+                  
+                    {selectedOrder.hinh_anh_tra_hang && (
+                      <div>
+                        <p className="font-medium text-green-700 mb-2">Hình ảnh trả hàng:</p>
+                        <Image
+                          src={getImageUrl(selectedOrder.hinh_anh_tra_hang)}
+                          alt="Hình ảnh trả hàng"
+                          width={200}
+                          height={200}
+                          className="rounded-lg border border-green-200"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedOrder && selectedOrder.trang_thai === "DaTraHang" && (
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Thông tin hoàn thành trả hàng
+                  </h4>
+                  <div className="space-y-3">
+                    <p className="text-green-700">
+                      <span className="font-medium">Lý do trả hàng:</span> {selectedOrder.ly_do_tra_hang}
+                    </p>
+                 
+                    {selectedOrder.hinh_anh_tra_hang && (
+                      <div>
+                        <p className="font-medium text-green-700 mb-2">Hình ảnh trả hàng:</p>
+                        <Image
+                          src={getImageUrl(selectedOrder.hinh_anh_tra_hang)}
+                          alt="Hình ảnh trả hàng"
+                          width={200}
+                          height={200}
+                          className="rounded-lg border border-green-200"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-6 flex-shrink-0 border-t pt-4">
@@ -1072,6 +1208,222 @@ const OrderListPage = () => {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+              )}{selectedOrder && selectedOrder.trang_thai === "DangYeuCauTraHang" && (
+                <>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        className="bg-green-500/80 hover:bg-green-500 text-white transition-colors"
+                        disabled={isConfirmingReturn}
+                      >
+                        {isConfirmingReturn ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xác nhận...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Xác nhận trả hàng
+                          </>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+                          <CheckCircle className="h-5 w-5" />
+                          Xác nhận yêu cầu trả hàng
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Bạn có chắc chắn muốn xác nhận yêu cầu trả hàng này? Sau khi xác nhận, đơn hàng sẽ chuyển sang trạng thái đã xác nhận trả hàng.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="hover:bg-slate-100" disabled={isConfirmingReturn}>Hủy</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-green-500/80 hover:bg-green-500 text-white"
+                          onClick={async () => {
+                            try {
+                              setIsConfirmingReturn(true);
+                              await hoaDonService.xacNhanTraHang(selectedOrder.id_hoa_don);
+                              toast.success("Đã xác nhận yêu cầu trả hàng");
+                              setReturnNote("");
+                              setIsReturnDialogOpen(false);
+                              const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                              setSelectedOrder(updatedOrder);
+                              fetchOrders();
+                            } catch (error: any) {
+                              console.error("Error confirming return:", error);
+                              toast.error(error.response?.data || "Không thể xác nhận yêu cầu trả hàng");
+                            } finally {
+                              setIsConfirmingReturn(false);
+                            }
+                          }}
+                          disabled={isConfirmingReturn}
+                        >
+                          {isConfirmingReturn ? (
+                            <>
+                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Đang xác nhận...
+                            </>
+                          ) : (
+                            "Xác nhận"
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        className="bg-red-500/80 hover:bg-red-500 text-white transition-colors"
+                        onClick={() => setIsRejectDialogOpen(true)}
+                        disabled={isRejectingReturn}
+                      >
+                        {isRejectingReturn ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Từ chối trả hàng
+                          </>
+                        )}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                          <XCircle className="h-5 w-5" />
+                          Từ chối yêu cầu trả hàng
+                        </DialogTitle>
+                        <DialogDescription>
+                          Bạn có chắc chắn muốn từ chối yêu cầu trả hàng này? Hành động này không thể hoàn tác.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="my-6">
+                        <Label htmlFor="rejectReason" className="text-sm font-medium block mb-2">
+                          Lý do từ chối*
+                        </Label>
+                        <div className="relative">
+                          <Textarea
+                            id="rejectReason"
+                            className="min-h-[120px] resize-none pr-4 focus-visible:ring-slate-400"
+                            placeholder="Vui lòng nhập lý do từ chối trả hàng"
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                          />
+                          <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
+                            {rejectReason.length}/500
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setRejectReason("");
+                            setIsRejectDialogOpen(false);
+                          }}
+                          className="hover:bg-slate-100"
+                          disabled={isRejectingReturn}
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="bg-red-500/80 hover:bg-red-500"
+                          onClick={async () => {
+                            if (!rejectReason.trim()) {
+                              toast.error("Vui lòng nhập lý do từ chối trả hàng");
+                              return;
+                            }
+                            try {
+                              setIsRejectingReturn(true);
+                              await hoaDonService.tuChoiTraHang(selectedOrder.id_hoa_don, rejectReason);
+                              toast.success("Đã từ chối yêu cầu trả hàng");
+                              setRejectReason("");
+                              setIsRejectDialogOpen(false);
+                              const updatedOrder = await hoaDonService.getHoaDonById(selectedOrder.id_hoa_don);
+                              setSelectedOrder(updatedOrder);
+                              fetchOrders();
+                            } catch (error: any) {
+                              console.error("Error rejecting return:", error);
+                              toast.error(error.response?.data || "Không thể từ chối yêu cầu trả hàng");
+                            } finally {
+                              setIsRejectingReturn(false);
+                            }
+                          }}
+                          disabled={isRejectingReturn}
+                        >
+                          {isRejectingReturn ? (
+                            <>
+                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            "Xác nhận từ chối"
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+        
+              {selectedOrder && selectedOrder.trang_thai === "DaXacNhanTraHang" && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      className="bg-green-500/80 hover:bg-green-500 text-white transition-colors"
+                      disabled={isCompletingReturn}
+                    >
+                      {isCompletingReturn ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Hoàn thành trả hàng
+                        </>
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="h-5 w-5" />
+                        Hoàn thành quá trình trả hàng
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bạn có chắc chắn muốn hoàn thành quá trình trả hàng này? Sau khi hoàn thành, đơn hàng sẽ được đánh dấu là đã trả hàng.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="hover:bg-slate-100" disabled={isCompletingReturn}>Hủy</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-green-500/80 hover:bg-green-500 text-white"
+                        onClick={handleCompleteReturn}
+                        disabled={isCompletingReturn}
+                      >
+                        {isCompletingReturn ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          "Xác nhận hoàn thành"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
 
 {selectedOrder && ["DaXacNhan", "DangChuanBi", "DangGiaoHang", "DaNhanHang"].includes(selectedOrder.trang_thai) && (
@@ -1108,7 +1460,7 @@ const OrderListPage = () => {
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         {selectedOrder.trang_thai === "DaXacNhan" && "Xác nhận bắt đầu chuẩn bị đơn hàng này?"}
-                        {selectedOrder.trang_thai === "DangChuanBi" && "Xác nhận bắt đầu giao hàng cho đơn hàng này?"}
+                        {selectedOrder.trang_thai === "DangChuanBi" && "Xác nhận bắt đầu giao hàng"}
                         {selectedOrder.trang_thai === "DangGiaoHang" && "Xác nhận khách hàng đã nhận được hàng?"}
                         {selectedOrder.trang_thai === "DaNhanHang" && "Xác nhận hoàn thành đơn hàng này?"}
                       </AlertDialogDescription>

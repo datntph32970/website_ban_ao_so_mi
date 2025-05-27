@@ -22,6 +22,8 @@ export interface HoaDonAdminDTO {
     ten_nguoi_tao: string;
     ngay_sua?: Date;
     ten_nguoi_sua?: string;
+    ly_do_tra_hang?: string;
+    hinh_anh_tra_hang?: string;
     nhanVienXuLy: {
         id_nhan_vien: string;
         ma_nhan_vien: string;
