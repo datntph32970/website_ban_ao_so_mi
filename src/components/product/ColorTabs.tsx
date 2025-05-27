@@ -21,14 +21,14 @@ interface ColorTabsProps {
   setAddColorOpen: (open: boolean) => void;
   selectedSizesByColor: Record<string, string[]>;
   sizes: KichCo[];
-  variantImages: Record<string, File[]>;
+  variantImages: Record<string, (File | string)[]>;
   errors: { [key: string]: string };
-  setVariantImages: (images: Record<string, File[]>) => void;
-  updateVariantImages?: (colorId: string, images: File[]) => Promise<void>;
+  setVariantImages: (images: Record<string, (File | string)[]>) => void;
+  updateVariantImages?: (colorId: string, images: (File | string)[]) => Promise<void>;
   setPreviewImageUrl: (url: string) => void;
   handleToggleSizeForColor: (colorId: string, sizeId: string) => void;
   discounts: GiamGia[];
-  variantValues: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: File[] }>>;
+  variantValues: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: (File | string)[] }>>;
   handleVariantValueChange: (colorId: string, sizeId: string, field: 'stock' | 'importPrice' | 'price' | 'discount', value: any) => void;
   onDeleteColor: (colorId: string) => void;
   onDeleteSize: (colorId: string, sizeId: string) => void;
@@ -179,15 +179,17 @@ export default function ColorTabs({
               <VariantImageDropzone
                 colorId={colorId}
                 images={images}
-                setImages={(files: File[]) => {
+                setImages={(files: (File | string)[]) => {
                   if (files.length > 0 && Object.values(variantImages).every(imgs => !imgs || imgs.length === 0)) {
-                    setPreviewImageUrl(URL.createObjectURL(files[0]));
+                    const firstImage = files[0];
+                    const previewUrl = firstImage instanceof File ? URL.createObjectURL(firstImage) : firstImage;
+                    setPreviewImageUrl(previewUrl);
                   }
                   const newImages = { ...variantImages };
                   newImages[colorId] = files;
                   setVariantImages(newImages);
                 }}
-                onPreview={url => setPreviewImageUrl(url)}
+                onPreview={(url) => setPreviewImageUrl(url)}
                 variantImages={variantImages}
               />
               {errors[`${colorId}_images`] && (

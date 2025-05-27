@@ -25,6 +25,8 @@ interface ProductGeneralInfoFormProps {
   defaultProductImage: File | null;
   setDefaultProductImage: (file: File | null) => void;
   onPreview: (url: string) => void;
+  defaultProductImageUrl?: string;
+  setDefaultProductImageUrl: (url: string) => void;
 }
 
 export default function ProductGeneralInfoForm({
@@ -40,6 +42,8 @@ export default function ProductGeneralInfoForm({
   defaultProductImage,
   setDefaultProductImage,
   onPreview,
+  defaultProductImageUrl,
+  setDefaultProductImageUrl,
 }: ProductGeneralInfoFormProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
@@ -84,21 +88,21 @@ export default function ProductGeneralInfoForm({
             Ảnh mặc định sản phẩm <span className="text-red-500">*</span>
           </label>
           <div className="flex flex-col gap-4">
-            {defaultProductImage ? (
+            {defaultProductImage || defaultProductImageUrl ? (
               <div className="relative">
                 <div className="relative w-40 h-40 rounded-xl overflow-hidden border-2 border-slate-200 bg-white flex items-center justify-center shadow-sm">
                   <div className="relative w-full h-full group">
                     <img
-                      src={URL.createObjectURL(defaultProductImage)}
+                      src={defaultProductImage ? URL.createObjectURL(defaultProductImage) : defaultProductImageUrl}
                       alt="Ảnh mặc định"
                       className="object-cover w-full h-full cursor-pointer"
-                      onClick={() => onPreview(URL.createObjectURL(defaultProductImage))}
+                      onClick={() => onPreview(defaultProductImage ? URL.createObjectURL(defaultProductImage) : defaultProductImageUrl!)}
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <button
                         type="button"
                         className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
-                        onClick={() => onPreview(URL.createObjectURL(defaultProductImage))}
+                        onClick={() => onPreview(defaultProductImage ? URL.createObjectURL(defaultProductImage) : defaultProductImageUrl!)}
                         title="Xem ảnh lớn"
                       >
                         <ImageIcon className="w-5 h-5 text-slate-700" />
@@ -106,7 +110,13 @@ export default function ProductGeneralInfoForm({
                       <button
                         type="button"
                         className="p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
-                        onClick={() => setDefaultProductImage(null)}
+                        onClick={() => {
+                          setDefaultProductImage(null);
+                          setDefaultProductImageUrl('');
+                          onChange('url_anh_mac_dinh', '');
+                          // Clear preview images
+                          onPreview('');
+                        }}
                         title="Xóa ảnh"
                       >
                         <Trash2 className="w-5 h-5 text-red-500" />

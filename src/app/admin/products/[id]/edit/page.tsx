@@ -51,7 +51,7 @@ const formSchema = z.object({
   id_chat_lieu: z.string().min(1, "Chất liệu là bắt buộc"),
   id_xuat_xu: z.string().min(1, "Xuất xứ là bắt buộc"),
   id_danh_muc: z.string().min(1, "Danh mục là bắt buộc"),
-  url_anh_mac_dinh: z.string().min(1, "Ảnh mặc định là bắt buộc"),
+  url_anh_mac_dinh: z.string(),
   trang_thai: z.enum(["HoatDong", "KhongHoatDong"]),
 });
 
@@ -64,6 +64,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [isSaving, setIsSaving] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [defaultProductImage, setDefaultProductImage] = useState<File | null>(null);
+  const [defaultProductImageUrl, setDefaultProductImageUrl] = useState<string>("");
   const [brands, setBrands] = useState<ThuongHieu[]>([]);
   const [styles, setStyles] = useState<KieuDang[]>([]);
   const [materials, setMaterials] = useState<ChatLieu[]>([]);
@@ -76,8 +77,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [selectedColorTab, setSelectedColorTab] = useState<string>("");
   const [addColorOpen, setAddColorOpen] = useState(false);
   const [selectedSizesByColor, setSelectedSizesByColor] = useState<Record<string, string[]>>({});
-  const [variantImages, setVariantImages] = useState<Record<string, File[]>>({});
-  const [variantValues, setVariantValues] = useState<Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: File[] }>>>({});
+  const [variantImages, setVariantImages] = useState<Record<string, (File | string)[]>>({});
+  const [variantValues, setVariantValues] = useState<Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: (File | string)[] }>>>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const tenSanPhamRef = React.useRef<HTMLInputElement>(null);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
@@ -91,6 +92,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [newQuickSize, setNewQuickSize] = useState({ ten_kich_co: "", mo_ta: "" });
   const [selectedDiscount, setSelectedDiscount] = useState<string>("");
   const [attrLoading, setAttrLoading] = useState(true);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -186,52 +188,17 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         // Convert default image URL to File object
         if (productData.url_anh_mac_dinh) {
           try {
-            console.log('API_BASE:', API_BASE);
-            console.log('Default image path:', productData.url_anh_mac_dinh);
             const imageUrl = productData.url_anh_mac_dinh.startsWith('http') 
               ? productData.url_anh_mac_dinh 
               : `${API_BASE}${productData.url_anh_mac_dinh}`;
             
-            // Tạo một promise để xử lý việc tải ảnh
-            const loadImage = () => {
-              return new Promise<HTMLImageElement>((resolve, reject) => {
-                const imageElement = new (window.Image as any)();
-                imageElement.crossOrigin = "anonymous";
-                
-                imageElement.onload = () => resolve(imageElement);
-                imageElement.onerror = (e: any) => {
-                  console.error('Image load error:', e);
-                  reject(new Error(`Failed to load image: ${imageUrl}`));
-                };
-                
-                imageElement.src = imageUrl; // Removed timestamp
-              });
-            };
-
-            // Tải ảnh và chuyển đổi thành File
-            const loadedImage = await loadImage();
-            const canvas = document.createElement('canvas');
-            canvas.width = loadedImage.width;
-            canvas.height = loadedImage.height;
+            // Thêm timestamp để tránh cache
+            const imageUrlWithTimestamp = `${imageUrl}?t=${Date.now()}`;
+            console.log('Default image URL:', imageUrlWithTimestamp);
             
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              throw new Error('Could not get canvas context');
-            }
-            
-            ctx.drawImage(loadedImage, 0, 0);
-            
-            // Chuyển đổi canvas thành blob
-            const blob = await new Promise<Blob>((resolve, reject) => {
-              canvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-                else reject(new Error('Could not convert canvas to blob'));
-              }, 'image/jpeg', 0.95);
-            });
-
-            const file = new File([blob], 'default-image.jpg', { type: blob.type });
-            console.log('Default image file created:', file.name, file.size);
-            setDefaultProductImage(file);
+            setDefaultProductImageUrl(imageUrlWithTimestamp);
+            setPreviewImages([imageUrlWithTimestamp]);
+            form.setValue('url_anh_mac_dinh', imageUrl);
           } catch (error) {
             console.error("Error loading default image:", error);
             toast.error("Không thể tải ảnh mặc định của sản phẩm");
@@ -247,8 +214,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           setSelectedColorTab(colorIds[0] || "");
 
           const sizesByColor: Record<string, string[]> = {};
-          const imagesByColor: Record<string, File[]> = {};
-          const valuesByColor: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: File[] }>> = {};
+          const imagesByColor: Record<string, (File | string)[]> = {};
+          const valuesByColor: Record<string, Record<string, { stock: number; importPrice: number; price: number; discount: string[]; images: (File | string)[] }>> = {};
 
           // Process variants
           for (const variant of productData.sanPhamChiTiets) {
@@ -275,59 +242,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             if (variant.hinhAnhSanPhamChiTiets?.length) {
               console.log('Variant images count:', variant.hinhAnhSanPhamChiTiets.length);
               try {
-                const imageFiles = await Promise.all(
-                  variant.hinhAnhSanPhamChiTiets.map(async (img: { hinh_anh_urls: string }) => {
-                    console.log('Processing image:', img.hinh_anh_urls);
-                    const imageUrl = img.hinh_anh_urls.startsWith('http')
-                      ? img.hinh_anh_urls
-                      : `${API_BASE}${img.hinh_anh_urls}`;
-
-                    console.log('Full image URL:', imageUrl);
-
-                    // Tạo một promise để xử lý việc tải ảnh
-                    const loadImage = () => {
-                      return new Promise<HTMLImageElement>((resolve, reject) => {
-                        const imageElement = new (window.Image as any)();
-                        imageElement.crossOrigin = "anonymous";
-                        
-                        imageElement.onload = () => resolve(imageElement);
-                        imageElement.onerror = (e: any) => {
-                          console.error('Image load error:', e);
-                          reject(new Error(`Failed to load image: ${imageUrl}`));
-                        };
-                        
-                        imageElement.src = imageUrl; // Removed timestamp
-                      });
-                    };
-
-                    // Tải ảnh và chuyển đổi thành File
-                    const loadedImage = await loadImage();
-                    const canvas = document.createElement('canvas');
-                    canvas.width = loadedImage.width;
-                    canvas.height = loadedImage.height;
-                    
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) {
-                      throw new Error('Could not get canvas context');
-                    }
-                    
-                    ctx.drawImage(loadedImage, 0, 0);
-                    
-                    // Chuyển đổi canvas thành blob
-                    const blob = await new Promise<Blob>((resolve, reject) => {
-                      canvas.toBlob((blob) => {
-                        if (blob) resolve(blob);
-                        else reject(new Error('Could not convert canvas to blob'));
-                      }, 'image/jpeg', 0.95);
-                    });
-
-                    const file = new File([blob], img.hinh_anh_urls.split('/').pop() || 'image.jpg', { type: blob.type });
-                    console.log('Image file created:', file.name, file.size);
-                    return file;
-                  })
-                );
-                console.log('All images processed for variant:', imageFiles.length);
-                imagesByColor[colorId] = imageFiles;
+                const imageUrls = variant.hinhAnhSanPhamChiTiets.map((img: { hinh_anh_urls: string }) => {
+                  const imageUrl = img.hinh_anh_urls.startsWith('http')
+                    ? img.hinh_anh_urls
+                    : `${API_BASE}${img.hinh_anh_urls}`;
+                  // Thêm timestamp để tránh cache
+                  return `${imageUrl}?t=${Date.now()}`;
+                });
+                imagesByColor[colorId] = imageUrls;
               } catch (error: any) {
                 console.error("Error loading variant images:", error);
                 toast.error(`Không thể tải ảnh cho biến thể ${colorId}: ${error.message}`);
@@ -355,6 +277,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     try {
       setIsSaving(true);
 
+      // Validate default image
+      if (!defaultProductImage && !defaultProductImageUrl) {
+        toast.error("Vui lòng chọn ảnh mặc định cho sản phẩm");
+        setIsSaving(false);
+        return;
+      }
+
       // Convert variant data to DTO format
       const sanPhamChiTiets: SuaSanPhamChiTietAdminDTO[] = [];
       
@@ -367,6 +296,75 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           reader.onerror = error => reject(error);
         });
       };
+
+      // Helper function to fetch image as base64
+      const fetchImageAsBase64 = async (url: string): Promise<string> => {
+        try {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (error) {
+          console.error("Error fetching image:", error);
+          throw error;
+        }
+      };
+
+      // Convert default image to base64 if it's a File
+      let defaultImageUrl = "";
+      if (defaultProductImage instanceof File) {
+        try {
+          defaultImageUrl = await fileToBase64(defaultProductImage);
+        } catch (error) {
+          console.error("Error converting default image to base64:", error);
+          toast.error("Không thể xử lý ảnh mặc định");
+          setIsSaving(false);
+          return;
+        }
+      } else if (defaultProductImageUrl && !defaultProductImage) {
+        try {
+          // Lấy URL gốc không có timestamp
+          const originalUrl = defaultProductImageUrl.split('?')[0];
+          // Thêm timestamp mới
+          const imageUrlWithTimestamp = `${originalUrl}?t=${Date.now()}`;
+          
+          // Thử tải ảnh với timestamp mới
+          const response = await fetch(imageUrlWithTimestamp, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch image');
+          }
+          
+          const blob = await response.blob();
+          defaultImageUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch (error) {
+          console.error("Error fetching default image:", error);
+          // Nếu không thể tải ảnh mới, sử dụng URL gốc
+          defaultImageUrl = defaultProductImageUrl;
+        }
+      }
+
+      // Validate default image
+      if (!defaultImageUrl) {
+        toast.error("Vui lòng chọn ảnh mặc định cho sản phẩm");
+        setIsSaving(false);
+        return;
+      }
 
       // Chỉ xử lý các biến thể của màu đã chọn
       for (const colorId of selectedColors) {
@@ -393,22 +391,21 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           
           // Handle existing images
           if (variantImages[colorId]) {
-            for (const file of variantImages[colorId]) {
-              if (file instanceof File) {
-                try {
-                  const base64 = await fileToBase64(file);
-                  them_hinh_anh_spcts.push({
-                    hinh_anh_urls: base64
-                  });
-                } catch (error) {
-                  console.error("Error converting image to base64:", error);
-                  toast.error("Không thể xử lý ảnh");
-                  return;
+            for (const imageUrl of variantImages[colorId]) {
+              try {
+                let base64: string;
+                if (imageUrl instanceof File) {
+                  base64 = await fileToBase64(imageUrl);
+                } else {
+                  base64 = await fetchImageAsBase64(imageUrl);
                 }
-              } else if (typeof file === 'string') {
                 them_hinh_anh_spcts.push({
-                  hinh_anh_urls: file
+                  hinh_anh_urls: base64
                 });
+              } catch (error) {
+                console.error("Error converting image to base64:", error);
+                toast.error("Không thể xử lý ảnh");
+                return;
               }
             }
           }
@@ -436,41 +433,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             variantDTO.id_san_pham_chi_tiet = existingVariant.id_san_pham_chi_tiet;
           }
 
-          // Log để debug
-          console.log('Processing variant:', {
-            colorId,
-            sizeId,
-            isExisting: !!existingVariant,
-            variantId: existingVariant?.id_san_pham_chi_tiet,
-            values,
-            variantDTO
-          });
-
           sanPhamChiTiets.push(variantDTO);
         }
       }
-
-      // Convert default image to base64 if it's a File
-      let defaultImageUrl = data.url_anh_mac_dinh;
-      if (defaultProductImage instanceof File) {
-        try {
-          defaultImageUrl = await fileToBase64(defaultProductImage);
-        } catch (error) {
-          console.error("Error converting default image to base64:", error);
-          toast.error("Không thể xử lý ảnh mặc định");
-          return;
-        }
-      }
-
-      // Log toàn bộ payload trước khi gửi
-      console.log('Final payload:', {
-        productData: {
-          ...data,
-          url_anh_mac_dinh: defaultImageUrl,
-        },
-        sanPhamChiTiets,
-        selectedColors
-      });
 
       // Update product
       const productData: UpdateSanPhamDTO = {
@@ -537,13 +502,23 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
   const handleDeleteColor = async () => {
     try {
-      const response = await sanPhamService.xoaSanPhamChiTietTheoMauSac(productId, colorToDelete);
-      if (response) {
-        toast.success("Xóa màu sắc thành công");
-        setSelectedColors(prev => prev.filter(id => id !== colorToDelete));
-        if (selectedColorTab === colorToDelete) {
-          setSelectedColorTab(selectedColors[0] || "");
+      // Kiểm tra xem màu này có tồn tại trong sản phẩm gốc không
+      const existingColor = product?.sanPhamChiTiets?.some(
+        variant => String(variant.mauSac?.id_mau_sac) === colorToDelete
+      );
+
+      if (existingColor) {
+        // Nếu màu tồn tại trong DB, gọi API xóa
+        const response = await sanPhamService.xoaSanPhamChiTietTheoMauSac(productId, colorToDelete);
+        if (response) {
+          toast.success("Xóa màu sắc thành công");
         }
+      }
+
+      // Cập nhật state trong mọi trường hợp
+      setSelectedColors(prev => prev.filter(id => id !== colorToDelete));
+      if (selectedColorTab === colorToDelete) {
+        setSelectedColorTab(selectedColors[0] || "");
       }
     } catch (error: any) {
       toast.error(error?.response?.data || "Không thể xóa màu sắc");
@@ -747,15 +722,39 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               {product.trang_thai === "HoatDong" ? "Ngừng bán" : "Kích hoạt"}
             </Button>
             <Button 
-              onClick={form.handleSubmit(onSubmit)} 
+              onClick={() => setIsSaveDialogOpen(true)} 
               disabled={isSaving}
               className="bg-blue-500 hover:bg-blue-600"
             >
-            <Save className="w-4 h-4 mr-2" />
-            {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
-          </Button>
+              <Save className="w-4 h-4 mr-2" />
+              {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+            </Button>
+          </div>
         </div>
-        </div>
+
+        {/* Save Confirmation Dialog */}
+        <AlertDialog open={isSaveDialogOpen} onOpenChange={setIsSaveDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Lưu thay đổi?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn có chắc chắn muốn lưu các thay đổi cho sản phẩm này? Hành động này sẽ cập nhật thông tin sản phẩm và các biến thể.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setIsSaveDialogOpen(false);
+                  form.handleSubmit(onSubmit)();
+                }}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                Lưu thay đổi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <AlertDialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
           <AlertDialogContent>
@@ -834,16 +833,18 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   materials={materials}
                   origins={origins}
                   categories={categories}
-                onChange={(field, value) => {
-                  if (field !== 'sanPhamChiTiets') {
-                    form.setValue(field as any, value, { shouldValidate: true });
-                    setPreviewImages(prev => [...prev]);
-                  }
-                }}
+                  onChange={(field, value) => {
+                    if (field !== 'sanPhamChiTiets') {
+                      form.setValue(field as any, value, { shouldValidate: true });
+                      setPreviewImages(prev => [...prev]);
+                    }
+                  }}
                   tenSanPhamRef={tenSanPhamRef}
                   defaultProductImage={defaultProductImage}
                   setDefaultProductImage={setDefaultProductImage}
                   onPreview={(url) => setPreviewImages([url])}
+                  defaultProductImageUrl={defaultProductImageUrl}
+                  setDefaultProductImageUrl={setDefaultProductImageUrl}
                 />
               </CardContent>
             </Card>

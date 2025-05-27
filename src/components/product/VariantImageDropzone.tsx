@@ -8,26 +8,28 @@ import { CSS } from '@dnd-kit/utilities';
 
 interface VariantImageDropzoneProps {
   colorId: string;
-  images: File[];
-  setImages: (files: File[]) => void;
+  images: (File | string)[];
+  setImages: (files: (File | string)[]) => void;
   onPreview: (url: string) => void;
-  variantImages?: Record<string, File[]>;
-  updateVariantImages?: (colorId: string, images: File[]) => Promise<void>;
+  variantImages?: Record<string, (File | string)[]>;
+  updateVariantImages?: (colorId: string, images: (File | string)[]) => Promise<void>;
 }
 
 function SortableImage({ file, onPreview, onRemove, images, colorId }: { 
-  file: File; 
+  file: File | string; 
   onPreview: (url: string) => void; 
   onRemove: () => void;
-  images: File[];
+  images: (File | string)[];
   colorId: string;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: `${colorId}_${file.name}` });
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
+    id: `${colorId}_${file instanceof File ? file.name : file}` 
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
-  const url = URL.createObjectURL(file);
+  const url = file instanceof File ? URL.createObjectURL(file) : file;
   return (
     <div ref={setNodeRef} style={style} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center">
       <div className="absolute top-0 left-0 w-full h-2 cursor-move" {...attributes} {...listeners} />
@@ -90,8 +92,8 @@ export default function VariantImageDropzone({ colorId, images, setImages, onPre
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = images.findIndex(file => `${colorId}_${file.name}` === active.id);
-      const newIndex = images.findIndex(file => `${colorId}_${file.name}` === over.id);
+      const oldIndex = images.findIndex(file => `${colorId}_${file instanceof File ? file.name : file}` === active.id);
+      const newIndex = images.findIndex(file => `${colorId}_${file instanceof File ? file.name : file}` === over.id);
       setImages(arrayMove(images, oldIndex, newIndex));
     }
   };
@@ -104,12 +106,12 @@ export default function VariantImageDropzone({ colorId, images, setImages, onPre
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={images.map(file => `${colorId}_${file.name}`)}
+          items={images.map(file => `${colorId}_${file instanceof File ? file.name : file}`)}
           strategy={verticalListSortingStrategy}
         >
-          {images && images.length > 0 && images.map((file: File) => (
+          {images && images.length > 0 && images.map((file: File | string) => (
             <SortableImage
-              key={`${colorId}_${file.name}`}
+              key={`${colorId}_${file instanceof File ? file.name : file}`}
               file={file}
               onPreview={onPreview}
               onRemove={() => setImages(images.filter(f => f !== file))}
