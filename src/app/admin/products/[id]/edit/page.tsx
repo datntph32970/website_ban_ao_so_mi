@@ -192,12 +192,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               ? productData.url_anh_mac_dinh 
               : `${API_BASE}${productData.url_anh_mac_dinh}`;
             
-            // Thêm timestamp để tránh cache
-            const imageUrlWithTimestamp = `${imageUrl}?t=${Date.now()}`;
-            console.log('Default image URL:', imageUrlWithTimestamp);
-            
-            setDefaultProductImageUrl(imageUrlWithTimestamp);
-            setPreviewImages([imageUrlWithTimestamp]);
+            setDefaultProductImageUrl(imageUrl);
+            setPreviewImages([imageUrl]);
             form.setValue('url_anh_mac_dinh', imageUrl);
           } catch (error) {
             console.error("Error loading default image:", error);
@@ -246,8 +242,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   const imageUrl = img.hinh_anh_urls.startsWith('http')
                     ? img.hinh_anh_urls
                     : `${API_BASE}${img.hinh_anh_urls}`;
-                  // Thêm timestamp để tránh cache
-                  return `${imageUrl}?t=${Date.now()}`;
+                  return imageUrl;
                 });
                 imagesByColor[colorId] = imageUrls;
               } catch (error: any) {
@@ -276,6 +271,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setIsSaving(true);
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
       // Validate default image
       if (!defaultProductImage && !defaultProductImageUrl) {
@@ -327,13 +323,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }
       } else if (defaultProductImageUrl && !defaultProductImage) {
         try {
-          // Lấy URL gốc không có timestamp
-          const originalUrl = defaultProductImageUrl.split('?')[0];
-          // Thêm timestamp mới
-          const imageUrlWithTimestamp = `${originalUrl}?t=${Date.now()}`;
-          
-          // Thử tải ảnh với timestamp mới
-          const response = await fetch(imageUrlWithTimestamp, {
+          const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+          const fullUrl = defaultProductImageUrl.startsWith('http') 
+            ? defaultProductImageUrl 
+            : `${API_BASE}${defaultProductImageUrl}`;
+
+          const response = await fetch(fullUrl, {
             cache: 'no-store',
             headers: {
               'Cache-Control': 'no-cache',
@@ -397,15 +392,40 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 if (imageUrl instanceof File) {
                   base64 = await fileToBase64(imageUrl);
                 } else {
-                  base64 = await fetchImageAsBase64(imageUrl);
+                  // Nếu là URL, kiểm tra xem có phải là URL đầy đủ không
+                  const fullUrl = imageUrl.startsWith('http') 
+                    ? imageUrl 
+                    : `${API_BASE}${imageUrl}`;
+
+                  const response = await fetch(fullUrl, {
+                    cache: 'no-store',
+                    headers: {
+                      'Cache-Control': 'no-cache',
+                      'Pragma': 'no-cache'
+                    }
+                  });
+
+                  if (!response.ok) {
+                    throw new Error('Failed to fetch image');
+                  }
+
+                  const blob = await response.blob();
+                  base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                  });
                 }
                 them_hinh_anh_spcts.push({
                   hinh_anh_urls: base64
                 });
               } catch (error) {
                 console.error("Error converting image to base64:", error);
-                toast.error("Không thể xử lý ảnh");
-                return;
+                // Nếu không thể chuyển đổi ảnh, sử dụng URL gốc
+                them_hinh_anh_spcts.push({
+                  hinh_anh_urls: imageUrl instanceof File ? '' : imageUrl
+                });
               }
             }
           }

@@ -61,8 +61,8 @@ export default function AddEmployeePage() {
     // Validate số điện thoại
     if (!formData.so_dien_thoai) {
       newErrors.so_dien_thoai = 'Vui lòng nhập số điện thoại';
-    } else if (!/^[0-9]{10}$/.test(formData.so_dien_thoai)) {
-      newErrors.so_dien_thoai = 'Số điện thoại phải có 10 chữ số';
+    } else if (!/^0[0-9]{9}$/.test(formData.so_dien_thoai)) {
+      newErrors.so_dien_thoai = 'Số điện thoại phải bắt đầu bằng số 0 và có 10 chữ số';
     }
 
     // Validate ngày sinh
