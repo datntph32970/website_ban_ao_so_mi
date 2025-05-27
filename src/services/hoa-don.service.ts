@@ -199,4 +199,39 @@ export const hoaDonService = {
         return response.data;
     },
 
+    yeuCauTraHang: async (id_hoa_don: string, ly_do_tra_hang: string, hinh_anh_tra_hang: File): Promise<{
+        message: string;
+    }> => {
+        const formData = new FormData();
+        formData.append('ly_do_tra_hang', ly_do_tra_hang);
+        formData.append('hinh_anh_tra_hang', hinh_anh_tra_hang);
+
+        const response = await api.post(`/HoaDon/yeu-cau-tra-hang/${id_hoa_don}`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    xacNhanTraHang: async (id_hoa_don: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/xac-nhan-tra-hang/${id_hoa_don}`);
+        return response.data;
+    },
+
+    hoanThanhTraHang: async (id_hoa_don: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/hoan-thanh-tra-hang/${id_hoa_don}`);
+        return response.data;
+    },
+
+    tuChoiTraHang: async (id_hoa_don: string, ly_do_tu_choi: string): Promise<{
+        message: string;
+    }> => {
+        const response = await api.put(`/HoaDon/tu-choi-tra-hang/${id_hoa_don}`, { ly_do_tu_choi });
+        return response.data;
+    },
 }

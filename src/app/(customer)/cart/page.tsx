@@ -430,7 +430,6 @@ export default function CartPage() {
                     <span className="font-medium">Tổng cộng</span>
                     <span className="text-xl font-bold text-blue-600">{formatCurrency(finalTotal)}</span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Đã bao gồm VAT (nếu có)</p>
                 </div>
 
                 {!defaultAddress && selectedItems.size > 0 && (

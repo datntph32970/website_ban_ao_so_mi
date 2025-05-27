@@ -43,7 +43,11 @@ import {
   Receipt,
   CircleDot,
   Circle,
-  X
+  X,
+  ArrowRight,
+  RotateCcw,
+  CheckCircle2,
+  ArrowLeftRight,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { hoaDonService } from "@/services/hoa-don.service";
@@ -66,6 +70,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Image from "next/image";
+import { getImageUrl } from "@/lib/utils";
 
 // Định nghĩa interface cho trạng thái đơn hàng
 interface OrderStatus {
@@ -74,6 +80,7 @@ interface OrderStatus {
   icon: JSX.Element;
   description: string;
   nextStatus?: string;
+  type: string;
 }
 
 interface OrderStatuses {
@@ -88,6 +95,14 @@ interface OrderStatuses {
   DaHoanThanh: OrderStatus;
   DaHuy: OrderStatus;
   DaXacNhan: OrderStatus;
+  DangYeuCauTraHang: OrderStatus;
+  DaXacNhanTraHang: OrderStatus;
+  DaTraHang: OrderStatus;
+  ChoTaiQuay: OrderStatus;
+  DaHoanTraMotPhan: OrderStatus;
+  DaHoanTraToanBo: OrderStatus;
+  DaHoanThanhTraHang: OrderStatus;
+  DaTuChoiTraHang: OrderStatus;
 }
 
 const orderStatuses: OrderStatuses = {
@@ -97,66 +112,132 @@ const orderStatuses: OrderStatuses = {
     color: "bg-yellow-100 text-yellow-800 border-yellow-200",
     icon: <Clock className="h-4 w-4" />,
     description: "Đơn hàng của bạn đang chờ xác nhận",
-    nextStatus: "DaXacNhan"
+    nextStatus: "DaXacNhan",
+    type: "Online"
   },
   DaXacNhan: {
     label: "Đã xác nhận",
     color: "bg-blue-100 text-blue-800 border-blue-200",
     icon: <CheckCircle className="h-4 w-4" />,
     description: "Đơn hàng đã được xác nhận và sẽ được chuẩn bị",
-    nextStatus: "DangChuanBi"
+    nextStatus: "DangChuanBi",
+    type: "Online"
   },
   DangChuanBi: {
     label: "Đang chuẩn bị",
     color: "bg-indigo-100 text-indigo-800 border-indigo-200",
     icon: <Package className="h-4 w-4" />,
     description: "Đơn hàng đang được chuẩn bị",
-    nextStatus: "DangGiaoHang"
+    nextStatus: "DangGiaoHang",
+    type: "Online"
   },
   DangGiaoHang: {
     label: "Đang giao hàng",
     color: "bg-purple-100 text-purple-800 border-purple-200",
     icon: <Truck className="h-4 w-4" />,
     description: "Đơn hàng đang được vận chuyển",
-    nextStatus: "DaNhanHang"
+    nextStatus: "DaNhanHang",
+    type: "Online"
   },
   DaNhanHang: {
     label: "Đã nhận hàng",
     color: "bg-green-100 text-green-800 border-green-200",
     icon: <CheckCircle className="h-4 w-4" />,
     description: "Đơn hàng đã được giao và xác nhận nhận hàng",
-    nextStatus: "DaHoanThanh"
+    nextStatus: "DaHoanThanh",
+    type: "Online"
   },
   HetHang: {
     label: "Hết hàng",
     color: "bg-red-100 text-red-800 border-red-200",
     icon: <AlertCircle className="h-4 w-4" />,
     description: "Một số sản phẩm trong đơn hàng đã hết hàng",
-    nextStatus: "DaHuy"
+    nextStatus: "DaHuy",
+    type: "Online"
   },
   DaThanhToan: {
     label: "Đã thanh toán",
     color: "bg-green-100 text-green-800 border-green-200",
     icon: <CheckCircle className="h-4 w-4" />,
-    description: "Đơn hàng đã được thanh toán"
+    description: "Đơn hàng đã được thanh toán",
+    type: "Online"
   },
   ChuaThanhToan: {
     label: "Chưa thanh toán",
     color: "bg-orange-100 text-orange-800 border-orange-200",
     icon: <AlertCircle className="h-4 w-4" />,
-    description: "Đơn hàng chưa được thanh toán"
+    description: "Đơn hàng chưa được thanh toán",
+    type: "Online"
   },
   DaHoanThanh: {
     label: "Đã hoàn thành",
     color: "bg-emerald-100 text-emerald-800 border-emerald-200",
     icon: <CheckCircle className="h-4 w-4" />,
-    description: "Đơn hàng đã được giao thành công"
+    description: "Đơn hàng đã được giao thành công",
+    type: "Online"
   },
   DaHuy: {
     label: "Đã hủy",
     color: "bg-red-100 text-red-800 border-red-200",
     icon: <XCircle className="h-4 w-4" />,
-    description: "Đơn hàng đã bị hủy"
+    description: "Đơn hàng đã bị hủy",
+    type: "Online"
+  },
+  DangYeuCauTraHang: {
+    label: "Đang yêu cầu trả hàng",
+    color: "bg-orange-100 text-orange-800 border-orange-200",
+    icon: <RotateCcw className="h-4 w-4" />,
+    description: "Đơn hàng đang trong quá trình yêu cầu trả hàng",
+    type: "Online"
+  },
+  DaXacNhanTraHang: {
+    label: "Đã xác nhận trả hàng",
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    icon: <CheckCircle className="h-4 w-4" />,
+    description: "Yêu cầu trả hàng đã được xác nhận",
+    type: "Online"
+  },
+  DaTraHang: {
+    label: "Đã trả hàng",
+    color: "bg-green-100 text-green-800 border-green-200",
+    icon: <CheckCircle className="h-4 w-4" />,
+    description: "Đơn hàng đã được trả thành công",
+    type: "Online"
+  },
+  ChoTaiQuay: {
+    label: "Chờ tại quầy",
+    color: "bg-yellow-100 text-yellow-800",
+    icon: <Clock className="h-4 w-4 mr-1" />,
+    type: "TaiQuay",
+    description: "Đơn hàng đang chờ xử lý tại quầy"
+  },
+  DaHoanTraMotPhan: {
+    label: "Đã hoàn trả một phần",
+    color: "bg-orange-100 text-orange-800",
+    icon: <ArrowLeftRight className="h-4 w-4 mr-1" />,
+    type: "Online",
+    description: "Đơn hàng đã được hoàn trả một phần"
+  },
+  DaHoanTraToanBo: {
+    label: "Đã hoàn trả toàn bộ",
+    color: "bg-red-100 text-red-800",
+    icon: <ArrowLeftRight className="h-4 w-4 mr-1" />,
+    type: "Online",
+    description: "Đơn hàng đã được hoàn trả toàn bộ"
+  },
+  DaHoanThanhTraHang: {
+    label: "Đã hoàn thành trả hàng",
+    color: "bg-green-100 text-green-800",
+    icon: <CheckCircle2 className="h-4 w-4 mr-1" />,
+    type: "Online",
+    description: "Quá trình trả hàng đã hoàn thành"
+  },
+  DaTuChoiTraHang: {
+    label: "Đã từ chối trả hàng",
+    color: "bg-red-100 text-red-800",
+    icon: <XCircle className="h-4 w-4 mr-1" />,
+    type: "Online",
+    description: "Yêu cầu trả hàng đã bị từ chối"
   }
 };
 
@@ -284,7 +365,13 @@ const OrderTimeline = ({
     "DangChuanBi",
     "DangGiaoHang",
     "DaNhanHang",
-    "DaHoanThanh"
+    "DaHoanThanh",
+    // Thêm các trạng thái trả hàng
+    ...(currentStatus === "DangYeuCauTraHang" || currentStatus === "DaXacNhanTraHang" || currentStatus === "DaTraHang" ? [
+      "DangYeuCauTraHang",
+      "DaXacNhanTraHang",
+      "DaTraHang"
+    ] : [])
   ];
 
   // Lọc bỏ các trạng thái không cần thiết dựa vào trạng thái hiện tại
@@ -300,6 +387,11 @@ const OrderTimeline = ({
     // Nếu là VNPAY và chưa thanh toán, chỉ hiển thị đến Chờ thanh toán
     if (isVNPay && currentStatus === "ChuaThanhToan") {
       return baseStatuses.slice(0, 1);
+    }
+
+    // Nếu đang trong quá trình trả hàng, hiển thị các trạng thái trả hàng
+    if (currentStatus === "DangYeuCauTraHang" || currentStatus === "DaXacNhanTraHang" || currentStatus === "DaTraHang") {
+      return baseStatuses;
     }
 
     return baseStatuses;
@@ -441,6 +533,7 @@ export default function CustomerOrdersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
@@ -961,36 +1054,27 @@ export default function CustomerOrdersPage() {
                           ))}
                         </div>
 
-                        <Separator className="my-6" />
-
-                        <div className="space-y-4">
+                        {/* Order Summary */}
+                        <div className="mt-6 space-y-3">
                           <div className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
-                            <span className="text-muted-foreground">Tổng tiền hàng</span>
-                            <span>{formatCurrency(selectedOrder.tong_tien_don_hang)}</span>
+                            <span className="text-sm text-muted-foreground">Tổng tiền hàng</span>
+                            <span className="font-medium">{formatCurrency(selectedOrder.tong_tien_don_hang)}</span>
                           </div>
-                          {selectedOrder.so_tien_khuyen_mai > 0 && (
-                            <div className="flex justify-between items-center p-3 rounded-lg bg-green-50 text-green-700">
-                              <span className="flex items-center gap-2">
-                                <Tag className="h-4 w-4" />
-                                Giảm giá
-                              </span>
-                              <span>-{formatCurrency(selectedOrder.so_tien_khuyen_mai)}</span>
-                            </div>
-                          )}
                           {(selectedOrder.phi_van_chuyen ?? 0) > 0 && (
                             <div className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
-                              <span className="flex items-center gap-2">
-                                <Truck className="h-4 w-4 text-muted-foreground" />
-                                Phí vận chuyển
-                              </span>
-                              <span>{formatCurrency(selectedOrder.phi_van_chuyen)}</span>
+                              <span className="text-sm text-muted-foreground">Phí vận chuyển</span>
+                              <span className="font-medium">{formatCurrency(selectedOrder.phi_van_chuyen ?? 0)}</span>
                             </div>
                           )}
-                          <div className="flex justify-between items-center p-4 rounded-lg bg-primary/5 border border-primary/10">
-                            <span className="font-medium">Tổng thanh toán</span>
-                            <span className="text-lg font-bold text-primary">
-                              {formatCurrency(selectedOrder.tong_tien_phai_thanh_toan)}
-                            </span>
+                          {selectedOrder.so_tien_khuyen_mai > 0 && (
+                            <div className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                              <span className="text-sm text-muted-foreground">Giảm giá</span>
+                              <span className="font-medium text-green-600">-{formatCurrency(selectedOrder.so_tien_khuyen_mai)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center p-3 rounded-lg bg-primary/10">
+                            <span className="text-sm font-medium">Tổng thanh toán</span>
+                            <span className="font-bold text-lg">{formatCurrency(selectedOrder.tong_tien_phai_thanh_toan)}</span>
                           </div>
                         </div>
                       </CardContent>
@@ -1010,6 +1094,32 @@ export default function CustomerOrdersPage() {
                           </div>
                         </CardContent>
                       </Card>
+                    )}
+
+                    {selectedOrder && selectedOrder.trang_thai === "DaTuChoiTraHang" && (
+                      <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                        <h4 className="font-medium text-red-800 mb-2 flex items-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          Thông tin từ chối trả hàng
+                        </h4>
+                        <div className="space-y-3">
+                          <p className="text-red-700">
+                            <span className="font-medium">Lý do từ chối:</span> {selectedOrder.ly_do_tra_hang}
+                          </p>
+                          {selectedOrder.hinh_anh_tra_hang && (
+                            <div>
+                              <p className="font-medium text-red-700 mb-2">Hình ảnh trả hàng:</p>
+                              <Image
+                                src={getImageUrl(selectedOrder.hinh_anh_tra_hang)}
+                                alt="Hình ảnh trả hàng"
+                                width={200}
+                                height={200}
+                                className="rounded-lg border border-red-200"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1085,11 +1195,48 @@ export default function CustomerOrdersPage() {
   />
 </div>
                     )}
+                    {selectedOrder && selectedOrder.trang_thai === "DaHoanThanh" && (
+                      <div className="mt-4 pt-4 border-t">
+                        <Button
+                          variant="default"
+                          className="w-full bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
+                          onClick={() => {
+                            setIsReturning(true);
+                            router.push(`/account/orders/return/${selectedOrder.id_hoa_don}`);
+                          }}
+                          disabled={isReturning}
+                        >
+                          {isReturning ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Đang xử lý...
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw className="h-4 w-4" />
+                              Yêu cầu trả hàng
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
             </div>
           </ScrollArea>
+
+          {/* Dialog Footer */}
+          <div className="flex justify-end gap-2 mt-6 border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsViewOrderOpen(false)}
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Đóng
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
