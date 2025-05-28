@@ -2,6 +2,7 @@ import { SanPham } from '@/types/san-pham';
 import { SanPhamChiTiet } from '@/types/san-pham-chi-tiet';
 import { HinhAnhSanPhamChiTiet } from '@/types/hinh-anh-san-pham-chi-tiet';
 import { HinhAnh } from '@/types/hinh-anh';
+import { TrangThaiGiamGia } from '@/types/giam-gia';
 
 export function mapSanPhamList(data: SanPham[], apiBase: string) {
   return data.map((sp: SanPham) => {
@@ -10,12 +11,21 @@ export function mapSanPhamList(data: SanPham[], apiBase: string) {
       let price = Number(ct.gia_ban);
       let originPrice = Number(ct.gia_ban);
       let discountInfo = null;
-      if (ct.giamGia) {
-        discountInfo = ct.giamGia;
-        if (ct.giamGia.kieu_giam_gia === 'PhanTram') {
-          price = price * (1 - ct.giamGia.gia_tri_giam / 100);
-        } else {
-          price = Math.max(0, price - ct.giamGia.gia_tri_giam);
+      if (ct.giamGias && ct.giamGias.length > 0) {
+        const now = new Date();
+        const activeDiscount = ct.giamGias.find(giamGia => 
+          giamGia.trang_thai === TrangThaiGiamGia.HoatDong && 
+          new Date(giamGia.thoi_gian_bat_dau) <= now && 
+          new Date(giamGia.thoi_gian_ket_thuc) >= now
+        );
+        
+        if (activeDiscount) {
+          discountInfo = activeDiscount;
+          if (activeDiscount.kieu_giam_gia === 'PhanTram') {
+            price = price * (1 - activeDiscount.gia_tri_giam / 100);
+          } else {
+            price = Math.max(0, price - activeDiscount.gia_tri_giam);
+          }
         }
       }
       return { price, originPrice, discountInfo };
