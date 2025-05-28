@@ -25,16 +25,13 @@ import {
 import { Edit, Plus, Search, Trash, Filter, ArrowUpDown, ChevronUp, ChevronDown, Tag, Layers, Footprints, Feather, Globe, DollarSign, RefreshCw, CheckCircle2, X as XIcon, Eye } from "lucide-react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { SanPham } from "@/types/san-pham";
-import { SanPhamChiTiet } from "@/types/san-pham-chi-tiet";
 import { GiamGia } from "@/types/giam-gia";
 import { sanPhamService } from "@/services/san-pham.service";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format, differenceInMilliseconds, formatDistanceToNow } from "date-fns";
+import {  differenceInMilliseconds, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { ThuongHieu } from "@/types/thuong-hieu";
 import { DanhMuc } from "@/types/danh-muc";
 import { KieuDang } from "@/types/kieu-dang";

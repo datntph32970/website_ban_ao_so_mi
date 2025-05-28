@@ -4,11 +4,9 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { GiamGia } from "@/types/giam-gia";
-import { Edit, Trash, Copy, Package, Plus, TrendingUp, DollarSign, Clock, X } from "lucide-react";
+import {  Trash, Copy, Package, Plus, TrendingUp, DollarSign, Clock, X } from "lucide-react";
 import { toast } from "react-hot-toast";
 import {
   Table,

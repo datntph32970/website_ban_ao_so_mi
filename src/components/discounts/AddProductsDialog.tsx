@@ -6,7 +6,7 @@ import { vi } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Search, X, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,

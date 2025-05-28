@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MultiSelect } from "@/components/ui/multi-select";
 import { Slider } from "@/components/ui/slider";
 import {
   Select,
@@ -34,9 +33,7 @@ import { ChatLieu } from "@/types/chat-lieu";
 import { XuatXu } from "@/types/xuat-xu";
 import { QuickAddToCartDialog } from "../components/QuickAddToCartDialog";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Search, X as XIcon, ShoppingCart } from "lucide-react";
-import { format, differenceInMilliseconds, formatDistanceToNow } from "date-fns";
-import { vi } from "date-fns/locale";
+import { RefreshCw, ShoppingCart } from "lucide-react";
 
 // Add interface for discount
 interface GiamGia {

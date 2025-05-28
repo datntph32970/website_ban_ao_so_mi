@@ -17,7 +17,6 @@ import {
 import { useEffect, useState } from "react";
 import { authService } from "@/services/auth.service";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import toast from "react-hot-toast";
 import { nhanVienService } from "@/services/nhan-vien.service";
 import { getAvatarByRole } from "@/lib/utils";

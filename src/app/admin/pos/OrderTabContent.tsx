@@ -21,15 +21,12 @@ import {
 } from "@/components/ui/table";
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Slider } from '@/components/ui/slider';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { HoaDonAdminDTO, HoaDonChiTietAdminDTO } from "@/types/hoa-don";
 import { toast } from "react-hot-toast";
 import { khuyenMaiService } from "@/services/khuyen-mai.service";
 import { KhuyenMai } from "@/types/khuyen-mai";
 import { hoaDonService } from '@/services/hoa-don.service';
 import { phuongThucThanhToanService } from "@/services/phuong-thuc-thanh-toan.service";
 import { useRouter } from 'next/navigation';
-import { KhachHangAdminDTO } from "@/types/khach-hang";
 import InvoicePDF from '@/components/invoice/InvoicePDF';
 // ... import các type và service cần thiết ...
 

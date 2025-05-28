@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, ShoppingCart, Plus, Minus, Trash, CreditCard, DollarSign, Printer, ChevronLeft, ChevronRight, X as CloseIcon } from "lucide-react";
+import {  ShoppingCart, Plus, CreditCard, DollarSign} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,27 +12,15 @@ import {
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
+
 import { khachHangService } from '@/services/khach-hang.service';
 import { KhachHangAdminDTO, ThemKhachHangMuaTaiQuayAdminDTO } from '@/types/khach-hang';
-import { MultiSelect } from '@/components/ui/multi-select';
-import { Slider } from '@/components/ui/slider';
 import { attributeService } from '@/services/attribute.service';
 import { sanPhamService } from '@/services/san-pham.service';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import OrderTabContent from './OrderTabContent';
 import { hoaDonService } from '@/services/hoa-don.service';
 import { toast } from 'react-hot-toast';
-import { HoaDonAdminDTO, KhachHang_HoaDonAdminDTO } from '@/types/hoa-don';
-import { authService } from '@/services/auth.service';
-import Image from 'next/image';
+import { KhachHang_HoaDonAdminDTO } from '@/types/hoa-don';
 
 // Đặt API_URL ở đầu file
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';

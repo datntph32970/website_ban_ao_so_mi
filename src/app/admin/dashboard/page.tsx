@@ -16,11 +16,7 @@ import {
   Legend,
   ResponsiveContainer,
   LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  TooltipProps
+  Line
 } from "recharts";
 import { formatCurrency, getImageUrl } from "@/lib/utils";
 import Link from "next/link";

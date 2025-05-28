@@ -4,13 +4,6 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { sanPhamService } from "@/services/san-pham.service";
 import { gioHangService } from "@/services/gio-hang.service";
 import { formatCurrency, getImageUrl } from "@/lib/utils";
