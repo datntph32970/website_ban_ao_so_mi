@@ -16,7 +16,6 @@ import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ThemSanPhamAdminDTO } from "@/types/san-pham";
 import { ThuongHieu } from "@/types/thuong-hieu";
 import { KieuDang } from "@/types/kieu-dang";
 import { ChatLieu } from "@/types/chat-lieu";
@@ -25,7 +24,7 @@ import { DanhMuc } from "@/types/danh-muc";
 import { MauSac } from "@/types/mau-sac";
 import { KichCo } from "@/types/kich-co";
 import { GiamGia } from "@/types/giam-gia";
-import { SanPhamChiTiet, ThemSanPhamChiTietAdminDTO,SuaSanPhamChiTietAdminDTO, ThemHinhAnhSanPhamChiTietAdminDTO } from "@/types/san-pham-chi-tiet";
+import { SanPhamChiTiet,SuaSanPhamChiTietAdminDTO, ThemHinhAnhSanPhamChiTietAdminDTO } from "@/types/san-pham-chi-tiet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,12 +35,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import Image from "next/image";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
 
 const formSchema = z.object({
   ten_san_pham: z.string().min(1, "Tên sản phẩm là bắt buộc").max(100, "Tên sản phẩm không được vượt quá 100 ký tự"),

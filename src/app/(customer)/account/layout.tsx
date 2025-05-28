@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { User, Package, MapPin } from "lucide-react";
+import { User, Package } from "lucide-react";
 
 const navigation = [
   {

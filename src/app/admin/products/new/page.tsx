@@ -29,6 +29,7 @@ const readFileAsBase64 = (file: File): Promise<string> => {
 export default function NewProductPage() {
   const router = useRouter();
   const [defaultProductImage, setDefaultProductImage] = useState<File | null>(null);
+  const [defaultProductImageUrl, setDefaultProductImageUrl] = useState<string>("");
   const form = useProductForm(router, defaultProductImage, setDefaultProductImage);
   const [loading, setLoading] = useState(false);
   const [attrLoading, setAttrLoading] = useState(false);
@@ -117,6 +118,19 @@ export default function NewProductPage() {
     
     processVariants();
   }, [form.selectedColors, form.selectedSizesByColor, form.variantValues, form.variantImages]);
+
+  // Add effect to sync defaultProductImageUrl with form.product.url_anh_mac_dinh
+  useEffect(() => {
+    if (form.product.url_anh_mac_dinh) {
+      setDefaultProductImageUrl(form.product.url_anh_mac_dinh);
+    }
+  }, [form.product.url_anh_mac_dinh]);
+
+  // Add handler for defaultProductImageUrl changes
+  const handleDefaultProductImageUrlChange = (url: string) => {
+    setDefaultProductImageUrl(url);
+    form.handleProductChange('url_anh_mac_dinh', url);
+  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -212,6 +226,8 @@ export default function NewProductPage() {
                 defaultProductImage={defaultProductImage}
                 setDefaultProductImage={setDefaultProductImage}
                 onPreview={form.setPreviewImageUrl}
+                defaultProductImageUrl={defaultProductImageUrl}
+                setDefaultProductImageUrl={handleDefaultProductImageUrlChange}
               />
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
                 <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">

@@ -38,7 +38,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Edit, Plus, Search, Trash, Copy, X, Loader2 } from "lucide-react";
+import {  Edit, Plus, Search, Trash, Copy, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "react-hot-toast";
 import { khuyenMaiService } from "@/services/khuyen-mai.service";

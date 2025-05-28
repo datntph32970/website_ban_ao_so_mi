@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { MauSac } from '@/types/mau-sac';
 import { KichCo } from '@/types/kich-co';
 import { GiamGia } from '@/types/giam-gia';
-import { Button } from '@/components/ui/button';
 
 interface ColorTabsProps {
   selectedColors: string[];

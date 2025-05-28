@@ -33,7 +33,7 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
   const [isDirty, setIsDirty] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [selectedColorTab, setSelectedColorTab] = useState<string>('');
-  const [variantImages, setVariantImages] = useState<Record<string, File[]>>({});
+  const [variantImages, setVariantImages] = useState<Record<string, (string | File)[]>>({});
   const [previewImageUrl, setPreviewImageUrl] = useState<string|null>(null);
   const [showLeaveAlert, setShowLeaveAlert] = useState(false);
   const [pendingUnloadEvent, setPendingUnloadEvent] = useState<BeforeUnloadEvent|null>(null);
@@ -282,7 +282,7 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
     const allImages: File[] = [];
     Object.entries(variantImages).forEach(([id, images]) => {
       if (id !== colorId) { // Không bao gồm ảnh của màu đang tải lên
-        allImages.push(...images);
+        allImages.push(...images.map(i => typeof i === 'string' ? new File([], i) : i));
       }
     });
     allImages.push(...newImages); // Thêm ảnh mới vào để kiểm tra
@@ -296,8 +296,8 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
   };
 
   // Cập nhật hàm setVariantImages
-  const updateVariantImages = async (colorId: string, images: File[]) => {
-    const isValid = await checkDuplicateImagesOnUpload(images, colorId);
+  const updateVariantImages = async (colorId: string, images: (string | File)[]) => {
+    const isValid = await checkDuplicateImagesOnUpload(images.map(i => typeof i === 'string' ? new File([], i) : i), colorId);
     if (!isValid) {
       return;
     }
@@ -371,13 +371,20 @@ export function useProductForm(router: any, defaultProductImage: File | null, se
     }
 
     // Process all images first
-    const imagePromises = Object.entries(variantImages).map(async ([colorId, files]) => {
+    const imagePromises = Object.entries(variantImages).map(async ([colorId, images]) => {
       const processedImages = await Promise.all(
-        (files as File[]).map(async (file) => {
-          const imageUrl = await readFileAsBase64(file);
-          return {
-            hinh_anh_urls: imageUrl
-          };
+        images.map(async (image) => {
+          if (typeof image === 'string') {
+            const imageUrl = await readFileAsBase64(new File([], image));
+            return {
+              hinh_anh_urls: imageUrl
+            };
+          } else {
+            const imageUrl = await readFileAsBase64(image);
+            return {
+              hinh_anh_urls: imageUrl
+            };
+          }
         })
       );
       return { colorId, processedImages };
