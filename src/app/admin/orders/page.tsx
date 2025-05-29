@@ -793,7 +793,7 @@ const OrderListPage = () => {
                     <div className="space-y-2">
                       <p className="font-medium text-lg flex items-center gap-2">
                         <UserCircle className="h-5 w-5 text-blue-600" />
-                        {selectedOrder.khachHang?.ten_khach_hang || 'Khách lẻ'}
+                        {selectedOrder.ten_khach_hang || 'Khách lẻ'}
                       </p>
                       <p className="text-slate-600 flex items-center gap-2">
                         <Tag className="h-4 w-4 text-slate-400" />
