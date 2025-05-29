@@ -603,7 +603,7 @@ export default function DashboardPage() {
       ) : (
         <>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-2">Thống kê</h1>
         <p className="text-slate-500">Xem tổng quan về cửa hàng của bạn</p>
       </div>
 
