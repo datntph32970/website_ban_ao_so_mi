@@ -680,7 +680,7 @@ export default function CheckoutPage() {
       }
     } catch (error: any) {
       console.error("Error placing order:", error);
-      toast.error(error.response?.data?.message || "Không thể đặt hàng");
+      toast.error(error.response?.data || "Không thể đặt hàng");
     } finally {
       setIsPlacingOrder(false);
       setIsConfirmDialogOpen(false);

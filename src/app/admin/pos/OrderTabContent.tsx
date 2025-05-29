@@ -1752,21 +1752,21 @@ export default function OrderTabContent({
             <Button
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
               onClick={async () => {
-                if (!order.customerCash || order.customerCash < totalAmount) {
+                // Nếu tổng tiền = 0, cho phép thanh toán với bất kỳ số tiền khách đưa nào
+                if (totalAmount > 0 && (!order.customerCash || order.customerCash < totalAmount)) {
                   toast.error('Số tiền khách đưa phải lớn hơn hoặc bằng tổng tiền cần thanh toán');
                   return;
                 }
 
                 try {
                   // Cập nhật phương thức thanh toán và số tiền khách đưa
-
                   const invoice = await hoaDonService.getHoaDonTaiQuayChoById(order.currentOrderId);
                   await hoaDonService.updateHoaDon({
                     id_hoa_don: order.currentOrderId,
                     id_phuong_thuc_thanh_toan: order.paymentMethodID,
                     id_khuyen_mai: invoice.khuyenMai?.id_khuyen_mai,
                     id_khach_hang: invoice.khachHang?.id_khach_hang,
-                    so_tien_khach_tra: order.customerCash,
+                    so_tien_khach_tra: order.customerCash || 0,
                     ghi_chu: order.note
                   });
 
@@ -1778,13 +1778,12 @@ export default function OrderTabContent({
                   
                   if (response.success) {
                     setInvoiceData(response.data);
-
-                  toast.success('Thanh toán thành công!');
-                  setIsConfirmPaymentOpen(false);
-                  updateOrderField('isPaymentOpen', false);
-                  updateOrderField('customerCash', 0);
-                  setCustomerCashDebounced(0);
-                  
+                    toast.success('Thanh toán thành công!');
+                    setIsConfirmPaymentOpen(false);
+                    updateOrderField('isPaymentOpen', false);
+                    updateOrderField('customerCash', 0);
+                    setCustomerCashDebounced(0);
+                    
                     // Mở dialog in hóa đơn
                     setIsPrintInvoiceOpen(true);
                   } else {
@@ -1795,7 +1794,7 @@ export default function OrderTabContent({
                   toast.error(error.response?.data || 'Không thể hoàn tất thanh toán');
                 }
               }}
-              disabled={!order.customerCash || order.customerCash < totalAmount}
+              disabled={totalAmount > 0 && !order.customerCash}
             >
               Hoàn tất thanh toán
             </Button>
