@@ -211,22 +211,6 @@ export function CreateDiscountDialog({ open, onOpenChange }: CreateDiscountDialo
                 <p className="text-sm text-red-500">{errors.ten_giam_gia}</p>
               )}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="kieu_giam_gia">Loại khuyến mại <span className="text-red-500">*</span></Label>
-              <Select
-                value={formData.kieu_giam_gia}
-                onValueChange={(value) => setFormData({ ...formData, kieu_giam_gia: value as "PhanTram" | "SoTien" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại khuyến mại" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PhanTram">Phần trăm</SelectItem>
-                  <SelectItem value="SoTien">Số tiền cố định</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="space-y-2">

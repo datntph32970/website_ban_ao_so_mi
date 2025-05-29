@@ -58,31 +58,31 @@ export default function DiscountsPage() {
   }, [searchTerm, debouncedSetSearch]);
 
   // Query để lấy danh sách giảm giá
-  const { 
-    data: discounts = { data: [], totalItems: 0, currentPage: 1, pageSize: 10, totalPages: 1 }, 
+  const {
+    data: discounts = { data: [], totalItems: 0, currentPage: 1, pageSize: 10, totalPages: 1 },
     isLoading,
-    isFetching 
+    isFetching
   } = useQuery({
     queryKey: ['discounts', filterConfig, debouncedSearchTerm],
     queryFn: async () => {
       const params: any = {};
-      
+
       if (filterConfig.status !== 'all') {
         params.trang_thai = filterConfig.status;
       }
-      
+
       if (filterConfig.discountType !== 'all') {
         params.kieu_giam_gia = filterConfig.discountType;
       }
-      
+
       if (debouncedSearchTerm) {
         params.tim_kiem = debouncedSearchTerm;
       }
-      
+
       if (filterConfig.startDate) {
         params.thoi_gian_bat_dau = filterConfig.startDate;
       }
-      
+
       if (filterConfig.endDate) {
         params.thoi_gian_ket_thuc = filterConfig.endDate;
       }
@@ -197,7 +197,7 @@ export default function DiscountsPage() {
         </DialogContent>
       </Dialog>
 
-      <CreateDiscountDialog 
+      <CreateDiscountDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
       />

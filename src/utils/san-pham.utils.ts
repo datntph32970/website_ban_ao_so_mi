@@ -22,7 +22,7 @@ export function mapSanPhamList(data: SanPham[], apiBase: string) {
         if (activeDiscount) {
           discountInfo = activeDiscount;
           if (activeDiscount.kieu_giam_gia === 'PhanTram') {
-            price = price * (1 - activeDiscount.gia_tri_giam / 100);
+            price = Math.max(0, price * (1 - activeDiscount.gia_tri_giam / 100));
           } else {
             price = Math.max(0, price - activeDiscount.gia_tri_giam);
           }

@@ -248,13 +248,10 @@ export function UpdateDiscountDialog({
                 <Input
                   id="ma_giam_gia"
                   value={formData.ma_giam_gia}
-                  onChange={(e) => setFormData({ ...formData, ma_giam_gia: e.target.value.toUpperCase() })}
-                  placeholder="Nhập mã giảm giá"
-                  required
+                  readOnly
+                  disabled
+                  className="bg-muted"
                 />
-                {errors.ma_giam_gia && (
-                  <p className="text-sm text-red-500">{errors.ma_giam_gia}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ten_giam_gia">Tên giảm giá <span className="text-red-500">*</span></Label>
@@ -268,24 +265,6 @@ export function UpdateDiscountDialog({
                   <p className="text-sm text-red-500">{errors.ten_giam_gia}</p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="kieu_giam_gia">Loại giảm giá</Label>
-                <Select
-                  value={formData.kieu_giam_gia}
-                  onValueChange={(value) => setFormData({ ...formData, kieu_giam_gia: value as "PhanTram" | "SoTien" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn loại giảm giá" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PhanTram">Phần trăm</SelectItem>
-                    <SelectItem value="SoTien">Số tiền cố định</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.kieu_giam_gia && (
-                  <p className="text-sm text-red-500">{errors.kieu_giam_gia}</p>
-                )}
-              </div>
             </div>
 
             <div className="space-y-2">
@@ -295,6 +274,7 @@ export function UpdateDiscountDialog({
                 value={formData.mo_ta}
                 onChange={(e) => setFormData({ ...formData, mo_ta: e.target.value })}
                 rows={3}
+                className="w-full"
               />
             </div>
 
